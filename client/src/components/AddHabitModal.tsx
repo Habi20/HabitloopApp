@@ -1,28 +1,15 @@
-import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import {
   Form,
   FormControl,
@@ -31,6 +18,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { HabitRecommendation } from "@/types/habits";
+import { apiRequest } from "@/lib/queryClient";
 
 const habitSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title too long"),
@@ -49,10 +38,14 @@ type HabitFormData = z.infer<typeof habitSchema>;
 interface AddHabitModalProps {
   open: boolean;
   onClose: () => void;
-  selectedRecommendation?: any;
+  selectedRecommendation?: HabitRecommendation | null;
 }
 
-export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabitModalProps) {
+export function AddHabitModal({
+  open,
+  onClose,
+  selectedRecommendation,
+}: AddHabitModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showRecommendations, setShowRecommendations] = useState(false);
@@ -90,23 +83,13 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
 
   const createHabitMutation = useMutation({
     mutationFn: async (data: HabitFormData) => {
-      const response = await fetch('/api/habits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to create habit: ${response.status}`);
-      }
-      return response.json();
+      return await apiRequest("/api/habits", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['/api/habits']);
+      queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
       toast({
-        title: 'Success!',
-        description: 'Habit added successfully',
+        title: "Success!",
+        description: "Habit added successfully",
       });
       onClose();
     },
@@ -135,12 +118,42 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
   };
 
   const categories = [
-    { value: "Health", label: "Health & Fitness", color: "#10B981", icon: "fas fa-heart" },
-    { value: "Productivity", label: "Productivity", color: "#3B82F6", icon: "fas fa-laptop" },
-    { value: "Learning", label: "Learning", color: "#8B5CF6", icon: "fas fa-book" },
-    { value: "Mindfulness", label: "Mindfulness", color: "#6366F1", icon: "fas fa-om" },
-    { value: "Social", label: "Social", color: "#EC4899", icon: "fas fa-users" },
-    { value: "Creative", label: "Creative", color: "#F59E0B", icon: "fas fa-palette" },
+    {
+      value: "Health",
+      label: "Health & Fitness",
+      color: "#10B981",
+      icon: "fas fa-heart",
+    },
+    {
+      value: "Productivity",
+      label: "Productivity",
+      color: "#3B82F6",
+      icon: "fas fa-laptop",
+    },
+    {
+      value: "Learning",
+      label: "Learning",
+      color: "#8B5CF6",
+      icon: "fas fa-book",
+    },
+    {
+      value: "Mindfulness",
+      label: "Mindfulness",
+      color: "#6366F1",
+      icon: "fas fa-om",
+    },
+    {
+      value: "Social",
+      label: "Social",
+      color: "#EC4899",
+      icon: "fas fa-users",
+    },
+    {
+      value: "Creative",
+      label: "Creative",
+      color: "#F59E0B",
+      icon: "fas fa-palette",
+    },
   ];
 
   const units = [
@@ -155,11 +168,40 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
   ];
 
   const timeSlots = [
-    "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
-    "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-    "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
-    "22:00", "22:30",
+    "06:00",
+    "06:30",
+    "07:00",
+    "07:30",
+    "08:00",
+    "08:30",
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "12:00",
+    "12:30",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30",
+    "18:00",
+    "18:30",
+    "19:00",
+    "19:30",
+    "20:00",
+    "20:30",
+    "21:00",
+    "21:30",
+    "22:00",
+    "22:30",
   ];
 
   const loadRecommendations = () => {
@@ -183,7 +225,7 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
     }
   }, [open, selectedRecommendation, form]);
 
-  const useRecommendation = (recommendation: any) => {
+  const useRecommendation = (recommendation: HabitRecommendation) => {
     form.setValue("title", recommendation.title);
     form.setValue("description", recommendation.description);
     form.setValue("category", recommendation.category);
@@ -196,7 +238,7 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
   };
 
   const handleCategoryChange = (category: string) => {
-    const categoryData = categories.find(c => c.value === category);
+    const categoryData = categories.find((c) => c.value === category);
     if (categoryData) {
       form.setValue("category", category);
       form.setValue("color", categoryData.color);
@@ -205,8 +247,10 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
   };
 
   if (showRecommendations) {
-    const recommendations = JSON.parse(localStorage.getItem("habitRecommendations") || "[]");
-    
+    const recommendations = JSON.parse(
+      localStorage.getItem("habitRecommendations") || "[]",
+    );
+
     return (
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -215,19 +259,20 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
               AI Habit Recommendations
             </DialogTitle>
             <p className="text-gray-600">
-              Based on your preferences, here are some personalized habit suggestions:
+              Based on your preferences, here are some personalized habit
+              suggestions:
             </p>
           </DialogHeader>
-          
+
           <div className="space-y-4">
-            {recommendations.map((rec: any, index: number) => (
-              <div 
+            {recommendations.map((rec: HabitRecommendation, index: number) => (
+              <div
                 key={index}
                 className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                 onClick={() => useRecommendation(rec)}
               >
                 <div className="flex items-center space-x-3 mb-2">
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm"
                     style={{ backgroundColor: rec.color }}
                   >
@@ -239,26 +284,26 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                   </div>
                 </div>
                 <div className="flex items-center space-x-4 text-xs text-gray-500">
-                  <span className="bg-gray-100 px-2 py-1 rounded">{rec.category}</span>
-                  <span>{rec.targetValue} {rec.unit}</span>
+                  <span className="bg-gray-100 px-2 py-1 rounded">
+                    {rec.category}
+                  </span>
+                  <span>
+                    {rec.targetValue} {rec.unit}
+                  </span>
                   <span>{rec.reminderTime}</span>
                 </div>
               </div>
             ))}
-            
+
             <div className="flex space-x-3 pt-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowRecommendations(false)}
                 className="flex-1"
               >
                 Create Custom Habit
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={onClose}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={onClose} className="flex-1">
                 Maybe Later
               </Button>
             </div>
@@ -276,7 +321,7 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
             Add New Habit
           </DialogTitle>
         </DialogHeader>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -286,10 +331,7 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                 <FormItem>
                   <FormLabel>Habit Title *</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="e.g., Morning Meditation" 
-                      {...field} 
-                    />
+                    <Input placeholder="e.g., Morning Meditation" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -303,10 +345,10 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="What does this habit involve?"
                       rows={2}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -321,15 +363,24 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                 <FormItem>
                   <FormLabel>Category *</FormLabel>
                   <FormControl>
-                    <Select onValueChange={handleCategoryChange} value={field.value}>
+                    <Select
+                      onValueChange={handleCategoryChange}
+                      value={field.value}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map(category => (
-                          <SelectItem key={category.value} value={category.value}>
+                        {categories.map((category) => (
+                          <SelectItem
+                            key={category.value}
+                            value={category.value}
+                          >
                             <div className="flex items-center space-x-2">
-                              <i className={`${category.icon} text-sm`} style={{ color: category.color }}></i>
+                              <i
+                                className={`${category.icon} text-sm`}
+                                style={{ color: category.color }}
+                              ></i>
                               <span>{category.label}</span>
                             </div>
                           </SelectItem>
@@ -350,11 +401,13 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                   <FormItem>
                     <FormLabel>Target *</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
+                      <Input
+                        type="number"
                         min="1"
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 1)
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -369,12 +422,15 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                   <FormItem>
                     <FormLabel>Unit *</FormLabel>
                     <FormControl>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {units.map(unit => (
+                          {units.map((unit) => (
                             <SelectItem key={unit.value} value={unit.value}>
                               {unit.label}
                             </SelectItem>
@@ -400,7 +456,7 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
                         <SelectValue placeholder="Select reminder time (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        {timeSlots.map(time => (
+                        {timeSlots.map((time) => (
                           <SelectItem key={time} value={time}>
                             {time}
                           </SelectItem>
@@ -414,9 +470,9 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
             />
 
             <div className="flex space-x-3 pt-4">
-              <Button 
+              <Button
                 type="button"
-                variant="outline" 
+                variant="outline"
                 onClick={() => {
                   form.reset();
                   onClose();
@@ -425,18 +481,18 @@ export function AddHabitModal({ open, onClose, selectedRecommendation }: AddHabi
               >
                 Cancel
               </Button>
-              
-              <Button 
+
+              <Button
                 type="button"
-                variant="outline" 
+                variant="outline"
                 onClick={loadRecommendations}
                 className="flex-1"
               >
                 <i className="fas fa-lightbulb mr-2"></i>
                 AI Suggestions
               </Button>
-              
-              <Button 
+
+              <Button
                 type="submit"
                 disabled={createHabitMutation.isPending}
                 className="flex-1"

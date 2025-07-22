@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,23 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Target, Clock, Star } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { getRecommendationDifficulty, getDifficultyColor } from '@/utils/habitUtils';
 
-interface HabitRecommendation {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  targetValue: number;
-  unit: string;
-  reminderTime: string;
-  frequency: string;
-  color: string;
-  icon: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  successRate: number;
-  aiReasoning: string;
-  benefits: string[];
-  tips: string[];
+import type { HabitRecommendation } from "@/types/habits";
+
+interface HabitRecommendationProps {
+  recommendations: HabitRecommendation[];
+  onAddHabit: (recommendation: HabitRecommendation) => void;
+  onDismissRecommendation: (index: number) => void;
 }
 
 interface CarouselProps {
@@ -51,7 +42,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
-      
+
       const habitData = {
         title: recommendation.title,
         description: recommendation.description,
@@ -63,7 +54,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
         color: recommendation.color,
         icon: recommendation.icon
       };
-      
+
       return await apiRequest('/api/habits', 'POST', habitData);
     },
     onSuccess: () => {
@@ -71,15 +62,15 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       if (navigator.vibrate) {
         navigator.vibrate([50, 50, 50]);
       }
-      
+
       toast({
         title: "Habit Added Successfully! 🎉",
         description: "Your new habit has been added to your tracking list.",
       });
-      
+
       // Generate new recommendations
       refetch();
-      
+
       // Move to next recommendation with delay for user to see success
       setTimeout(() => {
         handleNext();
@@ -90,7 +81,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       if (navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
       }
-      
+
       toast({
         title: "Error",
         description: "Failed to add habit. Please try again.",
@@ -111,10 +102,10 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (!touchStart) return;
-    
+
     const currentTouch = e.targetTouches[0].clientX;
     setTouchEnd(currentTouch);
-    
+
     // Calculate drag offset for visual feedback
     const offset = currentTouch - touchStart;
     const maxOffset = 100; // Maximum drag distance
@@ -125,9 +116,9 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   const onTouchEnd = () => {
     setIsDragging(false);
     setDragOffset(0);
-    
+
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
@@ -141,7 +132,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
 
   const handleNext = () => {
     if (isAnimating || recommendations.length === 0) return;
-    
+
     setIsAnimating(true);
     setCurrentIndex((prev) => (prev + 1) % recommendations.length);
     setTimeout(() => setIsAnimating(false), 300);
@@ -149,7 +140,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
 
   const handlePrevious = () => {
     if (isAnimating || recommendations.length === 0) return;
-    
+
     setIsAnimating(true);
     setCurrentIndex((prev) => (prev - 1 + recommendations.length) % recommendations.length);
     setTimeout(() => setIsAnimating(false), 300);
@@ -208,7 +199,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
           <Sparkles className="w-5 h-5 text-purple-600" />
           <h3 className="text-lg font-semibold">AI Habit Recommendations</h3>
         </div>
-        
+
         <div className="flex items-center space-x-1">
           {recommendations.map((_, index) => (
             <div
@@ -247,10 +238,10 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
                   {currentRecommendation.description}
                 </CardDescription>
               </div>
-              
+
               <div className="flex flex-col items-end space-y-1">
-                <Badge variant="secondary" className={getDifficultyColor(currentRecommendation.difficulty)}>
-                  {currentRecommendation.difficulty}
+                <Badge variant="secondary" className={getDifficultyColor(getRecommendationDifficulty(currentRecommendation))}>
+                  {getRecommendationDifficulty(currentRecommendation)}
                 </Badge>
                 <div className={`text-sm font-medium ${getSuccessRateColor(currentRecommendation.successRate)}`}>
                   {currentRecommendation.successRate}% success rate
@@ -342,7 +333,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
           <Plus className="w-4 h-4 mr-2" />
           {addHabitMutation.isPending ? 'Adding...' : 'Add This Habit'}
         </Button>
-        
+
         <Button
           variant="outline"
           onClick={handleNext}

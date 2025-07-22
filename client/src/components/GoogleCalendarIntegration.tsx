@@ -5,36 +5,29 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, CheckCircle, AlertCircle, Zap } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-
-interface CalendarIntegration {
-  habit_id: number;
-  habit_title: string;
-  success_probability: string;
-  confidence: string;
-  reminder_frequency: string;
-  calendar_event_created: boolean;
-  next_reminder: string;
-}
+import type { CalendarIntegration, PredictionResponse } from '@/types/calendar';
+import type { Habit } from '@/types/habits';
+import { calculateHabitDifficulty } from '@/utils/habitUtils';
 
 export function GoogleCalendarIntegration() {
   const [selectedHabit, setSelectedHabit] = useState<any>(null);
   const [integrationResults, setIntegrationResults] = useState<CalendarIntegration[]>([]);
 
   // Fetch user habits for integration
-  const { data: habits = [] } = useQuery({
+  const { data: habits = [] } = useQuery<Habit[]>({
     queryKey: ['/api/habits'],
   });
 
   // Calendar integration mutation
   const calendarMutation = useMutation({
-    mutationFn: async (habitData: any) => {
+    mutationFn: async (habitData: Habit) => {
       // First get ML prediction
-      const prediction = await apiRequest('/api/ml/predict', 'POST', {
+      const prediction = await apiRequest<PredictionResponse>('/api/ml/predict', 'POST', {
         user_level: 5,
         user_xp: 1200,
         target_value: habitData.targetValue || 1,
         existing_habits_count: habits.length,
-        difficulty_score: habitData.difficulty || 0.5,
+        difficulty_score: calculateHabitDifficulty(habitData, 5, 1200), // Pass user level and XP
         reminder_set: 1,
         category: habitData.category || 'general',
         frequency: habitData.frequency || 'daily'
@@ -48,17 +41,17 @@ export function GoogleCalendarIntegration() {
 
       return { ...calendarResult, habit_data: habitData, prediction };
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       const newIntegration: CalendarIntegration = {
         habit_id: data.habit_data.id,
         habit_title: data.habit_data.title,
-        success_probability: data.prediction.percentage || '0%',
-        confidence: data.prediction.confidence || 'medium',
+        success_probability: data.prediction?.percentage || '0%',
+        confidence: data.prediction?.confidence || 'medium',
         reminder_frequency: data.reminder_frequency || 'daily',
         calendar_event_created: data.calendar_event_created || true,
         next_reminder: new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString()
       };
-      
+
       setIntegrationResults(prev => [...prev, newIntegration]);
       setSelectedHabit(null);
     }
@@ -98,7 +91,7 @@ export function GoogleCalendarIntegration() {
         <div>
           <h4 className="font-medium mb-3">Select Habit for Calendar Integration</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {habits.map((habit: any) => (
+            {habits.map((habit: Habit) => (
               <div
                 key={habit.id}
                 className={`p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -118,7 +111,7 @@ export function GoogleCalendarIntegration() {
               </div>
             ))}
           </div>
-          
+
           {selectedHabit && (
             <div className="mt-4 flex items-center gap-3">
               <Button
@@ -155,7 +148,7 @@ export function GoogleCalendarIntegration() {
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
@@ -163,19 +156,19 @@ export function GoogleCalendarIntegration() {
                         {integration.reminder_frequency.replace('_', ' ')} reminders
                       </Badge>
                     </div>
-                    
+
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
                       Next: {integration.next_reminder}
                     </div>
-                    
+
                     {integration.calendar_event_created && (
                       <Badge variant="default" className="bg-green-100 text-green-800">
                         ✓ Calendar Events Created
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="mt-2 text-xs text-gray-500">
                     ML Confidence: {integration.confidence} - 
                     {integration.confidence === 'low' && ' High-intensity daily support'}
@@ -199,7 +192,7 @@ export function GoogleCalendarIntegration() {
                 <div className="text-gray-600">Daily reminders with motivational messages</div>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
               <div>
@@ -207,7 +200,7 @@ export function GoogleCalendarIntegration() {
                 <div className="text-gray-600">Weekly check-ins to maintain momentum</div>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 text-blue-500 mt-0.5" />
               <div>
@@ -215,7 +208,7 @@ export function GoogleCalendarIntegration() {
                 <div className="text-gray-600">Automatic events for 7, 30, 100-day streaks</div>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-2">
               <Zap className="w-4 h-4 text-purple-500 mt-0.5" />
               <div>

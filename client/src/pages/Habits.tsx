@@ -13,6 +13,7 @@ import { EmailIntegrationModal } from "@/components/EmailIntegrationModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { Habit, HabitRecommendation } from "@/types/habits";
 
 export default function Habits() {
   const { user, isLoading: authLoading } = useAuth();
@@ -22,15 +23,20 @@ export default function Habits() {
   const [showEditHabit, setShowEditHabit] = useState(false);
   const [showAICoach, setShowAICoach] = useState(false);
   const [showEmailIntegration, setShowEmailIntegration] = useState(false);
-  const [editingHabit, setEditingHabit] = useState(null);
-  const [recommendations, setRecommendations] = useState([]);
-  const [selectedRecommendation, setSelectedRecommendation] = useState(null);
-  const [dismissedRecommendations, setDismissedRecommendations] = useState<string[]>([]);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [recommendations, setRecommendations] = useState<HabitRecommendation[]>(
+    [],
+  );
+  const [selectedRecommendation, setSelectedRecommendation] =
+    useState<HabitRecommendation | null>(null);
+  const [dismissedRecommendations, setDismissedRecommendations] = useState<
+    string[]
+  >([]);
 
   useEffect(() => {
     const storedRecommendations = localStorage.getItem("habitRecommendations");
     const storedDismissed = localStorage.getItem("dismissedRecommendations");
-    
+
     if (storedRecommendations) {
       setRecommendations(JSON.parse(storedRecommendations));
     }
@@ -53,14 +59,14 @@ export default function Habits() {
     }
   }, [user, authLoading, toast]);
 
-  const { data: habits, isLoading: habitsLoading } = useQuery({
+  const { data: habits, isLoading: habitsLoading } = useQuery<Habit[]>({
     queryKey: ["/api/habits"],
     enabled: !!user,
   });
 
   const deleteHabitMutation = useMutation({
     mutationFn: async (habitId: number) => {
-      await apiRequest("DELETE", `/api/habits/${habitId}`);
+      await apiRequest(`/api/habits/${habitId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
@@ -101,26 +107,29 @@ export default function Habits() {
     return null;
   }
 
-  const groupedHabits = habits?.reduce((acc, habit) => {
-    if (!acc[habit.category]) {
-      acc[habit.category] = [];
-    }
-    acc[habit.category].push(habit);
-    return acc;
-  }, {} as Record<string, typeof habits>) || {};
+  const groupedHabits = (habits || []).reduce(
+    (acc: Record<string, Habit[]>, habit: Habit) => {
+      if (!acc[habit.category]) {
+        acc[habit.category] = [];
+      }
+      acc[habit.category].push(habit);
+      return acc;
+    },
+    {} as Record<string, Habit[]>,
+  );
 
   // Filter out recommendations that are already added as habits or dismissed
-  const filteredRecommendations = recommendations.filter((rec: any) => {
-    const existingHabit = habits?.find(habit => 
-      habit.title.toLowerCase() === rec.title.toLowerCase() ||
-      (habit.title.toLowerCase().includes(rec.title.toLowerCase()) && 
-       habit.category === rec.category)
-    );
-    const isDismissed = dismissedRecommendations.includes(rec.title);
-    return !existingHabit && !isDismissed;
-  });
+  const filteredRecommendations = recommendations
+    .filter((rec: HabitRecommendation) => rec && rec.title) // Ensure recommendation has required properties
+    .filter((rec: HabitRecommendation) => {
+      const existingHabit = (habits || []).find(
+        (habit: Habit) => habit.title.toLowerCase() === rec.title.toLowerCase(),
+      );
+      const isDismissed = dismissedRecommendations.includes(rec.title);
+      return !existingHabit && !isDismissed;
+    });
 
-  const handleAddHabitFromCarousel = (recommendation: any) => {
+  const handleAddHabitFromCarousel = (recommendation: HabitRecommendation) => {
     setSelectedRecommendation(recommendation);
     setShowAddHabit(true);
   };
@@ -130,16 +139,20 @@ export default function Habits() {
     if (recommendation) {
       const newDismissed = [...dismissedRecommendations, recommendation.title];
       setDismissedRecommendations(newDismissed);
-      localStorage.setItem("dismissedRecommendations", JSON.stringify(newDismissed));
-      
+      localStorage.setItem(
+        "dismissedRecommendations",
+        JSON.stringify(newDismissed),
+      );
+
       toast({
         title: "Recommendation dismissed",
-        description: "You can always retake the questionnaire to get new suggestions.",
+        description:
+          "You can always retake the questionnaire to get new suggestions.",
       });
     }
   };
 
-  const handleEditHabit = (habit: any) => {
+  const handleEditHabit = (habit: Habit) => {
     setEditingHabit(habit);
     setShowEditHabit(true);
   };
@@ -147,7 +160,7 @@ export default function Habits() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
       <Sidebar />
-      
+
       <main className="flex-1 p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
@@ -157,7 +170,10 @@ export default function Habits() {
                 <i className="fas fa-brain mr-2"></i>
                 AI Coach
               </Button>
-              <Button variant="outline" onClick={() => setShowEmailIntegration(true)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowEmailIntegration(true)}
+              >
                 <i className="fas fa-envelope mr-2"></i>
                 Email Notifications
               </Button>
@@ -192,69 +208,88 @@ export default function Habits() {
             </Card>
           ) : (
             <div className="space-y-8">
-              {Object.entries(groupedHabits).map(([category, categoryHabits]) => (
-                <div key={category}>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                    <i className={`fas fa-${getCategoryIcon(category)} mr-2 text-${getCategoryColor(category)}`}></i>
-                    {category}
-                  </h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categoryHabits.map(habit => (
-                      <Card key={habit.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 mb-1">{habit.title}</h3>
-                              {habit.description && (
-                                <p className="text-gray-600 text-sm mb-2">{habit.description}</p>
-                              )}
-                              <div className="flex items-center space-x-2">
-                                <Badge variant="secondary">{habit.category}</Badge>
-                                {habit.reminderTime && (
-                                  <span className="text-xs text-gray-500 flex items-center">
-                                    <i className="fas fa-clock mr-1"></i>
-                                    {habit.reminderTime}
-                                  </span>
+              {Object.entries(groupedHabits).map(
+                ([category, categoryHabits]) => (
+                  <div key={category}>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                      <i
+                        className={`fas fa-${getCategoryIcon(category)} mr-2 text-${getCategoryColor(category)}`}
+                      ></i>
+                      {category}
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categoryHabits.map((habit) => (
+                        <Card
+                          key={habit.id}
+                          className="hover:shadow-md transition-shadow"
+                        >
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-gray-900 mb-1">
+                                  {habit.title}
+                                </h3>
+                                {habit.description && (
+                                  <p className="text-gray-600 text-sm mb-2">
+                                    {habit.description}
+                                  </p>
                                 )}
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="secondary">
+                                    {habit.category}
+                                  </Badge>
+                                  {habit.reminderTime && (
+                                    <span className="text-xs text-gray-500 flex items-center">
+                                      <i className="fas fa-clock mr-1"></i>
+                                      {habit.reminderTime}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEditHabit(habit)}
+                                  className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
+                                  title="Edit habit"
+                                >
+                                  <i className="fas fa-edit text-sm"></i>
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    deleteHabitMutation.mutate(habit.id)
+                                  }
+                                  className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors border border-red-200"
+                                  disabled={deleteHabitMutation.isPending}
+                                  title="Delete habit"
+                                >
+                                  <i className="fas fa-trash text-sm"></i>
+                                </button>
                               </div>
                             </div>
-                            <div className="flex space-x-2">
-                              <button 
-                                onClick={() => handleEditHabit(habit)}
-                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
-                                title="Edit habit"
-                              >
-                                <i className="fas fa-edit text-sm"></i>
-                              </button>
-                              <button 
-                                onClick={() => deleteHabitMutation.mutate(habit.id)}
-                                className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors border border-red-200"
-                                disabled={deleteHabitMutation.isPending}
-                                title="Delete habit"
-                              >
-                                <i className="fas fa-trash text-sm"></i>
-                              </button>
-                            </div>
-                          </div>
 
-                          <div className="flex items-center justify-between text-sm text-gray-500">
-                            <span>Target: {habit.targetValue} {habit.unit}</span>
-                            <span className="capitalize">{habit.frequency}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            <div className="flex items-center justify-between text-sm text-gray-500">
+                              <span>
+                                Target: {habit.targetValue} {habit.unit}
+                              </span>
+                              <span className="capitalize">
+                                {habit.frequency}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           )}
         </div>
       </main>
 
-      <AddHabitModal 
-        open={showAddHabit} 
+      <AddHabitModal
+        open={showAddHabit}
         onClose={() => {
           setShowAddHabit(false);
           setSelectedRecommendation(null);
@@ -262,7 +297,7 @@ export default function Habits() {
         selectedRecommendation={selectedRecommendation}
       />
 
-      <EditHabitModal 
+      <EditHabitModal
         open={showEditHabit}
         onClose={() => {
           setShowEditHabit(false);
@@ -271,12 +306,12 @@ export default function Habits() {
         habit={editingHabit}
       />
 
-      <AICoachAssistant 
+      <AICoachAssistant
         open={showAICoach}
         onClose={() => setShowAICoach(false)}
       />
 
-      <EmailIntegrationModal 
+      <EmailIntegrationModal
         open={showEmailIntegration}
         onClose={() => setShowEmailIntegration(false)}
       />
