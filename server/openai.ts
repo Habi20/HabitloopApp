@@ -3,7 +3,8 @@ import type { Questionnaire } from "@shared/schema";
 import { generatePersonalizedHabits, filterHabitsByProfile, type SyntheticHabit } from "./syntheticDatabase";
 
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || "default_key"
+  apiKey: process.env.OPENAI_API_KEY || "default_key",
+  dangerouslyAllowBrowser: process.env.NODE_ENV === "test",
 });
 
 export interface HabitRecommendation {

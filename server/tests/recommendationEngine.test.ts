@@ -1,18 +1,18 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RecommendationEngine } from '../recommendationEngine';
 import { storage } from '../storage';
 
 // Mock the storage module
-jest.mock('../storage', () => ({
+vi.mock('../storage', () => ({
   storage: {
-    getUser: jest.fn(),
-    getUserHabits: jest.fn(),
-    getHabitCompletions: jest.fn(),
-    calculateLevel: jest.fn()
+    getUser: vi.fn(),
+    getUserHabits: vi.fn(),
+    getHabitCompletions: vi.fn(),
+    calculateLevel: vi.fn()
   }
 }));
 
-const mockStorage = storage as jest.Mocked<typeof storage>;
+const mockStorage = storage as any;
 
 describe('RecommendationEngine', () => {
   let engine: RecommendationEngine;
@@ -20,7 +20,7 @@ describe('RecommendationEngine', () => {
 
   beforeEach(() => {
     engine = new RecommendationEngine();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('generatePersonalizedRecommendations', () => {

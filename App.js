@@ -1,1 +1,1 @@
-const appName = "HabitLoop";
+// const appName = "HabitLoop";
