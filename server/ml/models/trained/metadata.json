@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "created_at": "2025-08-08T22:33:45.499114",
+  "accuracy": 0.675,
+  "r2_score": -0.0325889350241273,
+  "training_samples": 800,
+  "test_samples": 200,
+  "features_trained": 26,
+  "algorithm": "RandomForest",
+  "mse": 0.230035
+}

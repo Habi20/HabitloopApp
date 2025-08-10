@@ -1,0 +1,61 @@
+{
+  "name": "habitloop-monorepo",
+  "version": "1.0.0",
+  "description": "AI-powered habit tracker with ML insights",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "start": "cd server && npm run start",
+    "test": "npm run test:client && npm run test:server",
+    "test:client": "cd client && npm run test",
+    "test:server": "cd server && npm run test",
+    "test:watch": "concurrently \"npm run test:client:watch\" \"npm run test:server:watch\"",
+    "test:client:watch": "cd client && npm run test:watch",
+    "test:server:watch": "cd server && npm run test:watch",
+    "lint": "npm run lint:client && npm run lint:server",
+    "lint:client": "cd client && npm run lint",
+    "lint:server": "cd server && npm run lint",
+    "lint:fix": "npm run lint:client:fix && npm run lint:server:fix",
+    "lint:client:fix": "cd client && npm run lint:fix",
+    "lint:server:fix": "cd server && npm run lint:fix",
+    "clean": "rm -rf node_modules client/node_modules server/node_modules",
+    "fresh-install": "npm run clean && npm install",
+    "db:test": "cd server && tsx test-db-connection.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "habit",
+    "tracker",
+    "ai",
+    "ml",
+    "react",
+    "express",
+    "monorepo"
+  ],
+  "author": "HabitLoop Team",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.52.1",
+    "@tailwindcss/typography": "^0.5.16",
+    "dotenv": "^17.2.1",
+    "openai": "^4.20.1",
+    "wouter": "^3.7.1",
+    "zod-validation-error": "^4.0.1"
+  }
+}

@@ -1,0 +1,13 @@
+# ML Model Dependencies for HabitLoop
+# Core ML packages
+pandas>=2.3.0
+numpy>=2.3.0
+scikit-learn>=1.7.0
+joblib>=1.5.1
+
+# Database connectivity (for PostgreSQL)
+psycopg2-binary>=2.9.10
+
+# Optional: For enhanced ML features
+# matplotlib>=3.7.0  # For plotting (if needed)
+# seaborn>=0.12.0    # For statistical visualization (if needed) 
