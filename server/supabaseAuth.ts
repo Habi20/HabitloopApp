@@ -5,8 +5,12 @@ import connectPg from "connect-pg-simple";
 import { env } from "./env";
 import type { AuthenticatedUser } from "./types/user";
 import { storage } from "./storage";
+import jwt from "jsonwebtoken";
 
-export const supabase = createClient(env.supabaseUrl, env.supabaseKey);
+// Create Supabase client only if environment variables are set
+export const supabase = env.SUPABASE_URL && env.SUPABASE_ANON_KEY 
+  ? createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY)
+  : null;
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -14,23 +18,28 @@ export function getSession() {
   const pgStore = connectPg(session);
 
   const sessionStore = new pgStore({
-    conString: env.dbUrl,
+    conString: env.DATABASE_URL,
     createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
   });
 
   return session({
-    secret: env.sessionSecret,
+    secret: env.SESSION_SECRET || env.JWT_SECRET,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: env.nodeEnv === "production",
+      secure: env.NODE_ENV === "production",
       maxAge: sessionTtl,
     },
   });
+}
+
+// Helper function to check if Supabase is configured
+function isSupabaseConfigured() {
+  return supabase !== null;
 }
 
 export async function setupAuth(app: Express) {
@@ -39,8 +48,12 @@ export async function setupAuth(app: Express) {
   // Auth routes
   app.post("/api/auth/signup", async (req, res) => {
     try {
+      if (!isSupabaseConfigured()) {
+        return res.status(503).json({ error: "Supabase authentication is not configured" });
+      }
+
       const { email, password, firstName, lastName } = req.body;
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await supabase!.auth.signUp({
         email,
         password,
         options: {
@@ -71,6 +84,7 @@ export async function setupAuth(app: Express) {
           passwordHash: null,
           questionnaire: null,
           emailSettings: null,
+          supabaseAuthId: data.user.id, // ← Add Supabase Auth ID
         });
 
         (req.session as any).user = data.user;
@@ -89,8 +103,12 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/auth/signin", async (req, res) => {
     try {
+      if (!isSupabaseConfigured()) {
+        return res.status(503).json({ error: "Supabase authentication is not configured" });
+      }
+
       const { email, password } = req.body;
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase!.auth.signInWithPassword({
         email,
         password,
       });
@@ -117,6 +135,7 @@ export async function setupAuth(app: Express) {
             passwordHash: null,
             questionnaire: null,
             emailSettings: null,
+            supabaseAuthId: data.user.id, // ← Add Supabase Auth ID
           });
         }
 
@@ -140,12 +159,67 @@ export async function setupAuth(app: Express) {
     try {
       const sessionUser = (req.session as any).user;
       const accessToken = (req.session as any).access_token;
-      if (!sessionUser && !accessToken) {
+      
+      // Debug: Log session info
+      console.log('🔍 /api/auth/user debug:', {
+        sessionId: req.sessionID,
+        hasSessionUser: !!sessionUser,
+        sessionUserIsGuest: sessionUser?.isGuest,
+        hasAccessToken: !!accessToken,
+        sessionKeys: Object.keys(req.session || {})
+      });
+      
+      // Check authorization header as well
+      const authHeader = req.headers.authorization;
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      const token = bearerToken || accessToken;
+      
+      // First, check if we have a guest session
+      if (sessionUser && sessionUser.isGuest) {
+        console.log('✅ Returning guest session user:', sessionUser.id);
+        return res.json(sessionUser);
+      }
+
+      // Check for JWT token (guest authentication)
+      if (token && !token.includes('.')) {
+        // This is likely a Supabase token, continue with Supabase auth
+      } else if (token) {
+        try {
+          const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'fallback-secret';
+          const decoded = jwt.verify(token, jwtSecret) as any;
+          
+          if (decoded.isGuest) {
+            // This is a guest JWT token
+            const guestUser = await storage.getUser(decoded.userId);
+            if (guestUser) {
+              console.log('✅ Returning guest JWT user:', guestUser.id);
+              return res.json({
+                id: guestUser.id,
+                email: guestUser.email,
+                firstName: guestUser.firstName,
+                lastName: guestUser.lastName,
+                level: guestUser.level,
+                xp: guestUser.xp,
+                role: guestUser.role,
+                isGuest: true,
+                difficulty: guestUser.difficulty
+              });
+            }
+          }
+        } catch (jwtError) {
+          console.log('❌ JWT verification failed:', jwtError);
+        }
+      }
+      
+      if (!sessionUser && !token) {
         return res.status(401).json({ error: "No active session" });
       }
 
-      if (accessToken) {
-        const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+      if (token) {
+        if (!isSupabaseConfigured()) {
+          return res.status(503).json({ error: "Supabase authentication is not configured" });
+        }
+        const { data: { user }, error } = await supabase!.auth.getUser(token);
         if (error || !user) {
           return res.status(401).json({ error: "Invalid session" });
         }
@@ -153,9 +227,12 @@ export async function setupAuth(app: Express) {
         // Get user data from public.users table
         const dbUser = await storage.getUser(user.id);
         if (dbUser) {
-          // Merge Supabase user data with application user data
+          // Return combined data with frontend-expected structure
           return res.json({
-            ...user,
+            id: user.id,
+            email: user.email,
+            firstName: dbUser.firstName,
+            lastName: dbUser.lastName,
             level: dbUser.level,
             xp: dbUser.xp,
             role: dbUser.role,
@@ -163,10 +240,49 @@ export async function setupAuth(app: Express) {
             difficulty: dbUser.difficulty,
             questionnaire: dbUser.questionnaire,
             emailSettings: dbUser.emailSettings,
+            profileImageUrl: dbUser.profileImageUrl,
+            // Include some Supabase metadata
+            created_at: user.created_at,
+            email_confirmed_at: user.email_confirmed_at,
+            last_sign_in_at: user.last_sign_in_at,
+          });
+        } else {
+          // If no db user found, create one (shouldn't happen but safety)
+          const newDbUser = await storage.createUser({
+            id: user.id,
+            email: user.email || null,
+            firstName: user.user_metadata?.first_name || null,
+            lastName: user.user_metadata?.last_name || null,
+            role: 'user',
+            level: 1,
+            xp: 0,
+            isGuest: false,
+            difficulty: 'medium',
+            profileImageUrl: null,
+            passwordHash: null,
+            questionnaire: null,
+            emailSettings: null,
+            supabaseAuthId: user.id,
+          });
+          
+          return res.json({
+            id: user.id,
+            email: user.email,
+            firstName: newDbUser.firstName,
+            lastName: newDbUser.lastName,
+            level: newDbUser.level,
+            xp: newDbUser.xp,
+            role: newDbUser.role,
+            isGuest: newDbUser.isGuest,
+            difficulty: newDbUser.difficulty,
+            questionnaire: newDbUser.questionnaire,
+            emailSettings: newDbUser.emailSettings,
+            profileImageUrl: newDbUser.profileImageUrl,
+            created_at: user.created_at,
+            email_confirmed_at: user.email_confirmed_at,
+            last_sign_in_at: user.last_sign_in_at,
           });
         }
-
-        return res.json(user);
       }
 
       // Fallback: return stored user if token not available
@@ -180,12 +296,54 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   try {
+    // First, check for guest session
+    const sessionUser = (req.session as any).user;
+    if (sessionUser && sessionUser.isGuest) {
+      req.user = sessionUser as AuthenticatedUser;
+      return next();
+    }
+
     const accessToken = req.headers.authorization?.replace('Bearer ', '') || (req.session as any).access_token;
     if (!accessToken) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+    // Check for JWT token (guest authentication)
+    if (accessToken && accessToken.includes('.')) {
+      try {
+        const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'fallback-secret';
+        const decoded = jwt.verify(accessToken, jwtSecret) as any;
+        
+        if (decoded.isGuest) {
+          // This is a guest JWT token
+          const guestUser = await storage.getUser(decoded.userId);
+          if (guestUser) {
+            req.user = {
+              id: guestUser.id,
+              email: guestUser.email,
+              role: guestUser.role,
+              level: guestUser.level,
+              xp: guestUser.xp,
+              firstName: guestUser.firstName,
+              lastName: guestUser.lastName,
+              isGuest: guestUser.isGuest,
+              difficulty: guestUser.difficulty,
+              questionnaire: guestUser.questionnaire,
+              emailSettings: guestUser.emailSettings,
+              profileImageUrl: guestUser.profileImageUrl,
+            } as AuthenticatedUser;
+            return next();
+          }
+        }
+      } catch (jwtError) {
+        console.log('❌ JWT verification failed:', jwtError);
+      }
+    }
+
+    if (!isSupabaseConfigured()) {
+      return res.status(503).json({ message: "Supabase authentication is not configured" });
+    }
+    const { data: { user }, error } = await supabase!.auth.getUser(accessToken);
     if (error || !user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -209,6 +367,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
         passwordHash: null,
         questionnaire: null,
         emailSettings: null,
+        supabaseAuthId: user.id, // ← Add Supabase Auth ID
       });
     }
 

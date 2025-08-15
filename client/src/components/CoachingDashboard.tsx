@@ -1,6 +1,6 @@
-import { useState } from "react";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ export function CoachingDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: coachingData, isLoading } = useQuery({
+  const { data: coachingData, isLoading } = useQuery<{ messages: any[] }>({
     queryKey: ["/api/coaching/messages"],
     enabled: !!user,
   });

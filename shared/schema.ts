@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   date,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -57,8 +58,9 @@ export const users = pgTable('users', {
   questionnaire: jsonb('questionnaire'),
   emailSettings: jsonb('email_settings'),
   difficulty: varchar('difficulty').default('medium'), // ← Added
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  supabaseAuthId: uuid('supabase_auth_id'), // ← Added for Supabase Auth integration
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at'),
 });
 
 export const habits = pgTable("habits", {
@@ -74,8 +76,8 @@ export const habits = pgTable("habits", {
   isActive: boolean("is_active").default(true),
   color: varchar("color").default("#6366F1"),
   icon: varchar("icon").default("fas fa-check"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
 });
 
 export const habitCompletions = pgTable("habit_completions", {
@@ -84,7 +86,7 @@ export const habitCompletions = pgTable("habit_completions", {
   userId: varchar("user_id").notNull().references(() => users.id),
   completedAt: date("completed_at").notNull(),
   value: integer("value").default(1),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at"),
 });
 
 export const streaks = pgTable("streaks", {
@@ -94,7 +96,7 @@ export const streaks = pgTable("streaks", {
   currentStreak: integer("current_streak").default(0),
   longestStreak: integer("longest_streak").default(0),
   lastCompletedAt: date("last_completed_at"),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at"),
 });
 
 export const aiInsights = pgTable("ai_insights", {

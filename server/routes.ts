@@ -6,7 +6,7 @@ import { authRoutes } from "./routes/authRoutes";
 import { habitRoutes } from "./routes/habitRoutes";
 import { aiRoutes } from "./routes/aiRoutes";
 import { mlPredictionRoutes } from "./routes/mlPredictionRoutes";
-import { emailRoutes } from "./routes/emailRoutes";
+import emailRoutes from "./routes/emailRoutes";
 import { adminRoutes } from "./routes/adminRoutes";
 import { analyticsRoutes } from "./routes/analyticsRoutes";
 import { guestRoutes } from "./routes/guestRoutes";
@@ -20,14 +20,14 @@ export async function registerRoutes(app: express.Application) {
   app.use('/api/habits', habitRoutes());
   app.use('/api/ai', aiRoutes());
   app.use('/api/ml', mlPredictionRoutes());
-  app.use('/api/email', emailRoutes());
+  app.use('/api/email', emailRoutes);
   app.use('/api/guest', guestRoutes());
   app.use('/api/admin', adminRoutes());
   app.use('/api/analytics', analyticsRoutes());
   app.use('/api', healthRoutes());
 
   // Global error handler
-  app.use((err: any, _req: any, res: any, _next: any) => {
+  app.use((err: any, _req: any, res: any) => {
     console.error('API Error:', err);
     res.status(500).json({
       success: false,

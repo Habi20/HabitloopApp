@@ -22,6 +22,7 @@ import {
 } from "../shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
+import { getCurrentDateString, getDaysDifference, getWeekNumber, getMonthNumber, TimezoneUtils } from "./utils/timezone.js";
 
 // Interface for storage operations
 export interface IStorage {
@@ -30,6 +31,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(userData: UpsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
 
   // RBAC operations
   getUserPermissions(userId: string): Promise<string[]>;
@@ -51,7 +53,7 @@ export interface IStorage {
 
   // Streak operations
   getStreak(habitId: number, userId: string): Promise<Streak | undefined>;
-  updateStreak(habitId: number, userId: string, currentStreak: number, longestStreak: number, lastCompletedAt: string): Promise<void>;
+  updateStreak(habitId: number, userId: string, currentStreak: number, longestStreak: number, lastCompletedAt: string | null): Promise<void>;
 
   // AI insights operations
   getAIInsights(userId: string, limit?: number): Promise<AIInsight[]>;
@@ -162,6 +164,18 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUser(id: string, updates: Partial<UpsertUser>): Promise<User> {
+    const [user] = await this.db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
   // RBAC operations
   async getUserPermissions(userId: string): Promise<string[]> {
     try {
@@ -248,7 +262,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createHabit(habit: InsertHabit): Promise<Habit> {
-    const [newHabit] = await this.db.insert(habits).values(habit).returning();
+    // Use timezone-aware timestamps
+    const now = TimezoneUtils.getCurrentSriLankaTimestamp();
+    const timezoneAwareHabit = {
+      ...habit,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const [newHabit] = await this.db.insert(habits).values(timezoneAwareHabit).returning();
     
     // Initialize streak for new habit
     await this.db.insert(streaks).values({
@@ -261,10 +283,38 @@ export class DatabaseStorage implements IStorage {
     return newHabit;
   }
 
+  async upsertHabit(habit: InsertHabit & { id?: string }): Promise<Habit> {
+    // Use timezone-aware timestamps
+    const now = TimezoneUtils.getCurrentSriLankaTimestamp();
+    
+    if (habit.id) {
+      // Try to update existing habit
+      try {
+        const [updatedHabit] = await this.db
+          .update(habits)
+          .set({ 
+            ...habit,
+            updatedAt: now,
+          })
+          .where(eq(habits.id, parseInt(habit.id)))
+          .returning();
+        
+        if (updatedHabit) {
+          return updatedHabit;
+        }
+      } catch (error) {
+        console.warn('Failed to update habit, will create new one:', error);
+      }
+    }
+
+    // Create new habit if update failed or no ID provided
+    return this.createHabit(habit);
+  }
+
   async updateHabit(id: number, updates: Partial<InsertHabit>): Promise<Habit> {
     const [updatedHabit] = await this.db
       .update(habits)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: TimezoneUtils.getCurrentSriLankaTimestamp() })
       .where(eq(habits.id, id))
       .returning();
     return updatedHabit;
@@ -295,9 +345,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createHabitCompletion(completion: InsertHabitCompletion): Promise<HabitCompletion> {
+    // Use timezone-aware timestamps
+    const now = TimezoneUtils.getCurrentSriLankaTimestamp();
+    const timezoneAwareCompletion = {
+      ...completion,
+      createdAt: now,
+    };
+
     const [newCompletion] = await this.db
       .insert(habitCompletions)
-      .values(completion)
+      .values(timezoneAwareCompletion)
       .returning();
 
     // Update streak
@@ -312,6 +369,34 @@ export class DatabaseStorage implements IStorage {
     await this.updateUserXP(completion.userId, totalXP);
 
     return newCompletion;
+  }
+
+  async upsertCompletion(completion: InsertHabitCompletion & { id?: string }): Promise<HabitCompletion> {
+    // Use timezone-aware timestamps
+    const now = TimezoneUtils.getCurrentSriLankaTimestamp();
+    
+    if (completion.id) {
+      // Try to update existing completion
+      try {
+        const [updatedCompletion] = await this.db
+          .update(habitCompletions)
+          .set({ 
+            ...completion,
+            createdAt: now,
+          })
+          .where(eq(habitCompletions.id, parseInt(completion.id)))
+          .returning();
+        
+        if (updatedCompletion) {
+          return updatedCompletion;
+        }
+      } catch (error) {
+        console.warn('Failed to update completion, will create new one:', error);
+      }
+    }
+
+    // Create new completion if update failed or no ID provided
+    return this.createHabitCompletion(completion);
   }
 
   async deleteHabitCompletion(habitId: number, userId: string, date: string): Promise<void> {
@@ -335,19 +420,26 @@ export class DatabaseStorage implements IStorage {
     return streak;
   }
 
+  async getUserStreaks(userId: string): Promise<Streak[]> {
+    return await this.db
+      .select()
+      .from(streaks)
+      .where(eq(streaks.userId, userId));
+  }
+
   async updateStreak(
     habitId: number,
     userId: string,
     currentStreak: number,
     longestStreak: number,
-    lastCompletedAt: string
+    lastCompletedAt: string | null
   ): Promise<void> {
     await this.db
       .update(streaks)
       .set({
         currentStreak,
         longestStreak,
-        lastCompletedAt,
+        lastCompletedAt: lastCompletedAt || null,
         updatedAt: new Date(),
       })
       .where(and(eq(streaks.habitId, habitId), eq(streaks.userId, userId)));
@@ -362,10 +454,13 @@ export class DatabaseStorage implements IStorage {
 
     let newCurrentStreak = 1;
     if (lastCompletedDate) {
-      const daysDiff = Math.floor((completedDate.getTime() - lastCompletedDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysDiff = getDaysDifference(lastCompletedDate, completedDate);
       
       if (daysDiff === 1) {
         newCurrentStreak = (streak.currentStreak || 0) + 1;
+      } else if (daysDiff === 0) {
+        // Same day completion, don't change streak
+        return;
       } else if (daysDiff > 1) {
         newCurrentStreak = 1; // Reset streak if gap
       }
@@ -503,6 +598,30 @@ export class DatabaseStorage implements IStorage {
     const newXP = (user.xp || 0) + xpGained;
     const newLevel = this.calculateLevel(newXP);
 
+    // Add comprehensive logging for debugging and audit trail
+    console.log(`🎯 XP Update for user ${userId}:`, {
+      currentXP: user.xp,
+      currentLevel: user.level || 1,
+      xpGained,
+      newXP,
+      newLevel,
+      levelChange: newLevel - (user.level || 1),
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n') // Get call stack for debugging
+    });
+
+    // Validate XP change is reasonable (prevent massive jumps)
+    const xpChange = Math.abs(xpGained);
+    if (xpChange > 1000) {
+      console.warn(`⚠️ Large XP change detected: ${xpGained} XP for user ${userId}. This might indicate an error.`);
+    }
+
+    // Validate level change is reasonable (prevent massive jumps)
+    const levelChange = Math.abs(newLevel - (user.level || 1));
+    if (levelChange > 5) {
+      console.warn(`⚠️ Large level change detected: ${levelChange} levels for user ${userId}. This might indicate an error.`);
+    }
+
     const [updatedUser] = await this.db
       .update(users)
       .set({
@@ -516,9 +635,126 @@ export class DatabaseStorage implements IStorage {
     return updatedUser;
   }
 
+  // Challenge XP awarding system
+  async awardChallengeXP(userId: string, challengeId: string, xpAmount: number, challengeType: string): Promise<User> {
+    console.log(`🏆 Awarding challenge XP: ${xpAmount} XP for challenge ${challengeId} (${challengeType}) to user ${userId}`);
+    
+    const user = await this.updateUserXP(userId, xpAmount);
+    
+    // Create a record of the challenge completion (optional - for tracking)
+    try {
+      await this.createAIInsight(
+        userId,
+        'challenge_completed',
+        `Challenge Completed: ${challengeType}`,
+        `Congratulations! You earned ${xpAmount} XP for completing the "${challengeType}" challenge.`
+      );
+    } catch (error) {
+      console.warn('Failed to create challenge completion insight:', error);
+    }
+    
+    return user;
+  }
+
+  // Check and award challenge XP based on user progress
+  async checkAndAwardChallenges(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+
+    const habits = await this.getUserHabits(userId);
+    const completions = await this.getHabitCompletions(userId);
+    
+    // Get current date info using timezone utilities
+    const now = new Date();
+    const currentWeek = getWeekNumber(now);
+    const currentMonth = getMonthNumber(now);
+    
+    // Check 7-Day Streak Master (weekly)
+    await this.checkStreakMasterChallenge(userId, habits, completions, currentWeek);
+    
+    // Check Early Bird (weekly)
+    await this.checkEarlyBirdChallenge(userId, habits, completions, currentWeek);
+    
+    // Check Habit Explorer (monthly)
+    await this.checkHabitExplorerChallenge(userId, habits, currentMonth);
+    
+    // Check Consistency Champion (monthly)
+    await this.checkConsistencyChampionChallenge(userId, habits, completions, currentMonth);
+  }
+
+  private async checkStreakMasterChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], weekNumber: number): Promise<void> {
+    // Check if user has completed all habits for 7 consecutive days
+    const last7Days = Array.from({length: 7}, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return getCurrentDateString(); // Use timezone utility
+    }).reverse();
+
+    const hasCompletedAllDays = last7Days.every(date => {
+      const dayCompletions = completions.filter(c => c.completedAt && c.completedAt === date);
+      return dayCompletions.length >= habits.filter(h => h.isActive).length;
+    });
+
+    if (hasCompletedAllDays) {
+      await this.awardChallengeXP(userId, `streak-master-${weekNumber}`, 50, '7-Day Streak Master');
+    }
+  }
+
+  private async checkEarlyBirdChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], weekNumber: number): Promise<void> {
+    // Check if user completed morning habits before 9 AM for 5 days
+    const morningHabits = habits.filter(h => h.reminderTime && h.reminderTime.includes('morning'));
+    const earlyCompletions = completions.filter(c => {
+      if (!c.completedAt) return false;
+      const completionTime = new Date(c.completedAt);
+      return completionTime.getHours() < 9;
+    });
+
+    if (morningHabits.length > 0 && earlyCompletions.length >= 5) {
+      await this.awardChallengeXP(userId, `early-bird-${weekNumber}`, 25, 'Early Bird');
+    }
+  }
+
+  private async checkHabitExplorerChallenge(userId: string, habits: Habit[], month: number): Promise<void> {
+    // Check if user created 3 new habits this month
+    const newHabitsThisMonth = habits.filter(h => {
+      if (!h.createdAt) return false;
+      const habitMonth = new Date(h.createdAt).getMonth();
+      return habitMonth === month;
+    });
+
+    if (newHabitsThisMonth.length >= 3) {
+      await this.awardChallengeXP(userId, `habit-explorer-${month}`, 100, 'Habit Explorer');
+    }
+  }
+
+  private async checkConsistencyChampionChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], month: number): Promise<void> {
+    // Check if user achieved 90% completion rate this month
+    const activeHabits = habits.filter(h => h.isActive);
+    const monthCompletions = completions.filter(c => {
+      if (!c.completedAt) return false;
+      const completionMonth = new Date(c.completedAt).getMonth();
+      return completionMonth === month;
+    });
+
+    const daysInMonth = new Date(new Date().getFullYear(), month + 1, 0).getDate();
+    const expectedCompletions = activeHabits.length * daysInMonth;
+    const completionRate = expectedCompletions > 0 ? monthCompletions.length / expectedCompletions : 0;
+
+    if (completionRate >= 0.9) {
+      await this.awardChallengeXP(userId, `consistency-champion-${month}`, 200, 'Consistency Champion');
+    }
+  }
+
+  private getWeekNumber(date: Date): number {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  }
+
   calculateLevel(xp: number): number {
-    // Level progression: Level 1 = 0-99 XP, Level 2 = 100-249 XP, Level 3 = 250-449 XP, etc.
-    return Math.floor(Math.sqrt(xp / 50)) + 1;
+    // Level progression: Level 1 = 0-99 XP, Level 2 = 100-199 XP, Level 3 = 200-299 XP, etc.
+    // Each level requires 100 XP
+    return Math.floor(xp / 100) + 1;
   }
 
   async updateEmailSettings(userId: string, settings: any): Promise<User> {
@@ -532,6 +768,81 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return user;
+  }
+
+  // Audit and fix XP inconsistencies
+  async auditAndFixUserXP(userId: string): Promise<{ fixed: boolean; oldXP: number; newXP: number; oldLevel: number; newLevel: number }> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+
+    // Calculate expected XP from completions
+    const completions = await this.getHabitCompletions(userId);
+    const habits = await this.getUserHabits(userId);
+    
+    let calculatedXP = 0;
+    const completionCounts = new Map<number, number>();
+
+    // Count completions per habit
+    for (const completion of completions) {
+      const count = completionCounts.get(completion.habitId) || 0;
+      completionCounts.set(completion.habitId, count + 1);
+    }
+
+    // Calculate XP based on completion counts and streaks
+    for (const [habitId, count] of completionCounts) {
+      const streak = await this.getStreak(habitId, userId);
+      const baseXP = 10; // Base XP per completion
+      const streakBonus = Math.min((streak?.currentStreak || 1) * 2, 20); // Max 20 bonus XP
+      calculatedXP += count * (baseXP + streakBonus);
+    }
+
+    // Add challenge XP (estimate based on user level)
+    const estimatedChallengeXP = Math.floor((user.level || 1) * 50); // Rough estimate
+    calculatedXP += estimatedChallengeXP;
+
+    const expectedLevel = this.calculateLevel(calculatedXP);
+    const currentLevel = user.level || 1;
+
+    console.log(`🔍 XP Audit for user ${userId}:`, {
+      currentXP: user.xp,
+      calculatedXP,
+      currentLevel,
+      expectedLevel,
+      difference: calculatedXP - (user.xp || 0),
+      levelDifference: expectedLevel - currentLevel
+    });
+
+    // If there's a significant discrepancy, fix it
+    const xpDifference = Math.abs(calculatedXP - (user.xp || 0));
+    if (xpDifference > 100) {
+      console.warn(`⚠️ XP inconsistency detected for user ${userId}. Fixing...`);
+      
+      const [updatedUser] = await this.db
+        .update(users)
+        .set({
+          xp: calculatedXP,
+          level: expectedLevel,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      return {
+        fixed: true,
+        oldXP: user.xp || 0,
+        newXP: calculatedXP,
+        oldLevel: currentLevel,
+        newLevel: expectedLevel
+      };
+    }
+
+    return {
+      fixed: false,
+      oldXP: user.xp || 0,
+      newXP: user.xp || 0,
+      oldLevel: currentLevel,
+      newLevel: currentLevel
+    };
   }
 }
 

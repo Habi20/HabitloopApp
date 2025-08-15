@@ -5,6 +5,7 @@ import { storage } from "../storage";
 import { insertHabitSchema } from "../../shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { validateHabitInput, requireAuth } from "./middlewareRoutes";
+import { TimezoneUtils } from "../utils/timezone.js";
 
 export function habitRoutes() {
   const router = Router();
@@ -144,27 +145,33 @@ export function habitRoutes() {
         });
       }
 
+      const userId = await getUserId(req);
       const completion = await storage.createHabitCompletion({
         habitId,
-        userId: await getUserId(req),
+        userId,
         value,
-        completedAt: date || new Date().toISOString().split("T")[0],
+        completedAt: date || TimezoneUtils.getCurrentDateString(),
       });
 
-      const currentStreak = await storage.getStreak(
-        habitId,
-        await getUserId(req)
-      );
+      const currentStreak = await storage.getStreak(habitId, userId);
       await storage.updateStreak(
         habitId,
-        await getUserId(req),
+        userId,
         (currentStreak?.currentStreak || 0) + 1,
         Math.max(
           currentStreak?.longestStreak || 0,
           (currentStreak?.currentStreak || 0) + 1
         ),
-        date || new Date().toISOString().split("T")[0]
+        date || TimezoneUtils.getCurrentDateString()
       );
+
+      // Check and award challenge XP after habit completion
+      try {
+        await storage.checkAndAwardChallenges(userId);
+      } catch (error) {
+        console.warn('Failed to check challenges:', error);
+        // Don't fail the completion if challenge check fails
+      }
 
       res.json({
         success: true,

@@ -60,3 +60,50 @@ jspm_packages
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Documentation and test files (exclude from production repo)
+*.md
+*.cjs
+test-*.js
+test-*.cjs
+test-*.py
+*_test.py
+*_test.js
+*_test.cjs
+
+# Development and testing directories
+test/
+tests/
+notUsed/
+demo/
+scripts/test-*
+scripts/debug-*
+scripts/install_*
+
+# Temporary and development files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+
+# ML model files (keep only essential ones)
+ml/models/__pycache__/
+ml/models/trained/*.pkl
+ml/models/trained/*.joblib
+ml/models/trained/metadata.json
+
+# Database and migration files
+migrations/
+*.sql
+
+# Configuration files that might contain sensitive data
+.env.*
+config-*.json
+config-*.js
+
+# IDE and editor specific files
+.vscode/
+.idea/
+*.sublime-*

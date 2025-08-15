@@ -1,10 +1,11 @@
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import XPBreakdownCard from "@/components/XPBreakdownCard";
 
 export default function Profile() {
   const {
@@ -13,8 +14,12 @@ export default function Profile() {
     getUserDisplayName,
     getUserEmail,
     getUserInitials,
+    logout,
   } = useAuth();
   const { toast } = useToast();
+  const [habits, setHabits] = useState([]);
+  const [completions, setCompletions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -27,6 +32,45 @@ export default function Profile() {
         window.location.href = "/";
       }, 500);
       return;
+    }
+
+    // Fetch user data for XP breakdown
+    if (user) {
+      const fetchUserData = async () => {
+        try {
+          // Get JWT tokens for authentication (guest or verified)
+          const guestToken = localStorage.getItem('guest_token');
+          const verifiedToken = localStorage.getItem('verified_token');
+          const headers: Record<string, string> = {};
+          
+          if (guestToken) {
+            headers['Authorization'] = `Bearer ${guestToken}`;
+          } else if (verifiedToken) {
+            headers['Authorization'] = `Bearer ${verifiedToken}`;
+          }
+
+          const [habitsRes, completionsRes] = await Promise.all([
+            fetch('/api/habits', { headers }),
+            fetch('/api/completions', { headers })
+          ]);
+          
+          if (habitsRes.ok) {
+            const habitsData = await habitsRes.json();
+            setHabits(habitsData.habits || []);
+          }
+          
+          if (completionsRes.ok) {
+            const completionsData = await completionsRes.json();
+            setCompletions(completionsData.completions || []);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchUserData();
     }
   }, [user, authLoading, toast]);
 
@@ -71,7 +115,7 @@ export default function Profile() {
                       <h2 className="text-xl font-semibold text-gray-900">
                         {getUserDisplayName(user)}
                       </h2>
-                      <p className="text-gray-600">{getUserEmail(user)}</p>
+                                              <p className="text-gray-600">{getUserEmail(user)}</p>
                       <Button variant="outline" className="mt-2">
                         <i className="fas fa-camera mr-2"></i>
                         Change Photo
@@ -85,9 +129,7 @@ export default function Profile() {
                         First Name
                       </label>
                       <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        {user && "user_metadata" in user
-                          ? user.user_metadata?.first_name || "Not set"
-                          : "Not set"}
+                        {user.firstName || "Not set"}
                       </div>
                     </div>
                     <div>
@@ -95,9 +137,7 @@ export default function Profile() {
                         Last Name
                       </label>
                       <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        {user && "user_metadata" in user
-                          ? user.user_metadata?.last_name || "Not set"
-                          : "Not set"}
+                        {user.lastName || "Not set"}
                       </div>
                     </div>
                     <div className="md:col-span-2">
@@ -145,6 +185,15 @@ export default function Profile() {
                   </p>
                 </CardContent>
               </Card>
+
+              {/* XP Breakdown Card */}
+              {!loading && (
+                <XPBreakdownCard 
+                  user={user} 
+                  habits={habits} 
+                  completions={completions} 
+                />
+              )}
 
               <Card>
                 <CardHeader>
@@ -194,7 +243,7 @@ export default function Profile() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => (window.location.href = "/api/logout")}
+                    onClick={logout}
                   >
                     <i className="fas fa-sign-out-alt mr-2"></i>
                     Sign Out

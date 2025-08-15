@@ -1,5 +1,6 @@
 // server/env.ts
-import { config } from "dotenv";
+import { z } from "zod";
+import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -8,38 +9,76 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load from root .env file
-config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-// Validate required variables
-const requiredVars = ["DATABASE_URL", "SUPABASE_URL", "SUPABASE_ANON_KEY"];
-for (const varName of requiredVars) {
-  if (!process.env[varName]) {
-    throw new Error(`Missing required environment variable: ${varName}`);
-  }
-}
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  PORT: z.string().default("3001"),
+  DATABASE_URL: z.string(),
+  JWT_SECRET: z.string(),
+  OPENAI_API_KEY: z.string().optional(),
+  TIMEZONE: z.string().default("Asia/Colombo"),
+  TZ: z.string().default("Asia/Colombo"),
+  // Preserve existing environment variables
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  SESSION_SECRET: z.string().optional(),
+  FRONTEND_URL: z.string().default("http://localhost:5173"),
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().default("noreply@habitmaster.com"),
+  GMAIL_TEST_EMAIL: z.string().default("akeel.lithan@gmail.com"),
+  GMAIL_TEST_PASSWORD: z.string().default("password123"),
+});
 
-// Export typed environment variables
-export const env = {
-  dbUrl: process.env.DATABASE_URL!,
-  dbUrlFallback: process.env.DATABASE_URL_FALLBACK, // ✅ ADDED: Fallback connection
-  supabaseUrl: process.env.SUPABASE_URL!,
-  supabaseKey: process.env.SUPABASE_ANON_KEY!,
-  openaiApiKey:
-    process.env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
-  nodeEnv: process.env.NODE_ENV || "development",
-  port: parseInt(process.env.PORT || "5000"),
-  jwtSecret:
-    process.env.JWT_SECRET || process.env.SESSION_SECRET || "fallback-secret",
-  sessionSecret: process.env.SESSION_SECRET || "supabase-session-secret",
-  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+export const env = envSchema.parse(process.env);
+
+// Set timezone for the entire Node.js process
+process.env.TZ = env.TIMEZONE;
+
+console.log(`🌍 Timezone configured: ${env.TIMEZONE} (${process.env.TZ})`);
+
+// Export typed environment variables (preserving existing structure)
+export const typedEnv = {
+  // Database
+  dbUrl: env.DATABASE_URL,
+  dbUrlFallback: process.env.DATABASE_URL_FALLBACK,
+  
+  // Supabase
+  supabaseUrl: env.SUPABASE_URL || "",
+  supabaseKey: env.SUPABASE_ANON_KEY || "",
+  
+  // OpenAI
+  openaiApiKey: env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
+  
+  // Environment
+  nodeEnv: env.NODE_ENV,
+  port: parseInt(env.PORT),
+  
+  // JWT and Session
+  jwtSecret: env.JWT_SECRET || env.SESSION_SECRET || "fallback-secret",
+  sessionSecret: env.SESSION_SECRET || "supabase-session-secret",
+  
+  // Frontend URL
+  frontendUrl: env.FRONTEND_URL,
+  
+  // SendGrid Email
+  sendgridApiKey: env.SENDGRID_API_KEY || "",
+  sendgridFromEmail: env.SENDGRID_FROM_EMAIL,
+  
+  // Test Email (for development)
+  gmailTestEmail: env.GMAIL_TEST_EMAIL,
+  gmailTestPassword: env.GMAIL_TEST_PASSWORD,
+  
+  // Timezone Configuration
+  timezone: env.TIMEZONE,
 };
 
-export const isDevelopment = env.nodeEnv === "development";
-export const isProduction = env.nodeEnv === "production";
-export const isTest = env.nodeEnv === "test";
+export const isDevelopment = env.NODE_ENV === "development";
+export const isProduction = env.NODE_ENV === "production";
+export const isTest = env.NODE_ENV === "test";
 
 // OpenAI availability flag
 export const isOpenAIEnabled =
-  env.openaiApiKey &&
-  env.openaiApiKey !== "sk-placeholder-key-for-development" &&
-  env.openaiApiKey.startsWith("sk-");
+  env.OPENAI_API_KEY &&
+  env.OPENAI_API_KEY !== "sk-placeholder-key-for-development" &&
+  env.OPENAI_API_KEY.startsWith("sk-");

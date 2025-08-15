@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,7 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Habit } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +49,7 @@ type HabitFormData = z.infer<typeof habitSchema>;
 interface EditHabitModalProps {
   open: boolean;
   onClose: () => void;
-  habit: any;
+  habit: Habit;
 }
 
 export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {

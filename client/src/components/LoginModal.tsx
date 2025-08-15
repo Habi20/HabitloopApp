@@ -4,12 +4,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LoginModalProps {
   open: boolean;
@@ -26,7 +27,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
   const [loading, setLoading] = useState(false);
   const [showMagicLink, setShowMagicLink] = useState(false);
   const { toast } = useToast();
-  const { refetch } = useAuth();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,33 +58,35 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
         return;
       }
 
-      const endpoint = isSignUp ? "/api/auth/signup" : "/api/auth/signin";
-      const body = isSignUp
-        ? { email, password, firstName, lastName }
-        : { email, password };
+      if (isSignUp) {
+        // Handle signup
+        const response = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email, password, firstName, lastName }),
+        });
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
+        const data = await response.json();
 
-      const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Signup failed");
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Authentication failed");
+        toast({
+          title: "Account created!",
+          description: "Please check your email to verify your account.",
+        });
+      } else {
+        // Handle login using AuthContext
+        await login(email, password);
+        
+        toast({
+          title: "Welcome back!",
+          description: "You have been successfully logged in.",
+        });
       }
 
-      toast({
-        title: isSignUp ? "Account created!" : "Welcome back!",
-        description: isSignUp
-          ? "Please check your email to verify your account."
-          : "You have been successfully logged in.",
-      });
-
-      // Refresh auth state
-      await refetch();
       onSuccess();
       onClose();
     } catch (error) {
@@ -109,11 +112,11 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
             <DialogTitle className="text-xl font-bold text-gray-900 mb-2">
               {isSignUp ? "Create Account" : "Sign In"}
             </DialogTitle>
-            <p className="text-gray-600 mb-6">
+            <DialogDescription className="text-gray-600 mb-6">
               {isSignUp
-                ? "Join HabitFlow and start building better habits today"
+                ? "Join HabitLoop and start building better habits today"
                 : "Welcome back! Sign in to continue your habit journey"}
-            </p>
+            </DialogDescription>
           </div>
         </DialogHeader>
 

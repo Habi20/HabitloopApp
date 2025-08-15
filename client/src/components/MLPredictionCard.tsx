@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Brain, TrendingUp, Target, Clock } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { ModelStatus } from '@/types';
 
 interface MLPrediction {
   prediction: number;
@@ -31,13 +32,6 @@ interface MLEvaluation {
     confidence_level: string;
     recommendation: string;
   };
-}
-
-interface ModelStatus {
-  trained: boolean;
-  model_path: string;
-  last_trained: string | null;
-  file_size: number;
 }
 
 export function MLPredictionCard() {
@@ -119,12 +113,6 @@ export function MLPredictionCard() {
       case 'low': return 'text-red-600';
       default: return 'text-gray-600';
     }
-  };
-
-  const getSuccessColor = (probability: number) => {
-    if (probability >= 0.7) return 'bg-green-500';
-    if (probability >= 0.4) return 'bg-yellow-500';
-    return 'bg-red-500';
   };
 
   return (

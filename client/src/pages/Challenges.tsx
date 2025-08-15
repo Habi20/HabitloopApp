@@ -1,202 +1,108 @@
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Sidebar } from "@/components/Sidebar";
+// client/src/pages/Challenges.tsx
+import { useAuth } from "@/contexts/AuthContext";
+import { ChallengesSystem } from "@/components/ChallengesSystem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 export default function Challenges() {
-  const { user, isLoading: authLoading } = useAuth();
-  const { toast } = useToast();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 500);
-      return;
-    }
-  }, [user, authLoading, toast]);
-
-  if (authLoading) {
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Challenges
+            </h2>
+            <p className="text-gray-600">
+              Please log in to view your challenges and earn rewards!
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  const challenges = [
-    {
-      id: 1,
-      title: "7-Day Streak Master",
-      description: "Complete all your habits for 7 consecutive days",
-      type: "weekly",
-      progress: 4,
-      target: 7,
-      reward: "50 XP",
-      icon: "fas fa-fire",
-      color: "text-orange-500",
-    },
-    {
-      id: 2,
-      title: "Early Bird",
-      description: "Complete morning habits before 9 AM for 5 days",
-      type: "weekly",
-      progress: 2,
-      target: 5,
-      reward: "25 XP",
-      icon: "fas fa-sun",
-      color: "text-yellow-500",
-    },
-    {
-      id: 3,
-      title: "Habit Explorer",
-      description: "Create 3 new habits this month",
-      type: "monthly",
-      progress: 1,
-      target: 3,
-      reward: "100 XP",
-      icon: "fas fa-compass",
-      color: "text-blue-500",
-    },
-    {
-      id: 4,
-      title: "Consistency Champion",
-      description: "Achieve 90% completion rate this month",
-      type: "monthly",
-      progress: 78,
-      target: 90,
-      reward: "200 XP",
-      icon: "fas fa-trophy",
-      color: "text-yellow-600",
-    },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
-      <Sidebar />
-
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Challenges</h1>
-
-          {/* Challenge Types */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="p-6 text-center">
-                <i className="fas fa-calendar-day text-3xl text-blue-500 mb-3"></i>
-                <h3 className="font-semibold text-gray-900 mb-1">Daily</h3>
-                <p className="text-sm text-gray-600">Complete today's goals</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="p-6 text-center">
-                <i className="fas fa-calendar-week text-3xl text-green-500 mb-3"></i>
-                <h3 className="font-semibold text-gray-900 mb-1">Weekly</h3>
-                <p className="text-sm text-gray-600">7-day challenges</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-purple-200 bg-purple-50">
-              <CardContent className="p-6 text-center">
-                <i className="fas fa-calendar-alt text-3xl text-purple-500 mb-3"></i>
-                <h3 className="font-semibold text-gray-900 mb-1">Monthly</h3>
-                <p className="text-sm text-gray-600">Long-term goals</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Active Challenges */}
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Active Challenges
-            </h2>
-
-            {challenges.map((challenge) => (
-              <Card
-                key={challenge.id}
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <i
-                        className={`${challenge.icon} text-xl ${challenge.color}`}
-                      ></i>
-                      <div>
-                        <CardTitle className="text-lg">
-                          {challenge.title}
-                        </CardTitle>
-                        <p className="text-gray-600 text-sm">
-                          {challenge.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge
-                        variant={
-                          challenge.type === "monthly" ? "default" : "secondary"
-                        }
-                      >
-                        {challenge.type}
-                      </Badge>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {challenge.reward}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>
-                        {challenge.progress}/{challenge.target}
-                      </span>
-                    </div>
-                    <Progress
-                      value={(challenge.progress / challenge.target) * 100}
-                      className="h-3"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Completed Challenges Section */}
-            <div className="mt-12">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                Completed This Month
-              </h2>
-
-              <Card className="bg-green-50 border-green-200">
-                <CardContent className="p-6 text-center">
-                  <i className="fas fa-trophy text-4xl text-green-500 mb-4"></i>
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    First Week Champion
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-3">
-                    Completed all habits for your first week
-                  </p>
-                  <Badge className="bg-green-500">+75 XP Earned</Badge>
-                </CardContent>
-              </Card>
+    <div className="container mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/")}
+              className="flex items-center space-x-2"
+            >
+              <i className="fas fa-arrow-left"></i>
+              <span>Back</span>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Challenges & Achievements
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Complete challenges to earn XP and unlock achievements
+              </p>
             </div>
           </div>
+          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2">
+            <i className="fas fa-trophy mr-2"></i>
+            Gamified System
+          </Badge>
         </div>
-      </main>
+      </div>
+
+      {/* Gamification Info Card */}
+      <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center text-blue-900">
+            <i className="fas fa-info-circle mr-2"></i>
+            How Challenges Work
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <i className="fas fa-sun text-yellow-600"></i>
+              </div>
+              <h4 className="font-semibold text-gray-900">Daily Challenges</h4>
+              <p className="text-sm text-gray-600">Complete daily goals for quick XP rewards</p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <i className="fas fa-calendar-week text-blue-600"></i>
+              </div>
+              <h4 className="font-semibold text-gray-900">Weekly Challenges</h4>
+              <p className="text-sm text-gray-600">Build consistency with weekly milestones</p>
+            </div>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <i className="fas fa-calendar-alt text-purple-600"></i>
+              </div>
+              <h4 className="font-semibold text-gray-900">Monthly Challenges</h4>
+              <p className="text-sm text-gray-600">Long-term goals for major XP rewards</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-4 border border-blue-200">
+            <h5 className="font-semibold text-gray-900 mb-2">💡 Pro Tips:</h5>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Complete all daily habits to unlock daily challenges</li>
+              <li>• Maintain streaks to earn bonus XP</li>
+              <li>• Claim rewards immediately when challenges are completed</li>
+              <li>• Check back daily for new challenges</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Challenges System */}
+      <ChallengesSystem />
     </div>
   );
 }

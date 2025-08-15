@@ -3,8 +3,13 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
+
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export interface QuestionnaireData {
   focus_areas: string[];
@@ -52,8 +57,8 @@ interface ModelMetadata {
 }
 
 class MLAdvancedService {
-  private pythonScriptPath = 'ml_demo_working.py';
-  private modelDir = 'server/ml/models/trained';
+  private pythonScriptPath = path.join(__dirname, '../../ml/ml_demo_working.py');
+  private modelDir = path.join(__dirname, '../models/trained');
   private isInitialized = false;
   private pythonAvailable = false;
 
@@ -175,23 +180,46 @@ with open('${inputFile}', 'r') as f:
     data = json.load(f)
 
 try:
+    # Try to load and use the trained models
     from models.habitPredictor import predictor
-    predictor.load_models()
-    result = predictor.predict_habit_success(data['questionnaire'])
-    print(json.dumps(result))
+    success = predictor.load_models()
+    
+    if success:
+        result = predictor.predict_habit_success(data['questionnaire'])
+        print(json.dumps(result))
+    else:
+        # Fallback to retraining models
+        print("Models not found or incompatible, retraining...")
+        features, success_rates = predictor.generate_synthetic_data(1000)
+        training_result = predictor.train_models(features, success_rates)
+        predictor.save_models()
+        
+        result = predictor.predict_habit_success(data['questionnaire'])
+        print(json.dumps(result))
+        
 except Exception as e:
-    # Fallback calculation
+    # Final fallback calculation
     questionnaire = data['questionnaire']
     mood_score = {'Energized': 0.9, 'Excited': 0.9, 'Balanced': 0.7, 'Stressed': 0.3, 'Unmotivated': 0.1}.get(questionnaire.get('mood_description', 'Balanced'), 0.5)
     motivation_score = {'Intrinsic rewards': 0.9, 'Visual progress': 0.7, 'External accountability': 0.6}.get(questionnaire.get('motivation_type', 'Intrinsic rewards'), 0.5)
-    success_prob = min(0.95, max(0.1, (mood_score + motivation_score) / 2))
+    
+    # Add dynamic factors
+    focus_bonus = len(questionnaire.get('focus_areas', [])) * 0.05
+    current_habits_bonus = len(questionnaire.get('current_habits', [])) * 0.03
+    timing_bonus = 0.1 if questionnaire.get('motivation_time') == questionnaire.get('best_habit_time') else 0
+    
+    success_prob = min(0.95, max(0.1, (mood_score + motivation_score) / 2 + focus_bonus + current_habits_bonus + timing_bonus))
     
     result = {
         'success_probability': success_prob,
         'success_score': success_prob,
         'motivation_cluster': 0,
         'confidence_level': 'high' if success_prob > 0.7 else 'medium' if success_prob > 0.4 else 'low',
-        'recommendations': ['Start with small, achievable goals', 'Set up reminders for consistency']
+        'recommendations': [
+            'Start with small, achievable goals',
+            'Set up reminders for consistency',
+            'Focus on building one habit at a time'
+        ]
     }
     
     print(json.dumps(result))
@@ -314,15 +342,35 @@ except Exception as e:
       const motivationScore = this.calculateMotivationScore(questionnaireData);
       const resilienceScore = this.calculateResilienceScore(questionnaireData);
       const consistencyScore = this.calculateConsistencyScore(questionnaireData);
-      const overallScore = (motivationScore + resilienceScore + consistencyScore) / 3;
+      
+      // Add dynamic factors based on questionnaire data
+      const focusAreaBonus = questionnaireData.focus_areas.length > 0 ? 0.1 : 0;
+      const currentHabitsBonus = questionnaireData.current_habits.length > 0 ? 
+        Math.min(0.15, questionnaireData.current_habits.length * 0.05) : 0;
+      const timingAlignmentBonus = questionnaireData.motivation_time === questionnaireData.best_habit_time ? 0.1 : 0;
+      
+      const overallScore = (
+        motivationScore + 
+        resilienceScore + 
+        consistencyScore + 
+        focusAreaBonus + 
+        currentHabitsBonus + 
+        timingAlignmentBonus
+      ) / 3;
+
+      // Ensure the score is within reasonable bounds
+      const finalScore = Math.min(0.95, Math.max(0.1, overallScore));
 
       return {
-        success_probability: Math.min(0.95, Math.max(0.1, overallScore)),
-        confidence_level: overallScore > 0.7 ? 'high' : overallScore > 0.4 ? 'medium' : 'low',
+        success_probability: finalScore,
+        confidence_level: finalScore > 0.7 ? 'high' : finalScore > 0.4 ? 'medium' : 'low',
         motivation_score: motivationScore,
         resilience_score: resilienceScore,
         consistency_score: consistencyScore,
-        recommendations: this.generateQuestionnaireRecommendations(questionnaireData, overallScore),
+        focus_area_bonus: focusAreaBonus,
+        current_habits_bonus: currentHabitsBonus,
+        timing_alignment_bonus: timingAlignmentBonus,
+        recommendations: this.generateQuestionnaireRecommendations(questionnaireData, finalScore),
         insights: this.generateQuestionnaireInsights(questionnaireData)
       };
     } catch (error) {
@@ -567,8 +615,15 @@ except Exception as e:
 
     const moodScore = moodScores[questionnaire.mood_description] || 0.5;
     const typeScore = motivationTypeScores[questionnaire.motivation_type] || 0.5;
+    
+    // Add bonus for having clear focus areas
+    const focusBonus = questionnaire.focus_areas.length > 0 ? 0.1 : 0;
+    
+    // Add bonus for having existing habits (experience)
+    const experienceBonus = questionnaire.current_habits.length > 0 ? 
+      Math.min(0.15, questionnaire.current_habits.length * 0.03) : 0;
 
-    return (moodScore + typeScore) / 2;
+    return Math.min(1.0, (moodScore + typeScore) / 2 + focusBonus + experienceBonus);
   }
 
   private calculateResilienceScore(questionnaire: QuestionnaireData): number {
@@ -576,15 +631,31 @@ except Exception as e:
       'Determined to restart': 1.0, 'Frustrated': 0.7,
       'Guilty': 0.5, 'Indifferent': 0.3, 'Like giving up': 0.1
     };
-    return resilienceScores[questionnaire.missed_habit_feeling] || 0.5;
+    
+    const baseScore = resilienceScores[questionnaire.missed_habit_feeling] || 0.5;
+    
+    // Add bonus for having clear goals
+    const goalBonus = questionnaire.main_goals && questionnaire.main_goals.length > 10 ? 0.1 : 0;
+    
+    // Penalty for high distraction levels
+    const distractionPenalty = questionnaire.biggest_distraction === 'Phone/social media' ? -0.1 : 0;
+    
+    return Math.min(1.0, Math.max(0.1, baseScore + goalBonus + distractionPenalty));
   }
 
   private calculateConsistencyScore(questionnaire: QuestionnaireData): number {
     const timingConsistency = questionnaire.motivation_time === questionnaire.best_habit_time ? 0.3 : 0.1;
     const motivationConsistency = ['Intrinsic rewards', 'Visual progress'].includes(questionnaire.motivation_type) ? 0.3 : 0.1;
     const resilienceConsistency = questionnaire.missed_habit_feeling === 'Determined to restart' ? 0.4 : 0.2;
+    
+    // Add bonus for morning motivation (statistically better for habit formation)
+    const morningBonus = questionnaire.motivation_time === 'Morning' ? 0.1 : 0;
+    
+    // Add bonus for having existing habits (shows consistency capability)
+    const existingHabitsBonus = questionnaire.current_habits.length > 0 ? 
+      Math.min(0.2, questionnaire.current_habits.length * 0.05) : 0;
 
-    return timingConsistency + motivationConsistency + resilienceConsistency;
+    return Math.min(1.0, timingConsistency + motivationConsistency + resilienceConsistency + morningBonus + existingHabitsBonus);
   }
 
   private assessHabitDifficulty(habitData: any, questionnaire: QuestionnaireData): string {

@@ -1,87 +1,206 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { getCurrentDateString, isSameDay, getTimezoneWarning } from "@/lib/timezone";
 import { Sidebar } from "@/components/Sidebar";
 import { HabitCard } from "@/components/HabitCard";
-import { AIInsightCard } from "@/components/AIInsightCard";
 import { AddHabitModal } from "@/components/AddHabitModal";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
-import { CoachingDashboard } from "@/components/CoachingDashboard";
-import { MLPredictionCard } from "@/components/MLPredictionCard";
 import { HabitRecommendationCarousel } from "@/components/HabitRecommendationCarousel";
+import { MLPredictionCard } from "@/components/MLPredictionCard";
+import { CoachingDashboard } from "@/components/CoachingDashboard";
+import { AIInsightCard } from "@/components/AIInsightCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { format } from "date-fns";
+
+// Extend Window interface for request tracking
+declare global {
+  interface Window {
+    activeRequests?: Set<string>;
+  }
+}
 
 export default function Home() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, refreshUserData, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [debugSectionMinimized, setDebugSectionMinimized] = useState(false);
 
-  const today = format(new Date(), "yyyy-MM-dd");
+  // Get current date in Sri Lanka timezone
+  const today = getCurrentDateString();
 
-  // Redirect if not authenticated
+  // Check for timezone warning
+  const timezoneWarning = getTimezoneWarning();
+
+  // Add timezone warning display
+  const showTimezoneWarning = timezoneWarning && (
+    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <div className="flex items-center">
+        <i className="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+        <span className="text-sm text-yellow-800">{timezoneWarning}</span>
+      </div>
+    </div>
+  );
+
+  // Show loading state while auth is loading
   useEffect(() => {
-    if (!authLoading && !user) {
-      toast({
-        title: "Unauthorized",
-        description: "Please log in to continue",
-        variant: "destructive",
-      });
-      // Redirect to landing page where they can log in
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 500);
+    if (authLoading) {
       return;
     }
   }, [user, authLoading, toast]);
 
-  const { data: habitsResponse, isLoading: habitsLoading } = useQuery({
+  // Query for habits data
+  const { data: habitsResponse, isLoading: habitsLoading } = useQuery<any>({
     queryKey: ["/api/habits"],
     enabled: !!user,
   });
 
-  const { data: completionsResponse, isLoading: completionsLoading } = useQuery(
-    {
-      queryKey: ["/api/completions"],
-      enabled: !!user,
-    }
-  );
+  // Query for completions data with proper cache key
+  const { data: completionsResponse, isLoading: completionsLoading } = useQuery<any>({
+    queryKey: ["/api/completions", today],
+    queryFn: async () => {
+      const response = await apiRequest(`/api/completions?date=${today}`, 'GET');
+      return await response.json();
+    },
+    enabled: !!user,
+    staleTime: 0, // Always refetch to ensure fresh data
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+  });
 
-  const { data: insights } = useQuery({
+  // Query for insights
+  const { data: insights } = useQuery<any>({
     queryKey: ["/api/insights"],
     enabled: !!user,
   });
 
-  const toggleCompletionMutation = useMutation({
-    mutationFn: async ({
-      habitId,
-      completed,
-    }: {
-      habitId: number;
-      completed: boolean;
-    }) => {
-      if (completed) {
-        await apiRequest("/api/completions", "POST", {
-          habitId,
-          completedAt: today,
-          value: 1,
-        });
-      } else {
-        await apiRequest(`/api/completions/${habitId}/${today}`, "DELETE");
+  // Query for streaks data
+  const { data: streaksData } = useQuery<any>({
+    queryKey: ["/api/analytics/streaks"],
+    enabled: !!user,
+  });
+
+  // Query for ML evaluation data
+  const { data: mlEvaluation } = useQuery<any>({
+    queryKey: ["/api/ml/evaluate"],
+    queryFn: async () => {
+      const response = await apiRequest("/api/ml/evaluate", 'GET');
+      return await response.json();
+    },
+    enabled: !!user,
+    staleTime: 30000, // Cache for 30 seconds
+    refetchOnWindowFocus: true,
+  });
+
+  // Habit completion mutation with improved optimistic updates
+  const toggleHabitCompletion = useMutation({
+    mutationFn: async ({ habitId, isCompleted }: { habitId: number; isCompleted: boolean }) => {
+      // Add request deduplication
+      const requestKey = `habit-${habitId}-${isCompleted}`;
+      if (window.activeRequests?.has(requestKey)) {
+        throw new Error("Request already in progress");
+      }
+      
+      // Track active request
+      if (!window.activeRequests) window.activeRequests = new Set();
+      window.activeRequests.add(requestKey);
+      
+      try {
+        if (!isCompleted) {
+          const response = await apiRequest("/api/completions/complete", "POST", {
+            habitId,
+            value: 1,
+          });
+          const result = await response.json();
+          
+          if (result.success && result.data.xpEarned > 0) {
+            toast({
+              title: "Habit Completed! 🎉",
+              description: `+${result.data.xpEarned} XP earned!`,
+            });
+          }
+          return result;
+        } else {
+          const response = await apiRequest("/api/completions/uncomplete", "POST", {
+            habitId,
+          });
+          const result = await response.json();
+          
+          if (result.success && result.data.xpLost > 0) {
+            toast({
+              title: "Habit Uncompleted",
+              description: `-${result.data.xpLost} XP lost`,
+              variant: "destructive",
+            });
+          }
+          return result;
+        }
+      } finally {
+        // Remove request tracking
+        window.activeRequests?.delete(requestKey);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/completions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/streaks"] });
+    onMutate: async ({ habitId, isCompleted }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/completions", today] });
+      
+      // Snapshot the previous value
+      const previousCompletions = queryClient.getQueryData(["/api/completions", today]);
+      
+      // Optimistically update the completions cache with proper date format
+      queryClient.setQueryData(["/api/completions", today], (old: any) => {
+        if (!old) return old;
+        
+        // FIXED: isCompleted means "is currently completed", so we want to add when !isCompleted
+        if (!isCompleted) {
+          // Adding completion - use exact same format as backend
+          const newCompletion = {
+            id: Date.now(), // Temporary ID
+            habitId,
+            userId: user?.id,
+            completedAt: today, // Use exact same date format as backend
+            value: 1,
+            createdAt: new Date().toISOString(),
+          };
+          
+          return {
+            ...old,
+            completions: [...(old.completions || []), newCompletion],
+            count: (old.count || 0) + 1,
+          };
+        } else {
+          // Removing completion
+          return {
+            ...old,
+            completions: (old.completions || []).filter((c: any) => c.habitId !== habitId),
+            count: Math.max(0, (old.count || 0) - 1),
+          };
+        }
+      });
+      
+      // Return context for rollback
+      return { previousCompletions };
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousCompletions) {
+        queryClient.setQueryData(["/api/completions", today], context.previousCompletions);
+      }
+      
+      if (error.message === "Request already in progress") {
+        toast({
+          title: "Please wait",
+          description: "Processing your previous request...",
+          variant: "default",
+        });
+        return;
+      }
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -98,6 +217,26 @@ export default function Home() {
         description: "Failed to update habit completion",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      // Force refetch to ensure cache consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/completions", today] });
+      
+      // Invalidate related queries with proper timing
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/streaks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/xp-calculation"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
+        // Invalidate ML predictions to ensure they update with new user data
+        queryClient.invalidateQueries({ queryKey: ["/api/ml/evaluate"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/ml/predictions"] });
+        
+        // Refresh user data after a delay to ensure XP/level updates
+        setTimeout(() => {
+          refreshUserData();
+        }, 500);
+      }, 100);
     },
   });
 
@@ -116,13 +255,15 @@ export default function Home() {
   const habits = habitsResponse?.habits || [];
   const completions = completionsResponse?.completions || [];
 
-  const todayCompletions = completions.filter(
-    (c) => new Date(c.completedAt).toDateString() === new Date().toDateString()
-  );
-
-  const completedToday =
-    completions.filter((c) => c.completedAt === today) || [];
-  const completedHabitIds = new Set(completedToday.map((c) => c.habitId));
+  // Improved date comparison logic - handle exact string matching
+  const completedToday = completions.filter((c: any) => {
+    // Ensure both dates are in the same format for comparison
+    const completionDate = typeof c.completedAt === 'string' ? c.completedAt : c.completedAt?.toISOString?.()?.split('T')[0];
+    return completionDate === today;
+  }) || [];
+  
+  // Create Set of completed habit IDs for efficient lookup
+  const completedHabitIds = new Set(completedToday.map((c: any) => c.habitId));
 
   const todayStats = {
     completed: completedToday.length,
@@ -132,12 +273,8 @@ export default function Home() {
       : 0,
   };
 
-  const currentStreak = Math.max(
-    ...(habits?.length ? habits.map((h) => 7) : [0])
-  ); // TODO: Get from streaks table
-  const longestStreak = Math.max(
-    ...(habits?.length ? habits.map((h) => 12) : [0])
-  ); // TODO: Get from streaks table
+  const currentStreak = streaksData?.data?.summary?.totalCurrentStreak || 0;
+  const longestStreak = streaksData?.data?.summary?.totalLongestStreak || 0;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
@@ -182,6 +319,7 @@ export default function Home() {
           </div>
 
           <div className="max-w-4xl mx-auto p-6 lg:p-8">
+            {showTimezoneWarning}
             {/* AI Coaching Section */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -195,64 +333,157 @@ export default function Home() {
               <AIInsightCard insight={insights[0]} className="mb-8" />
             )}
 
-            {/* Today's Progress Overview */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">Completed</span>
-                    <i className="fas fa-check-circle text-success"></i>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {todayStats.completed}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    out of {todayStats.total} habits
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Habits</CardTitle>
+                  <i className="fas fa-list text-muted-foreground"></i>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{habits?.length || 0}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Active habits
+                  </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">Streak</span>
-                    <i className="fas fa-fire text-warning"></i>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {longestStreak}
-                  </div>
-                  <div className="text-xs text-gray-500">days longest</div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Today's Progress</CardTitle>
+                  <i className="fas fa-chart-line text-muted-foreground"></i>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{completedToday.length}/{habits?.length || 0}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% completed
+                  </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">This Week</span>
-                    <i className="fas fa-calendar-week text-primary"></i>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {todayStats.completionRate}%
-                  </div>
-                  <div className="text-xs text-gray-500">completion rate</div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
+                  <i className="fas fa-fire text-muted-foreground"></i>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{streaksData?.currentStreak || 0}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Longest: {streaksData?.longestStreak || 0} days
+                  </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-sm">Level</span>
-                    <i className="fas fa-star text-warning"></i>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {user.level || 1}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {180 - (user.xp || 0)} more XP
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Level & XP</CardTitle>
+                  <i className="fas fa-star text-muted-foreground"></i>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">Level {user?.level || 1}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {user?.xp || 0} XP • {100 - ((user?.xp || 0) % 100)} more XP
+                  </p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Debug Section - Data Consistency Check */}
+            {mlEvaluation && (
+              <Card className="mb-6 border-orange-200 bg-orange-50">
+                <CardHeader>
+                  <CardTitle className="text-sm text-orange-800 flex items-center gap-2">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    Data Consistency Check
+                    <div className="ml-auto flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setDebugSectionMinimized(!debugSectionMinimized)}
+                      >
+                        <i className={`fas ${debugSectionMinimized ? 'fa-expand' : 'fa-compress'} mr-2`}></i>
+                        {debugSectionMinimized ? 'Show' : 'Minimize'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={async () => {
+                          try {
+                            const response = await apiRequest("/api/analytics/audit-xp-guest", 'POST');
+                            const result = await response.json();
+                            if (result.success) {
+                              toast({
+                                title: "XP Audit Complete",
+                                description: result.message,
+                              });
+                              // Refresh user data after audit
+                              setTimeout(() => refreshUserData(), 1000);
+                            } else {
+                              toast({
+                                title: "XP Audit Failed",
+                                description: result.error || "Unknown error",
+                                variant: "destructive",
+                              });
+                            }
+                          } catch (error) {
+                            console.error('XP Audit error:', error);
+                            toast({
+                              title: "XP Audit Failed",
+                              description: "Failed to audit XP data",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <i className="fas fa-search mr-2"></i>
+                        Audit XP
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={refreshUserData}
+                      >
+                        <i className="fas fa-sync-alt mr-2"></i>
+                        Refresh User Data
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => window.location.reload()}
+                      >
+                        <i className="fas fa-redo mr-2"></i>
+                        Force Refresh
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                {!debugSectionMinimized && (
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <h4 className="font-semibold text-orange-800 mb-2">Frontend Data (Cached)</h4>
+                        <p>Level: {user?.level || 'N/A'}</p>
+                        <p>XP: {user?.xp || 'N/A'}</p>
+                        <p>Habits: {habits?.length || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-orange-800 mb-2">ML Data (Fresh from DB)</h4>
+                        <p>Level: {mlEvaluation?.user_profile?.level || 'N/A'}</p>
+                        <p>XP: {mlEvaluation?.user_profile?.xp || 'N/A'}</p>
+                        <p>Habits: {mlEvaluation?.user_profile?.existing_habits_count || 'N/A'}</p>
+                        <p>Success Rate: {mlEvaluation?.interpretation?.success_probability || 'N/A'}</p>
+                      </div>
+                    </div>
+                    {(user?.level !== mlEvaluation?.user_profile?.level || 
+                      user?.xp !== mlEvaluation?.user_profile?.xp) && (
+                      <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-xs">
+                        ⚠️ Data mismatch detected! Frontend is using stale data. Click "Refresh User Data" to sync.
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            )}
 
             {/* AI Habit Recommendations */}
             <div className="mb-8">
@@ -293,18 +524,18 @@ export default function Home() {
               </div>
 
               <div className="space-y-4">
-                {habits.map((habit) => (
+                {habits.map((habit: any) => (
                   <HabitCard
                     key={habit.id}
                     habit={habit}
                     completed={completedHabitIds.has(habit.id)}
-                    onToggle={(completed) =>
-                      toggleCompletionMutation.mutate({
+                    onToggle={(completed) => {
+                      toggleHabitCompletion.mutate({
                         habitId: habit.id,
-                        completed,
-                      })
-                    }
-                    loading={toggleCompletionMutation.isPending}
+                        isCompleted: completedHabitIds.has(habit.id), // Pass current completion status, not desired status
+                      });
+                    }}
+                    loading={toggleHabitCompletion.isPending}
                   />
                 ))}
 

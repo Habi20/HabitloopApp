@@ -1,101 +1,627 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AuthContextType, User } from '@/types';
 
-interface User {
-  id: string;
-  email: string;
-  user_metadata?: {
-    first_name?: string;
-    last_name?: string;
-  };
-}
+const AuthContext = createContext<AuthContextType | null>(null);
 
-interface AuthContextType {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string,
-  ) => Promise<void>;
-  signOut: () => Promise<void>;
-  signInWithGoogle: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
+  // Sync state with localStorage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      checkAuthStatus();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check localStorage immediately if user state is null
+    const checkLocalStorage = () => {
+      const verifiedUser = localStorage.getItem('verifiedUser');
+      const guestUser = localStorage.getItem('guestUser');
+      const authUser = localStorage.getItem('authUser');
+      
+      if (verifiedUser && !user?.id) {
+        try {
+          const userData = JSON.parse(verifiedUser);
+          if (userData && userData.id) {
+            setUser(userData);
+            setIsAuthenticated(true);
+            console.log('🔐 AuthContext: Verified user synced from localStorage:', userData.firstName);
+          }
+        } catch (error) {
+          console.warn('Failed to parse verified user from localStorage:', error);
+        }
+      } else if (guestUser && !user?.id) {
+        try {
+          const userData = JSON.parse(guestUser);
+          if (userData && userData.id) {
+            setUser(userData);
+            setIsAuthenticated(true);
+            console.log('🔐 AuthContext: Guest user synced from localStorage:', userData.firstName);
+          }
+        } catch (error) {
+          console.warn('Failed to parse guest user from localStorage:', error);
+        }
+      } else if (authUser && !user?.id) {
+        try {
+          const userData = JSON.parse(authUser);
+          if (userData && userData.id) {
+            setUser(userData);
+            setIsAuthenticated(true);
+            console.log('🔐 AuthContext: Auth user synced from localStorage:', userData.firstName);
+          }
+        } catch (error) {
+          console.warn('Failed to parse auth user from localStorage:', error);
+        }
+      }
+    };
+    
+    checkLocalStorage();
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [user?.id]);
+
   const checkAuthStatus = async () => {
     try {
-      const response = await axios.get("/api/auth/user");
-      setUser(response.data);
-    } catch (error) {
+      setIsLoading(true);
+      
+                      // Step 1: Check for stored user data first (avoid unnecessary API calls)
+                const storedGuestUser = localStorage.getItem('guestUser');
+                const storedVerifiedUser = localStorage.getItem('verifiedUser');
+                const storedAuthUser = localStorage.getItem('authUser');
+                
+                if (storedGuestUser) {
+                  try {
+                    const guestUser = JSON.parse(storedGuestUser);
+                    if (guestUser && guestUser.isGuest && guestUser.id) {
+                      setUser(guestUser);
+                      setIsAuthenticated(true);
+                      setIsLoading(false);
+                      return;
+                    }
+                  } catch (error) {
+                    console.warn('Failed to parse stored guest user:', error);
+                    localStorage.removeItem('guestUser');
+                  }
+                }
+                
+                if (storedVerifiedUser) {
+                  try {
+                    const verifiedUser = JSON.parse(storedVerifiedUser);
+                    if (verifiedUser && !verifiedUser.isGuest && verifiedUser.id) {
+                      setUser(verifiedUser);
+                      setIsAuthenticated(true);
+                      setIsLoading(false);
+                      return;
+                    }
+                  } catch (error) {
+                    console.warn('Failed to parse stored verified user:', error);
+                    localStorage.removeItem('verifiedUser');
+                  }
+                }
+                
+                if (storedAuthUser) {
+                  try {
+                    const authUser = JSON.parse(storedAuthUser);
+                    if (authUser && !authUser.isGuest && authUser.id) {
+                      setUser(authUser);
+                      setIsAuthenticated(true);
+                      setIsLoading(false);
+                      return;
+                    }
+                  } catch (error) {
+                    console.warn('Failed to parse stored auth user:', error);
+                    localStorage.removeItem('authUser');
+                  }
+                }
+      
+      // Step 2: Check for JWT tokens (only if no stored data)
+      const guestToken = localStorage.getItem('guest_token');
+      const verifiedToken = localStorage.getItem('verified_token');
+      
+      if (guestToken) {
+        try {
+          const response = await fetch('/api/guest/verify', {
+            headers: { 'Authorization': `Bearer ${guestToken}` }
+          });
+          
+          if (response.ok) {
+            const { user: userData } = await response.json();
+            if (userData && userData.id) {
+              setUser(userData);
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('Guest token verification failed:', error);
+        }
+        
+        // Clear invalid guest token
+        localStorage.removeItem('guest_token');
+        localStorage.removeItem('guestUser');
+      }
+      
+      if (verifiedToken) {
+        try {
+          const response = await fetch('/api/guest/verify', {
+            headers: { 'Authorization': `Bearer ${verifiedToken}` }
+          });
+          
+          if (response.ok) {
+            const { user: userData } = await response.json();
+            if (userData && userData.id) {
+              setUser(userData);
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('Verified token verification failed:', error);
+        }
+        
+        // Clear invalid verified token
+        localStorage.removeItem('verified_token');
+        localStorage.removeItem('verifiedUser');
+      }
+
+      // Step 3: Check for authenticated Supabase session (only if no stored data)
+      const authToken = localStorage.getItem('auth_token');
+      if (authToken) {
+        try {
+          const response = await fetch('/api/auth/user', {
+            credentials: 'include',
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData && userData.id) {
+              // Ensure this is not marked as guest
+              const authenticatedUser = {
+                ...userData,
+                isGuest: false
+              };
+              setUser(authenticatedUser);
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('Authenticated session check failed:', error);
+        }
+      }
+
+      // No valid session found
       setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setUser(null);
+      setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const response = await axios.post("/api/auth/signin", { email, password });
-    setUser(response.data.user);
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.user) {
+        // Clear any guest data when authenticating
+        localStorage.removeItem('guest_token');
+        localStorage.removeItem('guestUser');
+        
+        // Store authenticated user data based on user type
+        const authenticatedUser = {
+          id: data.user.id,
+          email: data.user.email,
+          firstName: data.user.firstName || data.user.first_name,
+          lastName: data.user.lastName || data.user.last_name,
+          level: data.user.level || 1,
+          xp: data.user.xp || 0,
+          role: data.user.role || 'user',
+          isGuest: false,
+          difficulty: data.user.difficulty || 'medium',
+          profileImageUrl: data.user.profileImageUrl || data.user.profile_image_url
+        };
+        
+        // Store auth user data
+        localStorage.setItem('authUser', JSON.stringify(authenticatedUser));
+        
+        setUser(authenticatedUser);
+        setIsAuthenticated(true);
+        
+        // Store session token if available
+        if (data.session?.access_token) {
+          localStorage.setItem('auth_token', data.session.access_token);
+        }
+      } else {
+        throw new Error(data.error?.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
-  const signUp = async (
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string,
-  ) => {
-    const response = await axios.post("/api/auth/signup", {
-      email,
-      password,
-      firstName,
-      lastName,
+  const loginAsGuest = async (userData?: any) => {
+    console.log('🔐 AuthContext: loginAsGuest called with:', {
+      hasUserData: !!userData,
+      userDataKeys: userData ? Object.keys(userData) : [],
+      userData: userData ? JSON.stringify(userData, null, 2) : 'undefined'
     });
-    setUser(response.data.user);
+    
+    let user: User;
+    
+    if (userData && userData.user && userData.user.id) {
+      // Use provided user data (from backend)
+      const userInfo = userData.user;
+      const isActuallyGuest = userInfo.isGuest || 
+                             userInfo.role === 'guest' || 
+                             userInfo.email?.includes('@guest.local');
+      
+      user = {
+        id: userInfo.id,
+        email: userInfo.email || '',
+        firstName: userInfo.firstName || userInfo.first_name || 'Guest',
+        lastName: userInfo.lastName || userInfo.last_name || 'User',
+        level: userInfo.level || 1,
+        xp: userInfo.xp || 0,
+        role: userInfo.role || 'guest',
+        isGuest: isActuallyGuest,
+        difficulty: userInfo.difficulty || 'medium',
+        profileImageUrl: userInfo.profileImageUrl || userInfo.profile_image_url
+      };
+      
+      console.log('🔐 AuthContext: Processing user data:', {
+        userId: user.id,
+        userName: `${user.firstName} ${user.lastName}`,
+        isGuest: user.isGuest,
+        email: user.email,
+        role: user.role
+      });
+
+      // Store JWT token and user data based on user type
+      if (userData.token && user.id) {
+        console.log('🔐 AuthContext: Token and user ID present, storing data...');
+        console.log('🔐 AuthContext: isActuallyGuest:', isActuallyGuest);
+        console.log('🔐 AuthContext: Token length:', userData.token.length);
+        
+        if (isActuallyGuest) {
+          // Guest user - store as guest
+          localStorage.setItem('guest_token', userData.token);
+          localStorage.setItem('guestUser', JSON.stringify(user));
+          localStorage.removeItem('verified_token');
+          localStorage.removeItem('verifiedUser');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('authUser');
+          console.log('🔐 AuthContext: Stored as guest user');
+        } else {
+          // JWT-based authenticated user - store as verified
+          localStorage.setItem('verified_token', userData.token);
+          localStorage.setItem('verifiedUser', JSON.stringify(user));
+          localStorage.removeItem('guest_token');
+          localStorage.removeItem('guestUser');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('authUser');
+          console.log('🔐 AuthContext: Stored as verified user');
+          console.log('🔐 AuthContext: verifiedUser stored:', JSON.stringify(user, null, 2));
+        }
+      } else {
+        console.warn('🔐 AuthContext: Missing token or user ID!');
+        console.warn('🔐 AuthContext: userData.token:', !!userData.token);
+        console.warn('🔐 AuthContext: user.id:', !!user.id);
+      }
+    } else {
+      // Create temporary guest user (quick mode)
+      user = {
+        id: `temp-guest-${Date.now()}`,
+        email: '',
+        firstName: 'Guest',
+        lastName: 'User',
+        level: 1,
+        xp: 0,
+        role: 'guest',
+        isGuest: true,
+        difficulty: 'medium'
+      };
+      
+      // Store temporary guest data (always as guest, never as verified)
+      localStorage.setItem('guestUser', JSON.stringify(user));
+      localStorage.removeItem('verified_token');
+      localStorage.removeItem('verifiedUser');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('authUser');
+    }
+    
+    setUser(user);
+    setIsAuthenticated(true);
+    
+    console.log('🔐 AuthContext: User state updated:', {
+      userId: user.id,
+      userName: `${user.firstName} ${user.lastName}`,
+      isGuest: user.isGuest,
+      storageKey: user.isGuest ? 'guestUser' : 'verifiedUser'
+    });
   };
 
-  const signOut = async () => {
-    await axios.post("/api/auth/signout");
+  const loginAsHabitLoopUser = async (userData: any) => {
+    console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', {
+      userData: JSON.stringify(userData, null, 2)
+    });
+    
+    try {
+      // Call backend to login as HabitLoop user
+      const response = await fetch('/api/auth/habitloop-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userData.id })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to login as HabitLoop user');
+      }
+
+      // Create user object from HabitLoop user data
+      const user: User = {
+        id: userData.id,
+        email: `${userData.username}@habitloop.local`,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        level: userData.level,
+        xp: userData.xp,
+        role: 'habitloop_user',
+        isGuest: false,
+        difficulty: userData.difficulty,
+        profileImageUrl: userData.avatar
+      };
+
+      // Store as verified user (not guest)
+      localStorage.setItem('verified_token', data.token);
+      localStorage.setItem('verifiedUser', JSON.stringify(user));
+      localStorage.removeItem('guest_token');
+      localStorage.removeItem('guestUser');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('authUser');
+      
+      setUser(user);
+      setIsAuthenticated(true);
+      
+      console.log('🔐 AuthContext: HabitLoop user logged in:', {
+        userId: user.id,
+        userName: `${user.firstName} ${user.lastName}`,
+        isGuest: user.isGuest,
+        storageKey: 'verifiedUser'
+      });
+    } catch (error) {
+      console.error('🔐 AuthContext: Error logging in as HabitLoop user:', error);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
     setUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('verifiedUser');
+    localStorage.removeItem('guestUser');
+    localStorage.removeItem('authUser');
+    localStorage.removeItem('verified_token');
+    localStorage.removeItem('guest_token');
+    localStorage.removeItem('auth_token');
+    window.location.href = '/';
   };
 
-  const signInWithGoogle = () => {
-    window.location.href = "/api/auth/google";
+  // Function to refresh user data from backend
+  const refreshUserData = async () => {
+    try {
+      const guestToken = localStorage.getItem('guest_token');
+      const verifiedToken = localStorage.getItem('verified_token');
+      const authToken = localStorage.getItem('auth_token');
+      
+      let token = guestToken || verifiedToken || authToken;
+      
+      if (!token) {
+        console.warn('No token found for user data refresh');
+        return;
+      }
+
+      console.log('🔐 AuthContext: Refreshing user data with token length:', token.length);
+
+      const response = await fetch('/api/auth/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setIsAuthenticated(true);
+        
+        // Update localStorage with fresh data
+        if (userData.isGuest) {
+          localStorage.setItem('guestUser', JSON.stringify(userData));
+        } else {
+          localStorage.setItem('verifiedUser', JSON.stringify(userData));
+        }
+        
+        console.log('🔐 AuthContext: User data refreshed from backend:', userData);
+        return userData;
+      } else {
+        console.warn('Failed to refresh user data:', response.status, response.statusText);
+        
+        // Try alternative endpoint for guest users
+        if (response.status === 401) {
+          console.log('🔐 AuthContext: Trying guest-compatible endpoint...');
+          const guestResponse = await fetch('/api/guest/auth', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (guestResponse.ok) {
+            const guestData = await guestResponse.json();
+            if (guestData.success && guestData.user) {
+              setUser(guestData.user);
+              setIsAuthenticated(true);
+              localStorage.setItem('guestUser', JSON.stringify(guestData.user));
+              console.log('🔐 AuthContext: User data refreshed via guest endpoint:', guestData.user);
+              return guestData.user;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
+
+  const signup = async (email: string, password: string, firstName: string, lastName: string) => {
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, firstName, lastName })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.user) {
+        // Clear any guest data when signing up
+        localStorage.removeItem('guest_token');
+        localStorage.removeItem('guestUser');
+        
+        // Store authenticated user data based on user type
+        const authenticatedUser = {
+          id: data.user.id,
+          email: data.user.email,
+          firstName: data.user.firstName || data.user.first_name,
+          lastName: data.user.lastName || data.user.last_name,
+          level: data.user.level || 1,
+          xp: data.user.xp || 0,
+          role: data.user.role || 'user',
+          isGuest: false,
+          difficulty: data.user.difficulty || 'medium',
+          profileImageUrl: data.user.profileImageUrl || data.user.profile_image_url
+        };
+        
+        // Store auth user data
+        localStorage.setItem('authUser', JSON.stringify(authenticatedUser));
+        
+        setUser(authenticatedUser);
+        setIsAuthenticated(true);
+        
+        if (data.session?.access_token) {
+          localStorage.setItem('auth_token', data.session.access_token);
+        }
+      } else {
+        throw new Error(data.error?.message || 'Signup failed');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
+  };
+
+  // Helper functions for user data
+  const getUserDisplayName = (user: User | null): string => {
+    if (!user) return '';
+    if (user.isGuest) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName}`
+      : user.email || 'User';
+  };
+
+  const getUserEmail = (user: User | null): string => {
+    return user?.email || '';
+  };
+
+  const getUserInitials = (user: User | null): string => {
+    if (!user) return '';
+    const firstName = user.firstName || '';
+    const lastName = user.lastName || '';
+    const email = user.email || '';
+    
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
+    }
+    if (firstName) {
+      return firstName[0].toUpperCase();
+    }
+    if (email) {
+      return email[0].toUpperCase();
+    }
+    return 'U';
+  };
+
+  const getCurrentUser = (): User | null => {
+    return user;
+  };
+
+  const isGuestUser = (): boolean => {
+    return user?.isGuest || false;
+  };
+
+  const isAuthenticatedUser = (): boolean => {
+    return isAuthenticated && !user?.isGuest;
+  };
+
+  const value: AuthContextType = {
+    user,
+    login,
+    logout,
+    loginAsGuest,
+    loginAsHabitLoopUser,
+    signup,
+    isAuthenticated,
+    isLoading,
+    checkAuthStatus,
+    refreshUserData,
+    getUserDisplayName,
+    getUserEmail,
+    getUserInitials,
+    getCurrentUser,
+    isGuestUser,
+    isAuthenticatedUser,
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        signIn,
-        signUp,
-        signOut,
-        signInWithGoogle,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};

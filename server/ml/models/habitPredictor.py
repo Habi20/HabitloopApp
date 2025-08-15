@@ -261,7 +261,7 @@ class HabitPredictorEnsemble:
 
         return recommendations
 
-    def save_models(self, model_dir: str = "server/ml/models/trained"):
+    def save_models(self, model_dir: str = "ml/models/trained"):
         """Save trained models to disk"""
         os.makedirs(model_dir, exist_ok=True)
 
@@ -277,7 +277,7 @@ class HabitPredictorEnsemble:
                 'model_version': '1.0'
             }, f)
 
-    def load_models(self, model_dir: str = "server/ml/models/trained"):
+    def load_models(self, model_dir: str = "ml/models/trained"):
         """Load trained models from disk"""
         try:
             self.habit_success_classifier = joblib.load(f"{model_dir}/habit_classifier.pkl")

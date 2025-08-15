@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Habit {
   id: number;
@@ -22,8 +23,43 @@ interface HabitCardProps {
   loading?: boolean;
 }
 
+interface HabitPerformanceScore {
+  performance_score: number;
+  confidence_level: string;
+  metrics: {
+    completion_rate: number;
+    current_streak: number;
+    longest_streak: number;
+    total_completions: number;
+    total_days: number;
+  };
+  recommendations: string[];
+}
+
 export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProps) {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [performanceScore, setPerformanceScore] = useState<HabitPerformanceScore | null>(null);
+  const [loadingScore, setLoadingScore] = useState(false);
+
+  // Fetch habit performance score
+  useEffect(() => {
+    const fetchPerformanceScore = async () => {
+      try {
+        setLoadingScore(true);
+        const response = await apiRequest(`/api/ml/habit-scores/${habit.id}`, 'GET');
+        const data = await response.json();
+        if (data.success) {
+          setPerformanceScore(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch habit performance score:', error);
+      } finally {
+        setLoadingScore(false);
+      }
+    };
+
+    fetchPerformanceScore();
+  }, [habit.id]);
 
   const handleToggle = () => {
     if (loading) return;
@@ -101,7 +137,7 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <span className="flex items-center space-x-1">
                 <i className="fas fa-fire text-warning"></i>
-                <span>7 day streak</span>
+                <span className="streak-display">Loading...</span>
               </span>
               {habit.reminderTime && (
                 <span className="flex items-center space-x-1">
@@ -109,7 +145,58 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
                   <span>{habit.reminderTime}</span>
                 </span>
               )}
+              {completed && (
+                <span className="flex items-center space-x-1 text-success">
+                  <i className="fas fa-check-circle"></i>
+                  <span>Completed today</span>
+                </span>
+              )}
             </div>
+            
+            {/* ML Performance Score */}
+            {performanceScore && (
+              <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <i className="fas fa-chart-line text-blue-600"></i>
+                    <span className="text-xs font-medium text-gray-700">ML Score:</span>
+                    <span className={cn(
+                      "text-sm font-bold",
+                      performanceScore.performance_score >= 80 ? "text-green-600" :
+                      performanceScore.performance_score >= 50 ? "text-yellow-600" : "text-red-600"
+                    )}>
+                      {performanceScore.performance_score}%
+                    </span>
+                    <Badge variant="outline" className={cn(
+                      "text-xs",
+                      performanceScore.confidence_level === 'high' ? "border-green-300 text-green-700" :
+                      performanceScore.confidence_level === 'medium' ? "border-yellow-300 text-yellow-700" : "border-red-300 text-red-700"
+                    )}>
+                      {performanceScore.confidence_level}
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {performanceScore.metrics.current_streak > 0 ? 
+                      `${performanceScore.metrics.current_streak} day streak` : 
+                      'No streak yet'
+                    }
+                  </div>
+                </div>
+                {performanceScore.performance_score < 50 && performanceScore.recommendations.length > 0 && (
+                  <div className="mt-1 text-xs text-gray-600">
+                    💡 {performanceScore.recommendations[0]}
+                  </div>
+                )}
+              </div>
+            )}
+            {loadingScore && (
+              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                  <span className="text-xs text-gray-500">Calculating performance...</span>
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="text-right">

@@ -16,16 +16,48 @@ export async function apiRequest(
     ...(data ? { "Content-Type": "application/json" } : {}),
   };
 
-  // Get session token from localStorage
-  const session = localStorage.getItem("sb-" + import.meta.env.VITE_SUPABASE_PROJECT_ID + "-auth-token");
-  if (session) {
+  // Get JWT tokens first (for guest and verified users)
+  const guestToken = localStorage.getItem("guest_token");
+  const verifiedToken = localStorage.getItem("verified_token");
+  
+  // TEMPORARY EXCEPTION - REMOVE AFTER SUPABASE FIX
+  // Special handling for akeel.lithan@gmail.com to use Supabase auth for email testing
+  const authUser = localStorage.getItem("authUser");
+  let isExceptionUser = false;
+  if (authUser) {
     try {
-      const { access_token } = JSON.parse(session);
-      if (access_token) {
-        headers["Authorization"] = `Bearer ${access_token}`;
+      const userData = JSON.parse(authUser);
+      if (userData.email === 'akeel.lithan@gmail.com') {
+        isExceptionUser = true;
+        console.log('🔧 Using Supabase auth exception for akeel.lithan@gmail.com');
       }
     } catch (e) {
-      console.warn("Failed to parse auth token:", e);
+      console.warn("Failed to parse authUser:", e);
+    }
+  }
+  
+  if (isExceptionUser) {
+    // For akeel.lithan@gmail.com, prioritize Supabase auth_token
+    const authToken = localStorage.getItem("auth_token");
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
+  } else if (guestToken) {
+    headers["Authorization"] = `Bearer ${guestToken}`;
+  } else if (verifiedToken) {
+    headers["Authorization"] = `Bearer ${verifiedToken}`;
+  } else {
+    // Fallback to Supabase token
+    const session = localStorage.getItem("sb-" + import.meta.env.VITE_SUPABASE_PROJECT_ID + "-auth-token");
+    if (session) {
+      try {
+        const { access_token } = JSON.parse(session);
+        if (access_token) {
+          headers["Authorization"] = `Bearer ${access_token}`;
+        }
+      } catch (e) {
+        console.warn("Failed to parse auth token:", e);
+      }
     }
   }
 
@@ -48,16 +80,48 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const headers: Record<string, string> = {};
 
-    // Get session token from localStorage
-    const session = localStorage.getItem("sb-" + import.meta.env.VITE_SUPABASE_PROJECT_ID + "-auth-token");
-    if (session) {
+    // Get JWT tokens first (for guest and verified users)
+    const guestToken = localStorage.getItem("guest_token");
+    const verifiedToken = localStorage.getItem("verified_token");
+    
+    // TEMPORARY EXCEPTION - REMOVE AFTER SUPABASE FIX
+    // Special handling for akeel.lithan@gmail.com to use Supabase auth for email testing
+    const authUser = localStorage.getItem("authUser");
+    let isExceptionUser = false;
+    if (authUser) {
       try {
-        const { access_token } = JSON.parse(session);
-        if (access_token) {
-          headers["Authorization"] = `Bearer ${access_token}`;
+        const userData = JSON.parse(authUser);
+        if (userData.email === 'akeel.lithan@gmail.com') {
+          isExceptionUser = true;
+          console.log('🔧 Using Supabase auth exception for akeel.lithan@gmail.com');
         }
       } catch (e) {
-        console.warn("Failed to parse auth token:", e);
+        console.warn("Failed to parse authUser:", e);
+      }
+    }
+    
+    if (isExceptionUser) {
+      // For akeel.lithan@gmail.com, prioritize Supabase auth_token
+      const authToken = localStorage.getItem("auth_token");
+      if (authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
+      }
+    } else if (guestToken) {
+      headers["Authorization"] = `Bearer ${guestToken}`;
+    } else if (verifiedToken) {
+      headers["Authorization"] = `Bearer ${verifiedToken}`;
+    } else {
+      // Fallback to Supabase token
+      const session = localStorage.getItem("sb-" + import.meta.env.VITE_SUPABASE_PROJECT_ID + "-auth-token");
+      if (session) {
+        try {
+          const { access_token } = JSON.parse(session);
+          if (access_token) {
+            headers["Authorization"] = `Bearer ${access_token}`;
+          }
+        } catch (e) {
+          console.warn("Failed to parse auth token:", e);
+        }
       }
     }
 

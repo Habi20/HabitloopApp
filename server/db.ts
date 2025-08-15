@@ -4,16 +4,16 @@ import { Pool } from 'pg';
 import { env } from './env';
 import * as schema from '../shared/schema';
 
-// ✅ ENHANCED: SSL configuration for self-signed certificates with better timeout handling
+// ✅ ENHANCED: SSL configuration for local development and production
 const pool = new Pool({
-  connectionString: env.dbUrl,
-  ssl: env.nodeEnv === 'production' 
+  connectionString: env.DATABASE_URL,
+  ssl: env.NODE_ENV === 'production' 
     ? { rejectUnauthorized: false } 
-    : { rejectUnauthorized: false }, // ✅ Always allow self-signed certs
+    : false, // ✅ Disable SSL for local development
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 30000, // ✅ Increased from 10s to 30s
-  // ✅ Enhanced configuration for SSL connections
+  // ✅ Enhanced configuration for connections
   application_name: 'habitloop-app',
   keepAlive: true,
   keepAliveInitialDelayMillis: 0,

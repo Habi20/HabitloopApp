@@ -2,7 +2,7 @@
 import { env } from '../env';
 import { storage } from '../storage';
 import { mlAdvancedService } from '../ml/services/mlAdvancedService';
-import openaiService from '../openai';
+import openaiService from '../openaiService';
 
 export class VisualTestingFramework {
   private demoData: any = {};

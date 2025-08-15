@@ -5,56 +5,79 @@ import { z } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 import { fromZodError } from 'zod-validation-error';
 import { storage } from '../storage';
-import { env } from '../env';
+import { typedEnv } from '../env';
 import { supabase } from '../supabaseAuth';
+import jwt from 'jsonwebtoken';
 
 export function setupSession(app: any) {
-  const pgStore = connectPg(session);
-
-  // ✅ ENHANCED: Session store with SSL self-signed certificate support
-  const sessionStore = new pgStore({
-    conString: env.dbUrl,
-    createTableIfMissing: true,
-    ttl: 7 * 24 * 60 * 60,
-    tableName: "sessions",
-    schemaName: "public",
-    pruneSessionInterval: 60,
-    errorLog: (...args: any[]) => {
-      console.error('Session store error:', ...args);
-      // ✅ Don't log SSL certificate errors as critical
-      if (args[0]?.includes && args[0].includes('self-signed certificate')) {
-        console.warn('⚠️ SSL certificate warning (expected with Supabase) - session store continues');
+  // Use memory store for development to avoid PostgreSQL session issues
+  if (typedEnv.nodeEnv === 'development') {
+    console.log('🔧 Using memory session store for development');
+    app.use(session({
+      secret: typedEnv.sessionSecret,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: false, // Allow non-HTTPS for development
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       }
-    }
-  });
+    }));
+  } else {
+    // Use PostgreSQL store for production
+    const pgStore = connectPg(session);
 
-  // ✅ Enhanced session store error handling
-  sessionStore.on('error', (err) => {
-    if (err.message?.includes('self-signed certificate') || 
-        err.message?.includes('SELF_SIGNED_CERT_IN_CHAIN')) {
-      console.warn('⚠️ Session store SSL warning (expected with Supabase):', err.message);
-    } else if (err.message?.includes('SCRAM') || err.message?.includes('SASL')) {
-      console.error('❌ Session store SCRAM authentication failed - check DATABASE_URL password');
-    } else {
-      console.error('Session store error:', err.message);
-    }
-  });
+    // ✅ ENHANCED: Session store with SSL self-signed certificate support
+    const sessionStore = new pgStore({
+      conString: typedEnv.dbUrl,
+      createTableIfMissing: true,
+      ttl: 7 * 24 * 60 * 60,
+      tableName: "sessions",
+      schemaName: "public",
+      pruneSessionInterval: 60,
+      errorLog: (...args: any[]) => {
+        console.error('Session store error:', ...args);
+        // ✅ Don't log SSL certificate errors as critical
+        if (args[0]?.includes && args[0].includes('self-signed certificate')) {
+          console.warn('⚠️ SSL certificate warning (expected with Supabase) - session store continues');
+        }
+      }
+    });
 
-  app.use(session({
-    secret: env.sessionSecret,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: env.nodeEnv === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    }
-  }));
+    // ✅ Enhanced session store error handling
+    sessionStore.on('error', (err) => {
+      if (err.message?.includes('self-signed certificate') || 
+          err.message?.includes('SELF_SIGNED_CERT_IN_CHAIN')) {
+        console.warn('⚠️ Session store SSL warning (expected with Supabase):', err.message);
+      } else if (err.message?.includes('SCRAM') || err.message?.includes('SASL')) {
+        console.error('❌ Session store SCRAM authentication failed - check DATABASE_URL password');
+      } else {
+        console.error('Session store error:', err.message);
+      }
+    });
+
+    app.use(session({
+      secret: typedEnv.sessionSecret,
+      store: sessionStore,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: typedEnv.nodeEnv === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      }
+    }));
+  }
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
+    // Ensure response object is properly set up
+    if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
+      console.error('Invalid response object in requireAuth middleware:', res);
+      throw new Error('Invalid response object');
+    }
+
     const token = req.headers.authorization?.replace('Bearer ', '') || req.session?.token;
 
     if (!token) {
@@ -64,7 +87,46 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       });
     }
 
+    // Check for JWT token (both guest and authenticated users) first
+    if (token && token.includes('.')) {
+      try {
+        const jwtSecret = typedEnv.jwtSecret;
+        const decoded = jwt.verify(token, jwtSecret) as any;
+        
+        // Handle both guest and authenticated JWT tokens
+        const user = await storage.getUser(decoded.userId);
+        if (user) {
+          req.user = {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            level: user.level,
+            xp: user.xp,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            passwordHash: user.passwordHash,
+            profileImageUrl: user.profileImageUrl,
+            isGuest: user.isGuest,
+            questionnaire: user.questionnaire,
+            emailSettings: user.emailSettings,
+            difficulty: user.difficulty,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+          };
+          return next();
+        }
+      } catch (jwtError) {
+        console.log('❌ JWT verification failed:', jwtError);
+      }
+    }
+
     // Use Supabase to verify the JWT
+    if (!supabase) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Authentication service not available' }
+      });
+    }
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {

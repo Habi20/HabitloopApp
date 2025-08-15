@@ -48,12 +48,13 @@
     "express",
     "monorepo"
   ],
-  "author": "HabitLoop Team",
+  "author": "Akeel Rizwan",
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.52.1",
     "@tailwindcss/typography": "^0.5.16",
     "dotenv": "^17.2.1",
+    "node-fetch": "^2.7.0",
     "openai": "^4.20.1",
     "wouter": "^3.7.1",
     "zod-validation-error": "^4.0.1"

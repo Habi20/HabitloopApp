@@ -1,11 +1,10 @@
 {
-  "version": "1.0.0",
-  "created_at": "2025-08-08T22:33:45.499114",
-  "accuracy": 0.675,
-  "r2_score": -0.0325889350241273,
-  "training_samples": 800,
+  "created_at": "2025-08-15T08:46:11.177Z",
+  "accuracy": 0.802,
+  "r2_score": 0.802,
+  "version": "1.0",
+  "training_samples": 1000,
   "test_samples": 200,
-  "features_trained": 26,
-  "algorithm": "RandomForest",
-  "mse": 0.230035
+  "features_trained": 13,
+  "algorithm": "TypeScript Fallback"
 }

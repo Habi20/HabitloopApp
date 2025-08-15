@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { Habit, Completion } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -44,9 +45,9 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
     enabled: open,
   });
 
-  // Extract data from the response structure
-  const habits = habitsResponse?.habits || [];
-  const completions = completionsResponse?.completions || [];
+  // Extract data from the response structure with proper typing
+  const habits: Habit[] = (habitsResponse as any)?.habits || [];
+  const completions: Completion[] = (completionsResponse as any)?.completions || [];
 
   const generateInsightMutation = useMutation({
     mutationFn: async (type: string) => {
@@ -325,7 +326,7 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
                     Your Current Habits
                   </h4>
                   <div className="space-y-2">
-                    {habits.slice(0, 3).map((habit: any) => (
+                    {habits.slice(0, 3).map((habit: Habit) => (
                       <div
                         key={habit.id}
                         className="flex items-center justify-between text-sm"

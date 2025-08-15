@@ -1,266 +1,295 @@
 // server/routes/emailRoutes.ts
-import { Router } from "express";
-import { requireAuth } from "./middlewareRoutes";
-import { storage } from "../storage";
+import express from 'express';
+import { EmailService } from '../services/emailService';
+import { requireAuth } from './middlewareRoutes';
+import { storage } from '../storage';
 
-// Define proper types for email settings
-interface EmailSettings {
-  email?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  clientId?: string;
-  clientSecret?: string;
-  preferences?: EmailPreferences;
-}
+const router = express.Router();
 
-interface EmailPreferences {
-  dailyReminders: boolean;
-  weeklyProgress: boolean;
-  aiInsights: boolean;
-  streakMilestones: boolean;
-  motivationalMessages: boolean;
-}
-
-export function emailRoutes() {
-  const router = Router();
-  const getUserId = (req: any) => req.user.id;
-
-  // Email integration status
-  router.get('/status', requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const user = await storage.getUser(userId);
-      
-      // Fixed: Add null check for user
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const emailSettings = user.emailSettings as EmailSettings | undefined;
-      
-      if (emailSettings?.accessToken) {
-        res.json({ 
-          connected: true, 
-          email: user.email || emailSettings.email 
-        });
-      } else {
-        res.json({ connected: false });
-      }
-    } catch (error) {
-      console.error("Error checking email status:", error);
-      res.status(500).json({ message: "Failed to check email status" });
-    }
-  });
-
-  // Get email settings
-  router.get('/settings', requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const user = await storage.getUser(userId);
-      
-      // Fixed: Add null check for user
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const emailSettings = user.emailSettings as EmailSettings | undefined;
-      
-      res.json(emailSettings?.preferences || {
-        dailyReminders: false,
-        weeklyProgress: false,
-        aiInsights: false,
-        streakMilestones: false,
-        motivationalMessages: false,
+// Connect email (for SendGrid integration)
+router.post('/connect', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
       });
-    } catch (error) {
-      console.error("Error fetching email settings:", error);
-      res.status(500).json({ message: "Failed to fetch email settings" });
     }
-  });
 
-  // Connect email
-  router.post('/connect', requireAuth, async (_req: any, res) => {
-    try {
-      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-        return res.status(400).json({
-          message: "Gmail integration requires Google OAuth credentials. Please configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
-        });
-      }
-
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
-        `redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/email/callback')}&` +
-        `response_type=code&` +
-        `scope=${encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email')}&` +
-        `access_type=offline&` +
-        `prompt=consent`;
-
-      res.json({ authUrl });
-    } catch (error) {
-      console.error("Error generating auth URL:", error);
-      res.status(500).json({ message: "Failed to generate authorization URL" });
-    }
-  });
-
-  // Update email settings
-  router.put('/settings', requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const settings = req.body;
-      
-      const user = await storage.getUser(userId);
-      if (user) {
-        const currentEmailSettings = (user.emailSettings as EmailSettings) || {};
-        const updatedEmailSettings: EmailSettings = {
-          ...currentEmailSettings,
-          preferences: {
-            ...currentEmailSettings.preferences,
-            ...settings
-          }
-        };
-        
-        await storage.upsertUser({
-          id: userId,
-          emailSettings: updatedEmailSettings
-        });
-      }
-      
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error updating email settings:", error);
-      res.status(500).json({ message: "Failed to update email settings" });
-    }
-  });
-
-  // Send test email
-  router.post('/test', requireAuth, async (req: any, res) => {
-    try {
-      const userId = getUserId(req);
-      const user = await storage.getUser(userId);
-      
-      // Fixed: Add null check for user
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const emailSettings = user.emailSettings as EmailSettings | undefined;
-      
-      if (!emailSettings?.accessToken) {
-        return res.status(400).json({ message: "Email not connected" });
-      }
-
-      const { emailService } = await import('../emailService');
-      
-      // Fixed: Removed unused testEmailContent variable
-      // Send test email using existing sendWelcomeEmail method
-      if (user.email || emailSettings.email) {
-        await emailService.sendWelcomeEmail(
-          user.email || emailSettings.email!,
-          user.firstName || 'User'
-        );
-      }
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error sending test email:", error);
-      res.status(500).json({ message: "Failed to send test email" });
-    }
-  });
-
-  // Email callback
-  router.get('/callback', requireAuth, async (req: any, res) => {
-    try {
-      const { code } = req.query;
-      const userId = getUserId(req);
-
-      if (!code) {
-        return res.status(400).send('Authorization code not provided');
-      }
-
-      // Direct OAuth token exchange
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-          code: code as string,
-          grant_type: 'authorization_code',
-          redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/email/callback'
-        })
+    // For SendGrid integration, we just need to confirm the user's email is available
+    const user = await storage.getUser(userId);
+    if (!user?.email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User email not found' 
       });
-
-      const tokens = await tokenResponse.json();
-
-      if (!tokens.access_token) {
-        throw new Error('Failed to get access token');
-      }
-
-      // Direct email fetching
-      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          'Authorization': `Bearer ${tokens.access_token}`
-        }
-      });
-
-      const userInfo = await userInfoResponse.json();
-      const email = userInfo.email;
-
-      // Store tokens in user's email settings
-      const emailSettings: EmailSettings = {
-        email,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        preferences: {
-          dailyReminders: false,
-          weeklyProgress: false,
-          aiInsights: false,
-          streakMilestones: false,
-          motivationalMessages: false,
-        }
-      };
-
-      await storage.upsertUser({
-        id: userId,
-        emailSettings
-      });
-
-      res.send(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Email Connected</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-    .success { color: #28a745; }
-  </style>
-</head>
-<body>
-  <h1 class="success">✅ Email Connected Successfully!</h1>
-  <p>Your Gmail account <strong>${email}</strong> has been connected.</p>
-  <p>You can now close this window and return to the app.</p>
-</body>
-</html>`);
-    } catch (error) {
-      console.error("Error in email callback:", error);
-      res.status(500).send(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Connection Error</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-    .error { color: #dc3545; }
-  </style>
-</head>
-<body>
-  <h1 class="error">❌ Connection Failed</h1>
-  <p>There was an error connecting your Gmail account.</p>
-  <p>Please try again or contact support if the issue persists.</p>
-</body>
-</html>`);
     }
-  });
 
-  return router;
-}
+    // TEMPORARY EXCEPTION - REMOVE AFTER SUPABASE FIX
+    // Special handling for akeel.lithan@gmail.com to use Supabase auth for testing
+    if (user.email === 'akeel.lithan@gmail.com') {
+      console.log('🔧 Using Supabase auth exception for akeel.lithan@gmail.com');
+      // This user will use auth_token and authUser from localStorage
+      // Bypass guest system for email testing purposes
+    }
+
+    // Since we're using SendGrid with single sender verification (akeel.lithan@gmail.com),
+    // all emails will be sent FROM that address, but TO the user's email
+    res.json({ 
+      success: true, 
+      message: 'Email connected successfully',
+      email: user.email,
+      provider: 'sendgrid',
+      senderEmail: 'akeel.lithan@gmail.com', // Verified sender
+      note: 'All emails will be sent from akeel.lithan@gmail.com (verified sender)',
+      isExceptionUser: user.email === 'akeel.lithan@gmail.com' // Flag for frontend
+    });
+  } catch (error) {
+    console.error('Email connect error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Send habit reminder
+router.post('/send-reminder', requireAuth, async (req, res) => {
+  try {
+    const { email, habitName } = req.body;
+    
+    if (!email || !habitName) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email and habit name are required' 
+      });
+    }
+
+    const result = await EmailService.sendHabitReminder(email, habitName);
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Reminder sent successfully' });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send reminder' 
+      });
+    }
+  } catch (error) {
+    console.error('Send reminder error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Send weekly report
+router.post('/send-report', requireAuth, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required' 
+      });
+    }
+
+    // Get user stats for the report
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
+    const habits = await storage.getUserHabits(userId);
+    const completions = await storage.getHabitCompletions(userId);
+    const user = await storage.getUser(userId);
+
+    // Calculate current streak from streaks table
+    const streaks = await storage.getUserStreaks(userId);
+    const currentStreak = streaks.length > 0 ? Math.max(...streaks.map((s: any) => s.currentStreak || 0)) : 0;
+    
+    const stats = {
+      totalHabits: habits.length,
+      totalCompletions: completions.length,
+      currentStreak: currentStreak,
+      level: user?.level || 1,
+      xp: user?.xp || 0
+    };
+
+    const result = await EmailService.sendWeeklyReport(email, stats);
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Weekly report sent successfully' });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send weekly report' 
+      });
+    }
+  } catch (error) {
+    console.error('Send report error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Send test email
+router.post('/test', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
+    // Get user's email from their profile
+    const user = await storage.getUser(userId);
+    if (!user?.email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User email not found in profile' 
+      });
+    }
+
+    // Allow override from request body if provided
+    const email = req.body.email || user.email;
+
+    // TEMPORARY EXCEPTION - REMOVE AFTER SUPABASE FIX
+    // Special handling for akeel.lithan@gmail.com to use Supabase auth for testing
+    if (email === 'akeel.lithan@gmail.com') {
+      console.log('🔧 Using Supabase auth exception for akeel.lithan@gmail.com test email');
+      // This user will use auth_token and authUser from localStorage
+      // Bypass guest system for email testing purposes
+    }
+
+    const result = await EmailService.sendTestEmail(email);
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Test email sent successfully' });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send test email' 
+      });
+    }
+  } catch (error) {
+    console.error('Send test email error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Send motivational message
+router.post('/motivation', requireAuth, async (req, res) => {
+  try {
+    const { email, message } = req.body;
+    
+    if (!email || !message) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email and message are required' 
+      });
+    }
+
+    const result = await EmailService.sendMotivationalMessage(email, message);
+    
+    if (result.success) {
+      res.json({ success: true, message: 'Motivational message sent successfully' });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to send motivational message' 
+      });
+    }
+  } catch (error) {
+    console.error('Send motivation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Get email status (for frontend to check if email is connected)
+router.get('/status', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // For now, return a simple status
+    // In a real implementation, you might check if the user has connected their email
+    res.json({
+      connected: !!user?.email,
+      email: user?.email || null,
+      provider: 'sendgrid'
+    });
+  } catch (error) {
+    console.error('Get email status error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Get email settings
+router.get('/settings', requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Return user's email settings
+    res.json({
+      dailyReminders: true,
+      weeklyProgress: true,
+      aiInsights: true,
+      streakMilestones: true,
+      motivationalMessages: true,
+      ...user?.emailSettings
+    });
+  } catch (error) {
+    console.error('Get email settings error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Update email settings
+router.put('/settings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const settings = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
+    // Update user's email settings
+    await storage.updateEmailSettings(userId, settings);
+    
+    res.json({ success: true, message: 'Email settings updated successfully' });
+  } catch (error) {
+    console.error('Update email settings error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+export default router;

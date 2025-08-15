@@ -4,18 +4,25 @@ import {
   generateHabitRecommendations,
   generatePersonalizedInsight,
   generateAIRecommendations
-} from "../openai";
+} from "../openaiService";
 import { questionnaireSchema } from "../../shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { storage } from "../storage";
-import {env} from "../env";
+import { requireAuth } from "./middlewareRoutes";
+// import {env} from "../env"; // Unused import
 
 export function aiRoutes() {
   const router = Router();
 
-  // Use a default user ID for development/testing
-  const getUserId = (req: Request) => req.user?.id || 'default-user-id';
+  // Get user ID - handles both authenticated and unauthenticated requests
+  const getUserId = (req: Request) => {
+    if (req.user?.id && !req.user?.isGuest) {
+      return req.user.id; // Authenticated user
+    }
+    // For unauthenticated requests, return guest user
+    return 'guest-demo-user'; // Fallback to guest
+  };
 
   // Public questionnaire endpoint
   router.post('/questionnaire', async (req: Request, res: Response) => {
@@ -43,7 +50,7 @@ export function aiRoutes() {
   });
 
   // Test endpoint for debugging
-  router.get('/questionnaire/test', async (req: Request, res: Response) => {
+  router.get('/questionnaire/test', async (_req: Request, res: Response) => {
     try {
       const testQuestionnaire = {
         focusAreas: ["Health & Fitness", "Learning"],
@@ -64,7 +71,7 @@ export function aiRoutes() {
   });
 
   // Get AI insights (no auth required)
-  router.get('/insights', async (req: Request, res: Response) => {
+  router.get('/', async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
       const insights = await storage.getAIInsights(userId);
@@ -75,13 +82,34 @@ export function aiRoutes() {
     }
   });
 
-  // Generate AI insights (no auth required)
-  router.post('/insights/generate', async (req: Request, res: Response) => {
+  // Generate AI insights (requires authentication)
+  router.post('/generate', requireAuth, async (req: Request, res: Response) => {
+    // Ensure we have a valid response object
+    if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
+      console.error('Invalid response object in AI insights route:', res);
+      return;
+    }
     try {
-      const userId = getUserId(req);
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Ensure user is not a guest
+      if (req.user?.isGuest) {
+        return res.status(403).json({ message: "Guest users cannot generate insights" });
+      }
+      
+      console.log(`Generating insight for user: ${userId}`);
+      
       const habits = await storage.getUserHabits(userId);
       const completions = await storage.getHabitCompletions(userId);
+      
+      console.log(`Found ${habits.length} habits and ${completions.length} completions`);
+      
       const insight = await generatePersonalizedInsight(habits, completions);
+      console.log("Generated insight:", insight);
 
       const createdInsight = await storage.createAIInsight(
         userId,
@@ -90,15 +118,47 @@ export function aiRoutes() {
         insight.content
       );
 
-      res.json(createdInsight);
+      console.log("Created insight in database:", createdInsight.id);
+      
+      // Ensure we're using the correct response object
+      if (res && typeof res.json === 'function') {
+        return res.json({
+          insight: insight.content,
+          title: insight.title,
+          type: insight.type,
+          id: createdInsight.id
+        });
+      } else {
+        console.error("Invalid response object:", res);
+        throw new Error("Invalid response object");
+      }
     } catch (error) {
       console.error("Error generating insight:", error);
-      res.status(500).json({ message: "Failed to generate insight" });
+      
+      // Ensure we have a valid response object
+      if (res && typeof res.status === 'function' && typeof res.json === 'function') {
+        if (error instanceof Error) {
+          return res.status(500).json({ 
+            message: "Failed to generate insight", 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          });
+        } else {
+          return res.status(500).json({ message: "Failed to generate insight" });
+        }
+      } else {
+        console.error("Invalid response object in error handler:", res);
+        // Fallback error handling
+        if (res && typeof res.end === 'function') {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ message: "Failed to generate insight" }));
+        }
+      }
     }
   });
 
   // Mark insight as read (no auth required)
-  router.put('/insights/:id/read', async (req: Request, res: Response) => {
+  router.put('/:id/read', async (req: Request, res: Response) => {
     try {
       const insightId = parseInt(req.params.id);
       await storage.markInsightAsRead(insightId);
@@ -119,6 +179,78 @@ export function aiRoutes() {
     } catch (error) {
       console.error("Error generating AI recommendations:", error);
       res.status(500).json({ message: "Failed to generate recommendations" });
+    }
+  });
+
+  // Ask AI coach a question (requires authentication)
+  router.post('/ask', requireAuth, async (req: Request, res: Response) => {
+    // Ensure we have a valid response object
+    if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
+      console.error('Invalid response object in AI coach ask route:', res);
+      return;
+    }
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Ensure user is not a guest
+      if (req.user?.isGuest) {
+        return res.status(403).json({ message: "Guest users cannot ask coach questions" });
+      }
+      
+      const { question, context } = req.body;
+      
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ message: "Question is required" });
+      }
+      
+      console.log(`AI Coach question from user ${userId}: ${question}`);
+      
+      const habits = await storage.getUserHabits(userId);
+      const completions = await storage.getHabitCompletions(userId);
+      
+      console.log(`Context: ${habits.length} habits, ${completions.length} completions`);
+      
+      // Generate personalized response using OpenAI
+      const response = await generatePersonalizedInsight(habits, completions);
+      console.log("Generated coach response:", response);
+
+      // Ensure we're using the correct response object
+      if (res && typeof res.json === 'function') {
+        return res.json({
+          response: response.content || "I'm here to help with your habit journey!",
+          type: "coach_response",
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.error("Invalid response object:", res);
+        throw new Error("Invalid response object");
+      }
+    } catch (error) {
+      console.error("Error asking coach question:", error);
+      
+      // Ensure we have a valid response object
+      if (res && typeof res.status === 'function' && typeof res.json === 'function') {
+        if (error instanceof Error) {
+          return res.status(500).json({ 
+            message: "Failed to get coach response", 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          });
+        } else {
+          return res.status(500).json({ message: "Failed to get coach response" });
+        }
+      } else {
+        console.error("Invalid response object in error handler:", res);
+        // Fallback error handling
+        if (res && typeof res.end === 'function') {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ message: "Failed to get coach response" }));
+        }
+      }
     }
   });
 

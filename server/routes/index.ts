@@ -5,11 +5,12 @@ import { authRoutes } from "./authRoutes";
 import { habitRoutes } from "./habitRoutes";
 import { aiRoutes } from "./aiRoutes";
 import { mlPredictionRoutes } from "./mlPredictionRoutes";
-import { emailRoutes } from "./emailRoutes";
 import { adminRoutes } from "./adminRoutes";
 import { analyticsRoutes } from "./analyticsRoutes";
+import { challengeRoutes } from "./challengeRoutes";
 import { guestRoutes } from "./guestRoutes";
 import { healthRoutes } from "./healthRoutes";
+import emailRoutes from "./emailRoutes";
 import { storage } from "../storage";
 import { env, isOpenAIEnabled } from "../env";
 
@@ -21,16 +22,22 @@ export async function registerRoutes(app: express.Application) {
   app.use("/api/habits", habitRoutes());
   app.use("/api/ai", aiRoutes());
   app.use("/api/ml", mlPredictionRoutes());
-  app.use("/api/email", emailRoutes());
+  app.use("/api/email", emailRoutes);
   app.use("/api/guest", guestRoutes());
   app.use("/api/admin", adminRoutes());
   app.use("/api/analytics", analyticsRoutes());
-  app.use("/api", healthRoutes());
+  app.use("/api/challenges", challengeRoutes());
+  app.use("/api/health", healthRoutes());
 
   // Add missing routes for frontend compatibility
   app.use("/api/completions", completionsRoutes());
-  app.use("/api/insights", insightsRoutes());
   app.use("/api/coaching", coachingRoutes());
+  
+  // Mount AI insights routes under /api/insights for frontend compatibility
+  app.use("/api/insights", aiRoutes());
+  
+  // Mount AI coach routes under /api/coach for frontend compatibility
+  app.use("/api/coach", aiRoutes());
 
   // Catch-all route for undefined paths (moved from index.ts)
   app.get("*", (_req, res) => {
@@ -50,18 +57,19 @@ export async function registerRoutes(app: express.Application) {
         "/api/email/*",
         "/api/guest/*",
         "/api/analytics/*",
+        "/api/challenges/*",
       ],
     });
   });
 
   // Global error handler - fix unused parameters
-  app.use((err: any, _req: any, res: any, _next: any) => {
+  app.use((err: any, _req: any, res: any) => {
     console.error("API Error:", err);
     res.status(500).json({
       success: false,
       error: {
         message: "Internal server error",
-        details: env.nodeEnv === "development" ? err.message : undefined,
+        details: env.NODE_ENV === "development" ? err.message : undefined,
       },
     });
   });
@@ -97,7 +105,115 @@ function completionsRoutes() {
     }
   });
 
-  // Create completion
+  // Get daily habit status (new endpoint)
+  router.get("/daily-status", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id || "default-user-id";
+      const { getDailyHabitStatus } = await import("../utils/habitCompletionManager.js");
+      
+      const dailyStatus = await getDailyHabitStatus(userId);
+
+      res.json({
+        success: true,
+        data: dailyStatus,
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fetch daily status";
+      console.error("Error fetching daily status:", errorMessage);
+      res.status(500).json({
+        success: false,
+        error: { message: "Failed to fetch daily status" },
+      });
+    }
+  });
+
+  // Complete habit (enhanced)
+  router.post("/complete", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id || "default-user-id";
+      const { habitId, value = 1 } = req.body;
+      const { completeHabit } = await import("../utils/habitCompletionManager.js");
+
+      const result = await completeHabit(habitId, userId, value);
+
+      res.json({
+        success: result.success,
+        data: result,
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to complete habit";
+      console.error("Error completing habit:", errorMessage);
+      res.status(500).json({
+        success: false,
+        error: { message: "Failed to complete habit" },
+      });
+    }
+  });
+
+  // Uncomplete habit (enhanced)
+  router.post("/uncomplete", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id || "default-user-id";
+      const { habitId } = req.body;
+      const { uncompleteHabit } = await import("../utils/habitCompletionManager.js");
+
+      const result = await uncompleteHabit(habitId, userId);
+
+      // If the operation was successful, return success even if there were minor issues
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result,
+        });
+      } else {
+        // Operation failed due to business logic (e.g., can't uncomplete after 24 hours)
+        res.status(400).json({
+          success: false,
+          error: { message: result.message },
+        });
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to uncomplete habit";
+      console.error("Error uncompleting habit:", errorMessage);
+      
+      // Check if the completion was actually deleted despite the error
+      // This handles the case where the main operation succeeded but there was a minor error
+      try {
+        const userId = req.user?.id || "default-user-id";
+        const { habitId } = req.body;
+        const today = new Date().toISOString().split('T')[0]; // Get today's date
+        
+        // Check if completion still exists
+        const completions = await storage.getHabitCompletions(userId, today);
+        const completionExists = completions.some((c: any) => c.habitId === habitId);
+        
+        if (!completionExists) {
+          // Completion was successfully deleted, return success
+          res.json({
+            success: true,
+            data: {
+              success: true,
+              message: "Habit uncompleted successfully",
+              xpLost: 0
+            },
+          });
+          return;
+        }
+      } catch (checkError) {
+        // Ignore check errors and proceed with original error
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: { message: "Failed to uncomplete habit" },
+      });
+    }
+  });
+
+  // Create completion (legacy - for backward compatibility)
   router.post("/", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user?.id || "default-user-id";
@@ -120,37 +236,58 @@ function completionsRoutes() {
     }
   });
 
-  return router;
-}
-
-// Insights routes
-function insightsRoutes() {
-  const router = express.Router();
-
-  // Get insights for user
-  router.get("/", requireAuth, async (req: any, res) => {
+  // Delete completion (for uncompleting habits)
+  router.delete("/:habitId/:date", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user?.id || "default-user-id";
-      const insights = await storage.getAIInsights(userId);
+      const habitId = parseInt(req.params.habitId);
+      const date = req.params.date;
+
+      await storage.deleteHabitCompletion(habitId, userId, date);
 
       res.json({
         success: true,
-        insights,
-        count: insights.length,
+        message: "Completion deleted successfully",
       });
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to fetch insights";
-      console.error("Error fetching insights:", errorMessage);
+        error instanceof Error ? error.message : "Failed to delete completion";
+      console.error("Error deleting completion:", errorMessage);
       res.status(500).json({
         success: false,
-        error: { message: "Failed to fetch insights" },
+        error: { message: "Failed to delete completion" },
       });
     }
   });
 
   return router;
 }
+
+// Insights routes - REMOVED: Using AI routes instead
+// function insightsRoutes() {
+//   const router = express.Router();
+//   // Get insights for user
+//   router.get("/", requireAuth, async (req: any, res) => {
+//     try {
+//       const userId = req.user?.id || "default-user-id";
+//       const insights = await storage.getAIInsights(userId);
+//       res.json({
+//         success: true,
+//         insights,
+//         count: insights.length,
+//       });
+//     } catch (error: unknown) {
+//       const errorMessage =
+//         error instanceof Error ? error.message : "Failed to fetch insights";
+//       console.error("Error fetching insights:", errorMessage);
+//       res.status(500).json({
+//         success: false,
+//         error: { message: "Failed to fetch insights" },
+//       });
+//     }
+//   });
+//   return router;
+// }
 
 // Coaching routes
 function coachingRoutes() {
@@ -227,9 +364,18 @@ function coachingRoutes() {
   });
 
   // Generate new coaching insight
-  router.post("/generate-insight", async (req: any, res) => {
+  router.post("/generate-insight", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user?.id || "default-user-id";
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      // Ensure user is not a guest
+      if (req.user?.isGuest) {
+        return res.status(403).json({ message: "Guest users cannot generate coaching insights" });
+      }
 
       // Get user's habits and completions for context
       const habits = await storage.getUserHabits(userId);
@@ -239,7 +385,7 @@ function coachingRoutes() {
 
       if (isOpenAIEnabled) {
         try {
-          const { generatePersonalizedInsight } = await import("../openai");
+          const { generatePersonalizedInsight } = await import("../openaiService");
           insight = await generatePersonalizedInsight(habits, completions);
         } catch (error) {
           console.error("Failed to generate AI coaching insight:", error);
@@ -304,7 +450,7 @@ function coachingRoutes() {
   router.put("/messages/:id/read", async (req: any, res) => {
     try {
       const messageId = parseInt(req.params.id);
-      const userId = req.user?.id || "default-user-id";
+      // const userId = req.user?.id || "default-user-id"; // Not needed for this operation
 
       // Mark the message as read in the database
       await storage.markCoachingMessageAsRead(messageId);

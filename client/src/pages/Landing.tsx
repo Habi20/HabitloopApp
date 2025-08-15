@@ -4,13 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
 import { GuestModeModal } from "@/components/GuestModeModal";
 import { LoginModal } from "@/components/LoginModal";
-import { useAuth } from "@/hooks/useAuth";
+import { HabitLoopUserModal } from "@/components/HabitLoopUserModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Landing() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const { refetch } = useAuth();
+  const [showHabitLoopUserModal, setShowHabitLoopUserModal] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500">
@@ -19,7 +20,7 @@ export default function Landing() {
           <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mx-auto mb-6">
             <i className="fas fa-chart-line text-2xl"></i>
           </div>
-          <h1 className="text-5xl font-bold mb-6">HabitFlow</h1>
+          <h1 className="text-5xl font-bold mb-6">HabitLoop</h1>
           <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
             Transform your life with AI-powered habit tracking. Build lasting habits, 
             track your progress, and achieve your goals with personalized insights.
@@ -68,14 +69,25 @@ export default function Landing() {
             Get Started Free
           </Button>
           
-          <div className="text-white/80">
-            <span>or </span>
-            <button 
-              className="underline hover:text-white transition-colors"
-              onClick={() => setShowGuestModal(true)}
-            >
-              try as guest
-            </button>
+          <div className="text-white/80 space-y-2">
+            <div>
+              <span>or </span>
+              <button 
+                className="underline hover:text-white transition-colors"
+                onClick={() => setShowGuestModal(true)}
+              >
+                try as guest
+              </button>
+            </div>
+            <div>
+              <span>or </span>
+              <button 
+                className="underline hover:text-white transition-colors"
+                onClick={() => setShowHabitLoopUserModal(true)}
+              >
+                try as a habitloop user
+              </button>
+            </div>
           </div>
         </div>
 
@@ -101,9 +113,17 @@ export default function Landing() {
       <LoginModal
         open={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        onSuccess={async () => {
-          // Refresh auth state
-          await refetch();
+        onSuccess={() => {
+          // Auth state will be automatically updated by AuthProvider
+          setShowLoginModal(false);
+        }}
+      />
+
+      <HabitLoopUserModal
+        open={showHabitLoopUserModal}
+        onClose={() => setShowHabitLoopUserModal(false)}
+        onSuccess={() => {
+          setShowHabitLoopUserModal(false);
         }}
       />
     </div>

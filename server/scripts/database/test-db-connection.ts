@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { env } from '../../env'; // ← Add centralized env import
 
 async function testConnection() {
-  console.log('Testing database connection to:', env.dbUrl.split('@')[1]); // ← Use env.dbUrl
+  console.log('Testing database connection to:', env.DATABASE_URL.split('@')[1]); // ← Use env.DATABASE_URL
   
   try {
     // Test basic connection

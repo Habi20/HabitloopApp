@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { EmailIntegration } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Mail, Clock, TrendingUp, Brain, Calendar, CheckCircle } from "lucide-react";
 
 interface EmailIntegrationModalProps {
@@ -48,6 +48,9 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
       setEmailSettings(prev => ({ ...prev, ...currentSettings }));
     }
   }, [currentSettings]);
+
+  // Type the email status properly
+  const emailStatusData = emailStatus as EmailIntegration | undefined;
 
   const connectEmailMutation = useMutation({
     mutationFn: async () => {
@@ -92,7 +95,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
         description: "Email notification preferences saved successfully",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Update Failed",
         description: "Failed to update email settings. Please try again.",
@@ -103,7 +106,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   const sendTestEmailMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/email/test");
+      const response = await apiRequest("/api/email/test", "POST");
       return await response.json();
     },
     onSuccess: () => {
@@ -112,7 +115,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
         description: "Check your inbox for the test email",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Test Failed",
         description: "Failed to send test email. Please check your connection.",
@@ -188,10 +191,10 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
                     Gmail Connection Status
                   </h3>
                   <div className="flex items-center space-x-2">
-                    {emailStatus?.connected ? (
+                    {emailStatusData?.connected ? (
                       <>
                         <CheckCircle className="w-5 h-5 text-green-500" />
-                        <span className="text-green-700">Connected to {emailStatus.email}</span>
+                        <span className="text-green-700">Connected to {emailStatusData.email}</span>
                         <Badge variant="secondary" className="ml-2">Active</Badge>
                       </>
                     ) : (
@@ -204,7 +207,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
                   </div>
                 </div>
                 <div className="space-x-2">
-                  {emailStatus?.connected ? (
+                  {emailStatusData?.connected ? (
                     <Button 
                       variant="outline" 
                       onClick={() => sendTestEmailMutation.mutate()}
@@ -226,7 +229,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
           </Card>
 
           {/* Email Settings */}
-          {emailStatus?.connected && (
+          {emailStatusData?.connected && (
             <Card>
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
