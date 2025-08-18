@@ -2,53 +2,95 @@
 import { Router, Request, Response } from "express";
 import { requireAuth } from "./middlewareRoutes";
 import { storage } from "../storage";
-import { calculateTotalXP, getXPSummary, type CompletionData } from "../utils/xpCalculator.js";
+import { typedEnv } from "../env";
+// Removed XPCalculator import - now using HabitCompletionManager logic directly
 
 export function analyticsRoutes() {
   const router = Router();
 
   // Get fair XP calculation for user
-  router.get('/xp-calculation', requireAuth, async (req: Request, res: Response) => {
+    router.get('/xp-calculation', requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
       }
+      
+      // Force fresh database query to bypass any caching
+      const freshUser = await storage.getUser(userId);
+      if (!freshUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
-      // Get user's habits and completions
+      // Get user's habits, completions, and streaks
       const habits = await storage.getUserHabits(userId);
       const allCompletions = await storage.getHabitCompletions(userId);
+      const userStreaks = await storage.getUserStreaks(userId);
 
-      // Group completions by habit
+      // Use HabitCompletionManager logic (same as audit script)
+      const BASE_XP = 10;
+      const STREAK_BONUS_PER_DAY = 2;
+      const MAX_STREAK_BONUS = 20;
+      
+      // Group completions by habit and calculate XP using current streaks
       const habitsData = habits.map(habit => {
         const habitCompletions = allCompletions.filter(c => c.habitId === habit.id);
+        const streak = userStreaks.find(s => s.habitId === habit.id);
+        const currentStreak = streak?.currentStreak || 1;
+        
+        // HabitCompletionManager XP calculation
+        const streakBonus = Math.min(currentStreak * STREAK_BONUS_PER_DAY, MAX_STREAK_BONUS);
+        const xpPerCompletion = BASE_XP + streakBonus;
+        const totalHabitXP = habitCompletions.length * xpPerCompletion;
+        
         return {
           habitId: habit.id,
           habitTitle: habit.title,
-          completions: habitCompletions.map(c => ({
-            id: c.id,
-            habitId: c.habitId,
-            userId: c.userId,
+          completions: habitCompletions.length,
+          maxStreak: currentStreak,
+          xpPerCompletion,
+          totalHabitXP,
+          completionDetails: habitCompletions.map(c => ({
+            completionId: c.id,
             completedAt: c.completedAt,
-            value: c.value || 1,
-            createdAt: c.createdAt?.toISOString() || new Date().toISOString(),
-          })) as CompletionData[],
+            streakAtCompletion: currentStreak,
+            xpEarned: xpPerCompletion,
+          })),
         };
       });
+      
+      // Calculate total XP
+      const totalXP = habitsData.reduce((sum, habit) => sum + habit.totalHabitXP, 0);
+      
+      // Create summary
+      const totalCompletions = habitsData.reduce((sum, habit) => sum + habit.completions, 0);
+      const maxStreak = Math.max(...habitsData.map(h => h.maxStreak));
+      const averageXPPerCompletion = totalCompletions > 0 ? totalXP / totalCompletions : 0;
+      
+      const xpSummary = {
+        totalXP,
+        totalCompletions,
+        averageXPPerCompletion: Math.round(averageXPPerCompletion),
+        maxStreak,
+        habitCount: habitsData.length,
+      };
 
-      // Calculate fair XP
-      const xpCalculation = calculateTotalXP(habitsData);
-      const xpSummary = getXPSummary(xpCalculation);
-
-      // Get current user data for comparison
-      const user = await storage.getUser(userId);
-      const currentXP = user?.xp || 0;
-      const currentLevel = user?.level || 1;
+      // Use fresh user data (bypassing any caching)
+      const currentXP = freshUser.xp || 0;
+      const currentLevel = freshUser.level || 1;
+      
+      // Log for debugging
+      console.log('🔍 XP Calculation API - User ID: ' + userId);
+      console.log('🔍 XP Calculation API - Fresh Database XP: ' + currentXP + ', Level: ' + currentLevel);
+      console.log('🔍 XP Calculation API - Calculated XP: ' + xpSummary.totalXP);
 
       res.json({
         success: true,
         data: {
-          calculation: xpCalculation,
+          calculation: {
+            totalXP,
+            breakdown: habitsData,
+          },
           summary: xpSummary,
           current: {
             xp: currentXP,
@@ -168,7 +210,7 @@ export function analyticsRoutes() {
         if (token) {
           try {
             const jwt = require('jsonwebtoken');
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+            const decoded = jwt.verify(token, typedEnv.jwtSecret) as any;
             userId = decoded.userId;
           } catch (error) {
             console.warn('Failed to decode JWT token:', error);

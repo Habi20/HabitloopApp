@@ -3,6 +3,7 @@ import { Router } from "express";
 import type { Request, Response } from 'express';
 import { storage } from "../storage";
 import { mlAdvancedService } from "../ml/services/mlAdvancedService";
+import jwt from 'jsonwebtoken';
 
 export function mlPredictionRoutes() {
   const router = Router();
@@ -33,30 +34,33 @@ export function mlPredictionRoutes() {
 
   // Get the actual authenticated user ID or use a proper default
   const getUserId = (req: Request) => {
-    // Check for authenticated user first
+    // Check for authenticated user first (session-based)
     if (req.user?.id) {
-      console.log('🔍 ML Service: Using authenticated user:', req.user.id);
+      console.log('🔍 ML Service: Using authenticated user from session:', req.user.id);
       return req.user.id;
     }
     
-    // For guest users, try to extract from JWT or use default
+    // For JWT-based authentication (HabitLoop users and guests)
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.substring(7);
-        // Simple JWT decode to get user ID (for development)
-        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-        if (payload.userId) {
-          console.log('🔍 ML Service: Extracted user from JWT:', payload.userId);
-          return payload.userId;
+        const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
+        
+        // Verify JWT token using imported jwt
+        const decoded = jwt.verify(token, jwtSecret) as any;
+        
+        if (decoded && decoded.userId) {
+          console.log('🔍 ML Service: Using user from JWT token:', decoded.userId);
+          return decoded.userId;
         }
       } catch (error) {
-        console.log('🔍 ML Service: JWT decode failed, using default');
+        console.log('🔍 ML Service: JWT verification failed:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
     
-    // Fallback for development/testing
-    console.log('🔍 ML Service: Using fallback user ID');
+    // Fallback for development/testing - but log a warning
+    console.log('⚠️  ML Service: No valid authentication found, using fallback user ID');
     return 'user-001';
   };
 
@@ -309,22 +313,44 @@ export function mlPredictionRoutes() {
   // Get individual habit performance scores (no auth required)
   router.get('/habit-scores/:habitId', async (req: Request, res: Response) => {
     try {
+      console.log('🔍 Habit-scores request for habitId:', req.params.habitId);
+      
       const userId = getUserId(req);
+      console.log('🔍 User ID resolved as:', userId);
+      
       const habitId = parseInt(req.params.habitId);
       
       if (isNaN(habitId)) {
+        console.log('❌ Invalid habit ID:', req.params.habitId);
         return res.status(400).json({ error: 'Invalid habit ID' });
       }
 
+      console.log('🔍 Getting user data for:', userId);
       // Get user and habit data
       const user = await storage.getUser(userId);
-      const habit = await storage.getHabit(habitId);
+      console.log('🔍 User found:', user ? 'Yes' : 'No');
+      
+      console.log('🔍 Getting habit data for habitId:', habitId);
+      const userHabits = await storage.getUserHabits(userId);
+      const habit = userHabits.find(h => h.id === habitId);
+      console.log('🔍 Habit found:', habit ? 'Yes' : 'No');
+      
+      console.log('🔍 Getting completions for user:', userId);
       const completions = await storage.getHabitCompletions(userId);
+      console.log('🔍 Completions found:', completions.length);
       
       if (!habit) {
+        console.log('❌ Habit not found for ID:', habitId);
         return res.status(404).json({ error: 'Habit not found' });
       }
 
+      // Check if habit belongs to user
+      if (habit.userId !== userId) {
+        console.log('❌ Habit does not belong to user. Habit userId:', habit.userId, 'Requested userId:', userId);
+        return res.status(403).json({ error: 'Habit does not belong to user' });
+      }
+
+      console.log('🔍 Calculating performance metrics...');
       // Calculate habit-specific performance metrics
       const habitCompletions = completions.filter(c => c.habitId === habitId);
       const totalDays = 30; // Last 30 days
@@ -369,9 +395,12 @@ export function mlPredictionRoutes() {
         }
       }
 
+      console.log('🔍 Calculating ML-based performance score...');
       // Calculate ML-based performance score
       const userLevel = user?.level || 1;
       const userXP = user?.xp || 0;
+      
+      console.log('🔍 Getting existing habits count...');
       const existingHabitsCount = await storage.getUserHabits(userId).then(h => h.length);
       
       // Base score from completion rate
@@ -412,6 +441,8 @@ export function mlPredictionRoutes() {
         recommendations.push('Share your success to inspire others');
       }
 
+      console.log('✅ Habit-scores calculation complete. Performance score:', Math.round(performanceScore));
+      
       res.json({
         success: true,
         habit_id: habitId,
@@ -433,8 +464,12 @@ export function mlPredictionRoutes() {
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to get habit score';
-      console.error('Habit score error:', errorMessage);
-      res.status(500).json({ error: 'Failed to get habit performance score' });
+      console.error('❌ Habit score error:', errorMessage);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      res.status(500).json({ 
+        error: 'Failed to get habit performance score',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   });
 
