@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { storage } from '../storage';
 import { requireAuth } from './middlewareRoutes';
 import { supabase } from '../supabaseAuth';
+import { typedEnv } from '../env';
 
 // Declare module augmentation for express-session
 declare module 'express-session' {
@@ -298,7 +299,7 @@ export function authRoutes() {
         isGuest: false
       });
 
-      const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+      const jwtSecret = typedEnv.jwtSecret;
       if (!jwtSecret) {
         throw new Error('JWT secret key not configured');
       }
@@ -383,7 +384,7 @@ export function authRoutes() {
         isGuest: true
       });
 
-      const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+      const jwtSecret = typedEnv.jwtSecret;
       if (!jwtSecret) {
         throw new Error('JWT secret key not configured');
       }
@@ -412,10 +413,88 @@ export function authRoutes() {
     }
   });
 
-  // HabitLoop user authentication endpoint
-  router.post('/auth/habitloop-user', async (req, res) => {
+  // HabitLoop user signup (JWT only, no sessions)
+  router.post('/habitloop/signup', async (req: any, res) => {
     try {
-      const { userId } = req.body;
+      const { email, firstName, lastName, password, difficulty = 'medium' } = req.body;
+
+      if (!email || !firstName || !password) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Email, first name, and password required' }
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          error: { message: 'User with this email already exists' }
+        });
+      }
+
+      // Generate unique user ID
+      const userId = `user-${Date.now()}`;
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create new HabitLoop user
+      const newUser = await storage.createUser({
+        id: userId,
+        email,
+        firstName,
+        lastName,
+        passwordHash: hashedPassword,
+        level: 1,
+        xp: 0,
+        role: 'habitloop_user',
+        isGuest: false,
+        difficulty,
+        profileImageUrl: '👤'
+      });
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: newUser.id },
+        typedEnv.jwtSecret,
+        { expiresIn: '7d' }
+      );
+
+      console.log('🔐 New HabitLoop user created:', newUser.id, 'Level:', newUser.level, 'XP:', newUser.xp);
+
+      res.status(201).json({
+        success: true,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          level: newUser.level,
+          xp: newUser.xp,
+          role: newUser.role,
+          isGuest: false,
+          difficulty: newUser.difficulty,
+          profileImageUrl: newUser.profileImageUrl
+        },
+        token: token,
+        message: 'HabitLoop user created successfully'
+      });
+
+    } catch (error) {
+      console.error('HabitLoop signup error:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to create user' }
+      });
+    }
+  });
+
+  // HabitLoop user authentication (JWT only, no sessions)
+  router.post('/habitloop/signin', async (req: any, res) => {
+    try {
+      const { userId, password } = req.body;
 
       if (!userId) {
         return res.status(400).json({
@@ -424,169 +503,207 @@ export function authRoutes() {
         });
       }
 
-      // Define HabitLoop users with their data
-      const habitLoopUsers = {
+      // Define HabitLoop user metadata (no XP/level data)
+      const habitLoopUserMetadata = {
         'user-001': {
           id: 'user-001',
           email: 'user-001@habitloop.local',
           firstName: 'Alex',
           lastName: 'Chen',
-          level: 15,
-          xp: 2840,
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'medium',
-          profileImageUrl: '👨‍💻'
+          profileImageUrl: '👨‍💻',
+          password: 'test123'
         },
         'user-002': {
           id: 'user-002',
           email: 'user-002@habitloop.local',
           firstName: 'Sarah',
           lastName: 'Johnson',
-          level: 8,
-          xp: 1240,
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'easy',
-          profileImageUrl: '👩‍🎨'
+          profileImageUrl: '👩‍🎨',
+          password: 'test123'
         },
         'user-003': {
           id: 'user-003',
           email: 'user-003@habitloop.local',
           firstName: 'Marcus',
           lastName: 'Rodriguez',
-          level: 22,
-          xp: 4560,
           role: 'habitloop_user',
           isGuest: false,
-          difficulty: 'hard',
-          profileImageUrl: '🏃‍♂️'
+          difficulty: 'medium',
+          profileImageUrl: '🏃‍♂️',
+          password: 'test123'
         },
         'user-004': {
           id: 'user-004',
           email: 'user-004@habitloop.local',
           firstName: 'Emma',
           lastName: 'Thompson',
-          level: 12,
-          xp: 1980,
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'medium',
-          profileImageUrl: '🧘‍♀️'
+          profileImageUrl: '🧘‍♀️',
+          password: 'test123'
         },
         'user-005': {
           id: 'user-005',
           email: 'user-005@habitloop.local',
           firstName: 'David',
           lastName: 'Kim',
-          level: 18,
-          xp: 3420,
           role: 'habitloop_user',
           isGuest: false,
-          difficulty: 'hard',
-          profileImageUrl: '📚'
+          difficulty: 'medium',
+          profileImageUrl: '📚',
+          password: 'test123'
         },
         'user-006': {
           id: 'user-006',
           email: 'user-006@habitloop.local',
           firstName: 'Lisa',
           lastName: 'Wang',
-          level: 6,
-          xp: 890,
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'easy',
-          profileImageUrl: '🌱'
+          profileImageUrl: '🌱',
+          password: 'test123'
         },
         'user-007': {
           id: 'user-007',
           email: 'user-007@habitloop.local',
           firstName: 'New',
           lastName: 'User',
-          level: 1,
-          xp: 0,
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'easy',
-          profileImageUrl: '🆕'
+          profileImageUrl: '🆕',
+          password: 'test123'
         },
         'user-008': {
           id: 'user-008',
           email: 'user-008@habitloop.local',
           firstName: 'Fresh',
           lastName: 'Start',
-          level: 1,
-          xp: 0,
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'easy',
-          profileImageUrl: '🌟'
+          profileImageUrl: '🆕',
+          password: 'test123'
         },
         'user-009': {
           id: 'user-009',
           email: 'user-009@habitloop.local',
-          firstName: 'Beginner',
-          lastName: 'Tester',
-          level: 1,
-          xp: 0,
+          firstName: 'Zero',
+          lastName: 'Level',
           role: 'habitloop_user',
           isGuest: false,
           difficulty: 'easy',
-          profileImageUrl: '🎯'
+          profileImageUrl: '🆕',
+          password: 'test123'
         }
       };
 
-      const userData = habitLoopUsers[userId as keyof typeof habitLoopUsers] || null;
-      
-      if (!userData) {
+      const userMetadata = habitLoopUserMetadata[userId as keyof typeof habitLoopUserMetadata];
+
+      if (!userMetadata) {
         return res.status(404).json({
           success: false,
           error: { message: 'HabitLoop user not found' }
         });
       }
 
-      // Upsert user in database
-      const habitLoopUser = await storage.upsertUser({
-        id: userData.id,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        level: userData.level,
-        xp: userData.xp,
-        role: userData.role,
-        isGuest: false
-      });
-
-      const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
-      if (!jwtSecret) {
-        throw new Error('JWT secret key not configured');
+      // Check password for pre-configured users
+      if (password && userMetadata.password && password !== userMetadata.password) {
+        return res.status(401).json({
+          success: false,
+          error: { message: 'Invalid password' }
+        });
       }
 
+      // Get fresh user data from database (or create if needed)
+      let freshUserData;
+      try {
+        const existingUser = await storage.getUser(userMetadata.id);
+        if (existingUser) {
+          // Use database values - NEVER overwrite with hardcoded values
+          freshUserData = {
+            ...userMetadata,
+            level: existingUser.level,
+            xp: existingUser.xp,
+            difficulty: existingUser.difficulty
+          };
+          // Using database values for HabitLoop user
+        } else {
+          // User doesn't exist, create with calculated values (not hardcoded)
+          // Creating new HabitLoop user with calculated values
+          // Calculate initial XP and level based on completions
+          const calculatedXP = 0; // Start with 0 XP for new users
+          const calculatedLevel = 1; // Start with level 1
+          
+          freshUserData = {
+            ...userMetadata,
+            level: calculatedLevel,
+            xp: calculatedXP,
+            difficulty: userMetadata.difficulty
+          };
+          
+          // Create user in database with calculated values
+          await storage.upsertUser({
+            id: freshUserData.id,
+            email: freshUserData.email,
+            firstName: freshUserData.firstName,
+            lastName: freshUserData.lastName,
+            level: freshUserData.level,
+            xp: freshUserData.xp,
+            role: freshUserData.role,
+            isGuest: false,
+            difficulty: freshUserData.difficulty
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Error fetching user data, using fallback values:', error);
+        // Continue with original userMetadata as fallback, but don't overwrite database
+        freshUserData = {
+          ...userMetadata,
+          level: 1,
+          xp: 0
+        };
+      }
+
+      // Generate JWT token (no session cookie for HabitLoop users)
       const token = jwt.sign(
-        { userId: habitLoopUser.id },
-        jwtSecret as Secret,
-        { expiresIn: '7d' } as SignOptions
+        { userId: userMetadata.id },
+        typedEnv.jwtSecret,
+        { expiresIn: '7d' }
       );
 
-      req.session.token = token;
-      req.session.user = habitLoopUser;
+      // HabitLoop user authenticated successfully
 
+      // Return response without setting session cookie
       res.json({
         success: true,
-        user: {
-          ...habitLoopUser,
-          difficulty: userData.difficulty,
-          profileImageUrl: userData.profileImageUrl
-        },
-        token
+        user: freshUserData,
+        token: token,
+        message: 'HabitLoop user authenticated successfully'
       });
 
     } catch (error) {
-      console.error("Error creating HabitLoop user:", error);
-      res.status(500).json({
-        success: false,
-        error: { message: "Failed to create HabitLoop user" }
-      });
+      console.error('HabitLoop signin error:', error);
+      try {
+        if (res && typeof res.status === 'function' && typeof res.json === 'function') {
+          res.status(500).json({
+            success: false,
+            error: { message: 'Authentication failed' }
+          });
+        } else {
+          console.error('❌ Response object is invalid:', typeof res, res);
+        }
+      } catch (responseError) {
+        console.error('❌ Failed to send error response:', responseError);
+      }
     }
   });
 

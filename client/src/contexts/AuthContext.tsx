@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthContextType, User } from '@/types';
+import { apiRequest } from '../lib/queryClient';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -365,57 +366,55 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   const loginAsHabitLoopUser = async (userData: any) => {
-    console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', {
-      userData: JSON.stringify(userData, null, 2)
-    });
-    
     try {
-      // Call backend to login as HabitLoop user
-      const response = await fetch('/api/auth/habitloop-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userData.id })
+      console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', userData.id);
+      
+      const response = await apiRequest('/api/habitloop/signin', 'POST', { userId: userData.id });
+      const userDataResponse = await response.json();
+      
+      console.log('🔐 AuthContext: HabitLoop login response:', {
+        success: userDataResponse.success,
+        hasUser: !!userDataResponse.user,
+        hasToken: !!userDataResponse.token
       });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to login as HabitLoop user');
+      if (userDataResponse.success && userDataResponse.user && userDataResponse.token) {
+        const user = {
+          id: userDataResponse.user.id,
+          email: userDataResponse.user.email,
+          firstName: userDataResponse.user.firstName,
+          lastName: userDataResponse.user.lastName,
+          level: userDataResponse.user.level,
+          xp: userDataResponse.user.xp,
+          role: userDataResponse.user.role,
+          isGuest: false,
+          difficulty: userDataResponse.user.difficulty,
+          profileImageUrl: userDataResponse.user.profileImageUrl
+        };
+
+        // HabitLoop users should ONLY use verifiedUser storage (no guestUser)
+        localStorage.setItem('verified_token', userDataResponse.token);
+        localStorage.setItem('verifiedUser', JSON.stringify(user));
+        
+        // Clear any guest data to prevent conflicts
+        localStorage.removeItem('guest_token');
+        localStorage.removeItem('guestUser');
+        
+        // Clear any Supabase session data
+        localStorage.removeItem('authUser');
+        localStorage.removeItem('auth_token');
+        
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        console.log('🔐 AuthContext: HabitLoop user logged in successfully:', user.firstName);
+        console.log('🔐 AuthContext: Stored as verifiedUser only (no guestUser)');
+      } else {
+        console.error('🔐 AuthContext: HabitLoop login failed - invalid response');
+        throw new Error('Invalid response from server');
       }
-
-      // Create user object from HabitLoop user data
-      const user: User = {
-        id: userData.id,
-        email: `${userData.username}@habitloop.local`,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        level: userData.level,
-        xp: userData.xp,
-        role: 'habitloop_user',
-        isGuest: false,
-        difficulty: userData.difficulty,
-        profileImageUrl: userData.avatar
-      };
-
-      // Store as verified user (not guest)
-      localStorage.setItem('verified_token', data.token);
-      localStorage.setItem('verifiedUser', JSON.stringify(user));
-      localStorage.removeItem('guest_token');
-      localStorage.removeItem('guestUser');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('authUser');
-      
-      setUser(user);
-      setIsAuthenticated(true);
-      
-      console.log('🔐 AuthContext: HabitLoop user logged in:', {
-        userId: user.id,
-        userName: `${user.firstName} ${user.lastName}`,
-        isGuest: user.isGuest,
-        storageKey: 'verifiedUser'
-      });
     } catch (error) {
-      console.error('🔐 AuthContext: Error logging in as HabitLoop user:', error);
+      console.error('🔐 AuthContext: HabitLoop login error:', error);
       throw error;
     }
   };
@@ -448,7 +447,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       console.log('🔐 AuthContext: Refreshing user data with token length:', token.length);
 
-      const response = await fetch('/api/auth/user', {
+      const response = await fetch('/api/user', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -456,19 +455,26 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       });
 
       if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        setIsAuthenticated(true);
+        const responseData = await response.json();
         
-        // Update localStorage with fresh data
-        if (userData.isGuest) {
-          localStorage.setItem('guestUser', JSON.stringify(userData));
+        if (responseData.success && responseData.user) {
+          const userData = responseData.user;
+          setUser(userData);
+          setIsAuthenticated(true);
+          
+          // Update localStorage with fresh data
+          if (userData.isGuest) {
+            localStorage.setItem('guestUser', JSON.stringify(userData));
+          } else {
+            localStorage.setItem('verifiedUser', JSON.stringify(userData));
+          }
+          
+          console.log('🔐 AuthContext: User data refreshed from backend:', userData);
+          return userData;
         } else {
-          localStorage.setItem('verifiedUser', JSON.stringify(userData));
+          console.warn('Invalid response format from /api/auth/user');
+          return null;
         }
-        
-        console.log('🔐 AuthContext: User data refreshed from backend:', userData);
-        return userData;
       } else {
         console.warn('Failed to refresh user data:', response.status, response.statusText);
         
@@ -485,11 +491,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           if (guestResponse.ok) {
             const guestData = await guestResponse.json();
             if (guestData.success && guestData.user) {
-              setUser(guestData.user);
-              setIsAuthenticated(true);
-              localStorage.setItem('guestUser', JSON.stringify(guestData.user));
-              console.log('🔐 AuthContext: User data refreshed via guest endpoint:', guestData.user);
-              return guestData.user;
+              // Only create guest user if no verified user exists
+              const verifiedUser = localStorage.getItem('verifiedUser');
+              if (!verifiedUser) {
+                setUser(guestData.user);
+                setIsAuthenticated(true);
+                localStorage.setItem('guestUser', JSON.stringify(guestData.user));
+                console.log('🔐 AuthContext: User data refreshed via guest endpoint:', guestData.user);
+                return guestData.user;
+              } else {
+                console.log('🔐 AuthContext: Verified user exists, skipping guest user creation');
+                return null;
+              }
             }
           }
         }

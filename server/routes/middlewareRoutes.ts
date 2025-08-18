@@ -72,18 +72,23 @@ export function setupSession(app: any) {
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
-    // Ensure response object is properly set up
-    if (!res || typeof res.status !== 'function' || typeof res.json !== 'function') {
-      console.error('Invalid response object in requireAuth middleware:', res);
-      throw new Error('Invalid response object');
+    // Prioritize JWT token from Authorization header (for authenticated users)
+    const authHeader = req.headers.authorization;
+    let token = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+      console.log('🔐 Using JWT token from Authorization header');
+    } else if (req.session?.token) {
+      // Fallback to session token only if no Authorization header
+      token = req.session.token;
+      console.log('🔐 Using session token as fallback');
     }
-
-    const token = req.headers.authorization?.replace('Bearer ', '') || req.session?.token;
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        error: { message: 'Authentication required' }
+        error: { message: 'Authentication required - JWT token needed' }
       });
     }
 
@@ -96,43 +101,98 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         // Handle both guest and authenticated JWT tokens
         const user = await storage.getUser(decoded.userId);
         if (user) {
-          req.user = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            level: user.level,
-            xp: user.xp,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            passwordHash: user.passwordHash,
-            profileImageUrl: user.profileImageUrl,
-            isGuest: user.isGuest,
-            questionnaire: user.questionnaire,
-            emailSettings: user.emailSettings,
-            difficulty: user.difficulty,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-          };
+          // Check if this is a critical endpoint that needs fresh data
+          const isCriticalEndpoint = req.path.includes('/analytics/') || 
+                                   req.path.includes('/ml/') || 
+                                   req.path.includes('/xp-calculation');
+          
+          if (isCriticalEndpoint) {
+            // Force fresh database query for critical endpoints
+            console.log(`🔄 Critical endpoint detected: ${req.path} - forcing fresh user data`);
+            const freshUser = await storage.getUser(decoded.userId);
+            if (freshUser) {
+              req.user = {
+                id: freshUser.id,
+                email: freshUser.email,
+                role: freshUser.role,
+                level: freshUser.level,
+                xp: freshUser.xp,
+                firstName: freshUser.firstName,
+                lastName: freshUser.lastName,
+                passwordHash: freshUser.passwordHash,
+                profileImageUrl: freshUser.profileImageUrl,
+                isGuest: freshUser.isGuest,
+                questionnaire: freshUser.questionnaire,
+                emailSettings: freshUser.emailSettings,
+                difficulty: freshUser.difficulty,
+                createdAt: freshUser.createdAt,
+                updatedAt: freshUser.updatedAt
+              };
+              console.log(`✅ Fresh user data loaded: Level ${freshUser.level}, XP ${freshUser.xp}`);
+            } else {
+              req.user = {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                level: user.level,
+                xp: user.xp,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                passwordHash: user.passwordHash,
+                profileImageUrl: user.profileImageUrl,
+                isGuest: user.isGuest,
+                questionnaire: user.questionnaire,
+                emailSettings: user.emailSettings,
+                difficulty: user.difficulty,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+              };
+            }
+          } else {
+            // Use cached data for non-critical endpoints
+            req.user = {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              level: user.level,
+              xp: user.xp,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              passwordHash: user.passwordHash,
+              profileImageUrl: user.profileImageUrl,
+              isGuest: user.isGuest,
+              questionnaire: user.questionnaire,
+              emailSettings: user.emailSettings,
+              difficulty: user.difficulty,
+              createdAt: user.createdAt,
+              updatedAt: user.updatedAt
+            };
+          }
           return next();
         }
       } catch (jwtError) {
         console.log('❌ JWT verification failed:', jwtError);
+        return res.status(401).json({
+          success: false,
+          error: { message: 'Invalid JWT token' }
+        });
       }
     }
 
-    // Use Supabase to verify the JWT
+    // Only use Supabase for non-JWT tokens (legacy support)
     if (!supabase) {
       return res.status(401).json({
         success: false,
-        error: { message: 'Authentication service not available' }
+        error: { message: 'JWT authentication required - no session support' }
       });
     }
+    
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
       return res.status(401).json({
         success: false,
-        error: { message: 'Invalid token' }
+        error: { message: 'Invalid token - JWT authentication required' }
       });
     }
 

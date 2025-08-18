@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +24,6 @@ interface HabitLoopUser {
   username: string;
   firstName: string;
   lastName: string;
-  level: number;
-  xp: number;
   difficulty: string;
   avatar: string;
   description: string;
@@ -37,8 +35,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-001",
     firstName: "Alex",
     lastName: "Chen",
-    level: 15,
-    xp: 2840,
     difficulty: "medium",
     avatar: "👨‍💻",
     description: "Productivity enthusiast with 15-day streak"
@@ -48,8 +44,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-002",
     firstName: "Sarah",
     lastName: "Johnson",
-    level: 8,
-    xp: 1240,
     difficulty: "easy",
     avatar: "👩‍🎨",
     description: "Creative habits builder, 8-day streak"
@@ -59,9 +53,7 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-003",
     firstName: "Marcus",
     lastName: "Rodriguez",
-    level: 22,
-    xp: 4560,
-    difficulty: "hard",
+    difficulty: "medium",
     avatar: "🏃‍♂️",
     description: "Fitness champion, 30-day streak"
   },
@@ -70,8 +62,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-004",
     firstName: "Emma",
     lastName: "Thompson",
-    level: 12,
-    xp: 1980,
     difficulty: "medium",
     avatar: "🧘‍♀️",
     description: "Mindfulness advocate, 12-day streak"
@@ -81,9 +71,7 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-005",
     firstName: "David",
     lastName: "Kim",
-    level: 18,
-    xp: 3420,
-    difficulty: "hard",
+    difficulty: "medium",
     avatar: "📚",
     description: "Learning machine, 25-day streak"
   },
@@ -92,8 +80,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-006",
     firstName: "Lisa",
     lastName: "Wang",
-    level: 6,
-    xp: 890,
     difficulty: "easy",
     avatar: "🌱",
     description: "New habit builder, 6-day streak"
@@ -103,8 +89,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-007",
     firstName: "New",
     lastName: "User",
-    level: 1,
-    xp: 0,
     difficulty: "easy",
     avatar: "🆕",
     description: "Fresh start, no habits yet"
@@ -114,8 +98,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-008",
     firstName: "Fresh",
     lastName: "Start",
-    level: 1,
-    xp: 0,
     difficulty: "easy",
     avatar: "🌟",
     description: "Beginner with zero experience"
@@ -125,8 +107,6 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
     username: "user-009",
     firstName: "Beginner",
     lastName: "Tester",
-    level: 1,
-    xp: 0,
     difficulty: "easy",
     avatar: "🎯",
     description: "Testing from ground zero"
@@ -136,8 +116,50 @@ const HABITLOOP_USERS: HabitLoopUser[] = [
 export function HabitLoopUserModal({ open, onClose, onSuccess }: HabitLoopUserModalProps) {
   const [selectedUser, setSelectedUser] = useState<HabitLoopUser | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState<Record<string, { level: number; xp: number }>>({});
+  const [fetchingData, setFetchingData] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { loginAsHabitLoopUser } = useAuth();
+
+  // Fetch real user data from backend
+  const fetchUserData = async (userId: string) => {
+    if (userData[userId] || fetchingData[userId]) return;
+    
+    setFetchingData(prev => ({ ...prev, [userId]: true }));
+    
+    try {
+      const response = await fetch('/api/habitloop/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.user) {
+        setUserData(prev => ({
+          ...prev,
+          [userId]: {
+            level: data.user.level,
+            xp: data.user.xp
+          }
+        }));
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch data for ${userId}:`, error);
+    } finally {
+      setFetchingData(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Fetch data when modal opens
+  useEffect(() => {
+    if (open) {
+      HABITLOOP_USERS.forEach(user => {
+        fetchUserData(user.id);
+      });
+    }
+  }, [open]);
 
   const handleUserSelect = async (user: HabitLoopUser) => {
     setLoading(true);
@@ -212,14 +234,30 @@ export function HabitLoopUserModal({ open, onClose, onSuccess }: HabitLoopUserMo
                   <p className="text-sm text-gray-500 mb-3">{user.username}</p>
                   
                   <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Level:</span>
-                      <span className="font-semibold text-indigo-600">{user.level}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">XP:</span>
-                      <span className="font-semibold text-purple-600">{user.xp.toLocaleString()}</span>
-                    </div>
+                                         <div className="flex justify-between text-sm">
+                       <span className="text-gray-600">Level:</span>
+                       <span className="font-semibold text-indigo-600">
+                         {fetchingData[user.id] ? (
+                           <span className="text-gray-500">Loading...</span>
+                         ) : userData[user.id] ? (
+                           userData[user.id].level
+                         ) : (
+                           <span className="text-gray-400">-</span>
+                         )}
+                       </span>
+                     </div>
+                     <div className="flex justify-between text-sm">
+                       <span className="text-gray-600">XP:</span>
+                       <span className="font-semibold text-purple-600">
+                         {fetchingData[user.id] ? (
+                           <span className="text-gray-500">Loading...</span>
+                         ) : userData[user.id] ? (
+                           userData[user.id].xp.toLocaleString()
+                         ) : (
+                           <span className="text-gray-400">-</span>
+                         )}
+                       </span>
+                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Difficulty:</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(user.difficulty)}`}>
