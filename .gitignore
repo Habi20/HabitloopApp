@@ -1,42 +1,223 @@
-# Server artifacts
-/server/server/
+# ========================================
+# HABITLOOP - SUPERVISOR CLEAN REPOSITORY
+# ========================================
+# This .gitignore ensures a clean, professional repository
+# for supervisor review while preserving essential ML models
 
-# Development artifacts
-.DS_Store
-node_modules
-/dist
-.env
-.env.local
-.env.development
-.env.test
-.env.production
+# ========================================
+# DEVELOPMENT & IDE FILES (HIDE FROM SUPERVISOR)
+# ========================================
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Cursor AI Editor files
+.cursor/
+.cursorignore
+.cursorindexingignore
 
-# Editor directories and files
-.idea
-.vscode
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-*
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Build output
+# ========================================
+# TESTING & DEVELOPMENT FILES (HIDE)
+# ========================================
+
+# Test directories and files
+test/
+tests/
+server/__tests__/
+server/tests/
+server/test-*.cjs
+server/test-*.js
+server/test-*.py
+server/debug-*.cjs
+server/fix-*.cjs
+server/check-*.cjs
+server/diagnose-*.cjs
+server/cleanup-*.cjs
+server/direct-*.cjs
+server/retrain_*.py
+server/test_*.py
+server/test_*.js
+server/test_*.cjs
+
+# Test files in root
+test-*.js
+test-*.cjs
+test-*.py
+*_test.py
+*_test.js
+*_test.cjs
+test_sendgrid_config.js
+test_sendgrid_config.cjs
+test_email_mode.cjs
+
+# Development scripts
+server/scripts/test-*
+server/scripts/debug-*
+server/scripts/install_*
+server/scripts/fix-*
+server/scripts/cleanup-*
+
+# ========================================
+# DOCUMENTATION CLUTTER (HIDE)
+# ========================================
+
+# Thesis and documentation files
+thesis/
+THESIS_*.md
+README-*.md
+README (copy).md
+PROJECT_STRUCTURE_WITH_FUNCTIONS.md
+IMPLEMENTATION_DOCUMENTATION.md
+TIMEZONE_IMPLEMENTATION_GUIDE.md
+HABITLOOP_SYSTEM_GUIDE.md
+EMAIL_INTEGRATION_FIXES_SUMMARY.md
+FAIR_XP_SYSTEM_DOCUMENTATION.md
+ML_SYSTEM_IMPLEMENTATION_AUDIT.md
+
+# SpecStory AI history
+.specstory/
+
+# Documentation directories (development docs)
+/docs/
+/server/docs/
+
+# Documentation files (development docs)
+/README.md
+
+# ========================================
+# DEVELOPMENT ARTIFACTS (HIDE)
+# ========================================
+
+# Node modules
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Build outputs
+/dist
+/build
 .next
 out
 
-# Debug logs
-*.log
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*
 
-# Local development files
-*.local
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server/migration-debug.log
 
 # Cache directories
 .cache
+server/__pycache__/
+server/ml/models/__pycache__/
+server/ml/__pycache__/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+
+# ========================================
+# DATABASE & MIGRATION FILES (HIDE)
+# ========================================
+
+# Database files
+migrations/
+*.sql
+server/schema-lock*.json
+server/db.ts
+
+# ========================================
+# UNUSED & DEMO FILES (HIDE)
+# ========================================
+
+# Unused directories
+notUsed/
+demo/
+server/demo/
+-p/
+
+# Demo and unused files
+server/ml/ml_demo_working.py
+server/syntheticDatabase.ts
+server/supabaseAuth.ts
+
+# ========================================
+# CONFIGURATION FILES (HIDE SENSITIVE)
+# ========================================
+
+# Configuration files that might contain sensitive data
+config-*.json
+config-*.js
+server/drizzle.config.ts
+server/.eslintrc.cjs
+
+# ========================================
+# PRESERVE ESSENTIAL ML MODELS (KEEP)
+# ========================================
+
+# IMPORTANT: Keep these ML model files for supervisor
+!server/ml/models/trained/metadata.json
+!server/ml/models/trained/*.pkl
+!server/ml/models/trained/*.joblib
+!server/ml/models/habitPredictor.py
+
+# ========================================
+# PRESERVE CORE CODE (KEEP)
+# ========================================
+
+# Core application files
+!server/routes/
+!server/services/
+!server/utils/
+!server/ml/services/
+!server/ml/pipelines/
+!client/src/
+!shared/
+
+# Core configuration
+!package.json
+!package-lock.json
+!tsconfig.json
+!vite.config.ts
+!tailwind.config.ts
+!requirements.txt
+!server/package.json
+!server/tsconfig.json
+!server/vite.ts
+
+# Core documentation
+!README.md
+!docs/
+
+# ========================================
+# SYSTEM FILES (HIDE)
+# ========================================
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Server artifacts
+/server/server/
 
 # Package directories
 jspm_packages
@@ -61,49 +242,23 @@ server/public
 vite.config.ts.*
 *.tar.gz
 
-# Documentation and test files (exclude from production repo)
-*.md
-*.cjs
-test-*.js
-test-*.cjs
-test-*.py
-*_test.py
-*_test.js
-*_test.cjs
+# ========================================
+# DEVELOPMENT TOOLS (HIDE)
+# ========================================
 
-# Development and testing directories
-test/
-tests/
-notUsed/
-demo/
-scripts/test-*
-scripts/debug-*
-scripts/install_*
+# Development tools and utilities
+server/coachingEngine.ts
+server/recommendationEngine.ts
+server/openaiService.ts
+server/emailService.ts
 
-# Temporary and development files
-*.tmp
-*.temp
-*.bak
-*.backup
-*.swp
-*.swo
-
-# ML model files (keep only essential ones)
-ml/models/__pycache__/
-ml/models/trained/*.pkl
-ml/models/trained/*.joblib
-ml/models/trained/metadata.json
-
-# Database and migration files
-migrations/
-*.sql
-
-# Configuration files that might contain sensitive data
-.env.*
-config-*.json
-config-*.js
-
-# IDE and editor specific files
-.vscode/
-.idea/
-*.sublime-*
+# ========================================
+# NOTES FOR SUPERVISOR
+# ========================================
+# This repository contains:
+# ✅ Core application code (client/, server/, shared/)
+# ✅ ML models and services (server/ml/)
+# ✅ Essential configuration files
+# ✅ Main documentation (README.md, docs/)
+# ❌ Development clutter, tests, and temporary files
+# ❌ Sensitive configuration and environment files

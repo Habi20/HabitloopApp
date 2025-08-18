@@ -25,7 +25,7 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().optional(),
   FRONTEND_URL: z.string().default("http://localhost:5173"),
   SENDGRID_API_KEY: z.string().optional(),
-  SENDGRID_FROM_EMAIL: z.string().default("noreply@habitmaster.com"),
+  SENDGRID_FROM_EMAIL: z.string().default("noreply@habitloop.com"),
   GMAIL_TEST_EMAIL: z.string().default("akeel.lithan@gmail.com"),
   GMAIL_TEST_PASSWORD: z.string().default("password123"),
 });

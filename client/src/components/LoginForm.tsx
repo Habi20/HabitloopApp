@@ -20,7 +20,7 @@ const LoginForm: React.FC = () => {
       await login(email, password);
       toast({
         title: "Login Successful! 🎉",
-        description: "Welcome back to HabitMaster!",
+        description: "Welcome back to HabitLoop!",
       });
     } catch (error) {
       console.error('Login failed:', error);
@@ -37,7 +37,7 @@ const LoginForm: React.FC = () => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-center">Login to HabitMaster</CardTitle>
+        <CardTitle className="text-center">Login to HabitLoop</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

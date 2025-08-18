@@ -1,4 +1,4 @@
-// Core types for the HabitMaster application
+// Core types for the HabitLoop application
 
 export interface Habit {
   id: string;

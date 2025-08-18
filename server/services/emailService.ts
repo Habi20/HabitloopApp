@@ -134,7 +134,7 @@ export class EmailService {
     const msg = {
       to,
       from: 'akeel.lithan@gmail.com', // Always use verified sender
-      subject: 'HabitMaster Email Test',
+              subject: 'HabitLoop Email Test',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #6366F1;">Email Integration Test</h2>

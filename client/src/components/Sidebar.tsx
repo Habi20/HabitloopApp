@@ -44,7 +44,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-purple-600 rounded-lg flex items-center justify-center">
               <i className="fas fa-chart-line text-white text-sm"></i>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">HabitFlow</h1>
+            <h1 className="text-xl font-bold text-gray-900">HabitLoop</h1>
           </div>
           {onClose && (
             <button 

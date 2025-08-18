@@ -180,7 +180,7 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
               <i className="fas fa-rocket text-white text-2xl"></i>
             </div>
             <DialogTitle className="text-xl font-bold text-gray-900 mb-2">
-              Welcome to HabitMaster!
+              Welcome to HabitLoop!
             </DialogTitle>
             <DialogDescription className="text-gray-600 mb-6">
               {showForm 
