@@ -268,8 +268,8 @@ export default function Home() {
   const todayStats = {
     completed: completedToday.length,
     total: habits.length || 0,
-    completionRate: habits.length
-      ? Math.round((completedToday.length / habits.length) * 100)
+    completionRate: habits.length > 0
+      ? Math.min(100, Math.round((completedToday.length / habits.length) * 100))
       : 0,
   };
 
@@ -299,30 +299,30 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto">
           {/* Welcome Section */}
-          <div className="bg-gradient-to-r from-primary to-purple-600 text-white p-6 lg:p-8">
-            <div className="max-w-4xl mx-auto">
+          <div className="bg-gradient-to-r from-primary to-purple-600 text-white p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
+            <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                 <div>
-                  <h2 className="text-2xl lg:text-3xl font-bold mb-2">
+                  <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold mb-2">
                     Good morning, {user.firstName || "there"}! 🌅
                   </h2>
-                  <p className="text-indigo-100 text-lg">
+                  <p className="text-indigo-100 text-sm sm:text-base md:text-lg lg:text-xl">
                     You're doing great! Keep up the momentum.
                   </p>
                 </div>
-                <div className="mt-4 sm:mt-0 bg-white/20 backdrop-blur-sm rounded-xl p-4 text-center">
-                  <div className="text-2xl font-bold">{currentStreak}</div>
-                  <div className="text-sm text-indigo-100">Day Streak</div>
+                <div className="mt-4 sm:mt-0 bg-white/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 md:p-5 lg:p-6 text-center">
+                  <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{currentStreak}</div>
+                  <div className="text-xs sm:text-sm md:text-base text-indigo-100">Day Streak</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="max-w-4xl mx-auto p-6 lg:p-8">
+          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
             {showTimezoneWarning}
             {/* AI Coaching Section */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4 md:mb-6">
                 AI Coach
               </h2>
               <CoachingDashboard />
@@ -330,11 +330,11 @@ export default function Home() {
 
             {/* AI Insight Card */}
             {insights && insights.length > 0 && (
-              <AIInsightCard insight={insights[0]} className="mb-8" />
+              <AIInsightCard insight={insights[0]} className="mb-6 sm:mb-8 md:mb-10 lg:mb-12" />
             )}
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-10 lg:mb-12">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Habits</CardTitle>
@@ -409,7 +409,7 @@ export default function Home() {
                         size="sm" 
                         onClick={async () => {
                           try {
-                            const response = await apiRequest("/api/analytics/audit-xp-guest", 'POST');
+                            const response = await apiRequest("/api/analytics/audit-xp", 'POST');
                             const result = await response.json();
                             if (result.success) {
                               toast({
@@ -491,31 +491,31 @@ export default function Home() {
             </div>
 
             {/* ML Prediction Section */}
-            <div className="mb-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">
+            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+              <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">
                 AI Success Predictor
               </h3>
               <MLPredictionCard />
             </div>
 
             {/* Today's Habits */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
+            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
+                <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
                   Today's Habits
                 </h3>
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   <Button
                     onClick={() => setShowQuestionnaire(true)}
                     variant="outline"
-                    className="flex items-center space-x-2"
+                    className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
                   >
                     <i className="fas fa-brain"></i>
                     <span className="hidden sm:inline">AI Setup</span>
                   </Button>
                   <Button
                     onClick={() => setShowAddHabit(true)}
-                    className="flex items-center space-x-2"
+                    className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
                   >
                     <i className="fas fa-plus"></i>
                     <span className="hidden sm:inline">Add Habit</span>
@@ -541,15 +541,15 @@ export default function Home() {
 
                 {habits.length === 0 && (
                   <Card>
-                    <CardContent className="p-8 text-center text-gray-500">
-                      <i className="fas fa-plus-circle text-4xl mb-4 text-gray-300"></i>
+                    <CardContent className="p-6 sm:p-8 text-center text-gray-500">
+                      <i className="fas fa-plus-circle text-3xl sm:text-4xl mb-4 text-gray-300"></i>
                       <h4 className="text-lg font-medium mb-2">
                         No habits yet
                       </h4>
-                      <p className="mb-4">
+                      <p className="mb-4 text-sm sm:text-base">
                         Start building better habits today!
                       </p>
-                      <Button onClick={() => setShowAddHabit(true)}>
+                      <Button onClick={() => setShowAddHabit(true)} className="w-full sm:w-auto">
                         Add Your First Habit
                       </Button>
                     </CardContent>

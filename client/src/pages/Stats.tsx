@@ -77,12 +77,12 @@ export default function Stats() {
     <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
       <Sidebar />
 
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Your Stats</h1>
+      <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
+        <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-4 sm:mb-6 md:mb-8 lg:mb-10">Your Stats</h1>
 
           {/* Overall Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-4 sm:mb-6 md:mb-8 lg:mb-10">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-gray-600">

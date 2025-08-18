@@ -15,61 +15,61 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500">
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center text-white mb-16">
-          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mx-auto mb-6">
-            <i className="fas fa-chart-line text-2xl"></i>
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16 py-6 sm:py-8 md:py-12 lg:py-16 xl:py-20">
+        <div className="text-center text-white mb-6 sm:mb-8 md:mb-16">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mx-auto mb-3 sm:mb-4 md:mb-6">
+            <i className="fas fa-chart-line text-lg sm:text-xl md:text-2xl"></i>
           </div>
-          <h1 className="text-5xl font-bold mb-6">HabitLoop</h1>
-          <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 md:mb-6">HabitLoop</h1>
+          <p className="text-sm sm:text-lg md:text-xl text-indigo-100 mb-4 sm:mb-6 md:mb-8 max-w-2xl mx-auto px-2 sm:px-4">
             Transform your life with AI-powered habit tracking. Build lasting habits, 
             track your progress, and achieve your goals with personalized insights.
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-8 mb-16">
+        <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-12 lg:mb-16 xl:mb-20">
           <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-brain text-white"></i>
+            <CardContent className="p-4 sm:p-6 text-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <i className="fas fa-brain text-white text-sm sm:text-base"></i>
               </div>
-              <h3 className="text-xl font-semibold mb-2">AI-Powered Insights</h3>
-              <p className="text-indigo-100">Get personalized recommendations and insights to optimize your habits</p>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">AI-Powered Insights</h3>
+              <p className="text-indigo-100 text-sm sm:text-base">Get personalized recommendations and insights to optimize your habits</p>
             </CardContent>
           </Card>
 
           <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-warning rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-fire text-white"></i>
+            <CardContent className="p-4 sm:p-6 text-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-warning rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <i className="fas fa-fire text-white text-sm sm:text-base"></i>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Streak Tracking</h3>
-              <p className="text-indigo-100">Build momentum with visual streak counters and gamified progress</p>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Streak Tracking</h3>
+              <p className="text-indigo-100 text-sm sm:text-base">Build momentum with visual streak counters and gamified progress</p>
             </CardContent>
           </Card>
 
           <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-mobile-alt text-white"></i>
+            <CardContent className="p-4 sm:p-6 text-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <i className="fas fa-mobile-alt text-white text-sm sm:text-base"></i>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Mobile Optimized</h3>
-              <p className="text-indigo-100">Track habits anywhere with our responsive, mobile-first design</p>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Mobile Optimized</h3>
+              <p className="text-indigo-100 text-sm sm:text-base">Track habits anywhere with our responsive, mobile-first design</p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 px-2 sm:px-4 md:px-6 lg:px-8">
           <Button 
             size="lg" 
-            className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold px-8 py-4 text-lg"
+            className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold px-4 sm:px-6 md:px-8 lg:px-12 py-3 sm:py-4 md:py-5 text-sm sm:text-base md:text-lg lg:text-xl w-full sm:w-auto md:w-auto lg:w-auto"
             onClick={() => setShowLoginModal(true)}
           >
             <i className="fas fa-rocket mr-2"></i>
             Get Started Free
           </Button>
           
-          <div className="text-white/80 space-y-2">
+          <div className="text-white/80 space-y-2 text-xs sm:text-sm md:text-base lg:text-lg">
             <div>
               <span>or </span>
               <button 
@@ -91,8 +91,8 @@ export default function Landing() {
           </div>
         </div>
 
-        <div className="mt-16 text-center text-white/60">
-          <p>Join thousands of users building better habits every day</p>
+        <div className="mt-6 sm:mt-8 md:mt-12 lg:mt-16 text-center text-white/60 px-2 sm:px-4 md:px-6 lg:px-8">
+          <p className="text-xs sm:text-sm md:text-base lg:text-lg">Join thousands of users building better habits every day</p>
         </div>
       </div>
 

@@ -106,35 +106,35 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center space-x-4">
+      <CardContent className="p-3 sm:p-4 md:p-5 lg:p-6">
+        <div className="flex items-start space-x-3 sm:space-x-4 md:space-x-5 lg:space-x-6">
           <button 
             onClick={handleToggle}
             disabled={loading}
-            className={buttonClasses}
+            className={cn(buttonClasses, "flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16")}
           >
             {completed ? (
-              <i className="fas fa-check text-lg"></i>
+              <i className="fas fa-check text-sm sm:text-base md:text-lg lg:text-xl"></i>
             ) : progressPercentage > 0 && progressPercentage < 100 ? (
-              <i className="fas fa-play text-lg"></i>
+              <i className="fas fa-play text-sm sm:text-base md:text-lg lg:text-xl"></i>
             ) : (
-              <i className="fas fa-circle text-lg"></i>
+              <i className="fas fa-circle text-sm sm:text-base md:text-lg lg:text-xl"></i>
             )}
           </button>
           
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-1">
-              <h4 className="font-semibold text-gray-900">{habit.title}</h4>
-              <Badge className={getCategoryColor(habit.category)}>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-1 space-y-1 sm:space-y-0">
+              <h4 className="font-semibold text-gray-900 text-sm sm:text-base md:text-lg lg:text-xl truncate">{habit.title}</h4>
+              <Badge className={cn(getCategoryColor(habit.category), "text-xs sm:text-sm w-fit")}>
                 {habit.category}
               </Badge>
             </div>
             
             {habit.description && (
-              <p className="text-gray-600 text-sm mb-2">{habit.description}</p>
+              <p className="text-gray-600 text-xs sm:text-sm md:text-base lg:text-lg mb-2 line-clamp-2">{habit.description}</p>
             )}
             
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm md:text-base lg:text-lg text-gray-500">
               <span className="flex items-center space-x-1">
                 <i className="fas fa-fire text-warning"></i>
                 <span className="streak-display">Loading...</span>
@@ -142,7 +142,7 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
               {habit.reminderTime && (
                 <span className="flex items-center space-x-1">
                   <i className="fas fa-clock"></i>
-                  <span>{habit.reminderTime}</span>
+                  <span className="truncate">{habit.reminderTime}</span>
                 </span>
               )}
               {completed && (
@@ -156,12 +156,12 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
             {/* ML Performance Score */}
             {performanceScore && (
               <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
+                  <div className="flex items-center space-x-2 flex-wrap">
                     <i className="fas fa-chart-line text-blue-600"></i>
                     <span className="text-xs font-medium text-gray-700">ML Score:</span>
                     <span className={cn(
-                      "text-sm font-bold",
+                      "text-xs sm:text-sm font-bold",
                       performanceScore.performance_score >= 80 ? "text-green-600" :
                       performanceScore.performance_score >= 50 ? "text-yellow-600" : "text-red-600"
                     )}>
