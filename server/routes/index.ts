@@ -3,7 +3,7 @@ import { createServer } from "http";
 import { setupSession, requireAuth } from "./middlewareRoutes";
 import { authRoutes } from "./authRoutes";
 import { habitRoutes } from "./habitRoutes";
-import { aiRoutes } from "./aiRoutes";
+import aiRoutes from "./aiRoutes";
 import { mlPredictionRoutes } from "./mlPredictionRoutes";
 import { adminRoutes } from "./adminRoutes";
 import { analyticsRoutes } from "./analyticsRoutes";
@@ -20,7 +20,7 @@ export async function registerRoutes(app: express.Application) {
   // Mount all route modules
   app.use("/api", authRoutes());
   app.use("/api/habits", habitRoutes());
-  app.use("/api/ai", aiRoutes());
+  app.use("/api/ai", aiRoutes);
   app.use("/api/ml", mlPredictionRoutes());
   app.use("/api/email", emailRoutes);
   app.use("/api/guest", guestRoutes());
@@ -34,36 +34,21 @@ export async function registerRoutes(app: express.Application) {
   app.use("/api/coaching", coachingRoutes());
   
   // Mount AI insights routes under /api/insights for frontend compatibility
-  app.use("/api/insights", aiRoutes());
+  app.use("/api/insights", aiRoutes);
   
   // Mount AI coach routes under /api/coach for frontend compatibility
-  app.use("/api/coach", aiRoutes());
+  app.use("/api/coach", aiRoutes);
 
-  // Catch-all route for undefined paths (moved from index.ts)
+  // Catch-all route for undefined paths - now returns proper 404
   app.get("*", (_req, res) => {
     res.status(404).json({
       error: "Route not found",
-      message: "Backend API running - Frontend disabled for testing",
-      available_routes: [
-        "/",
-        "/api/ml/*",
-        "/api/auth/*",
-        "/api/habits/*",
-        "/api/admin/*",
-        "/api/completions/*",
-        "/api/insights/*",
-        "/api/coaching/*",
-        "/api/ai/*",
-        "/api/email/*",
-        "/api/guest/*",
-        "/api/analytics/*",
-        "/api/challenges/*",
-      ],
+      message: "The requested endpoint does not exist",
     });
   });
 
   // Global error handler - fix unused parameters
-  app.use((err: any, _req: any, res: any) => {
+  app.use((err: any, _req: any, res: any, _next: any) => {
     console.error("API Error:", err);
     res.status(500).json({
       success: false,

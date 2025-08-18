@@ -290,10 +290,11 @@ export class DatabaseStorage implements IStorage {
     if (habit.id) {
       // Try to update existing habit
       try {
+        const { id, ...habitData } = habit; // Remove id from the update data
         const [updatedHabit] = await this.db
           .update(habits)
           .set({ 
-            ...habit,
+            ...habitData,
             updatedAt: now,
           })
           .where(eq(habits.id, parseInt(habit.id)))
@@ -378,10 +379,11 @@ export class DatabaseStorage implements IStorage {
     if (completion.id) {
       // Try to update existing completion
       try {
+        const { id, ...completionData } = completion; // Remove id from the update data
         const [updatedCompletion] = await this.db
           .update(habitCompletions)
           .set({ 
-            ...completion,
+            ...completionData,
             createdAt: now,
           })
           .where(eq(habitCompletions.id, parseInt(completion.id)))
@@ -745,11 +747,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  private getWeekNumber(date: Date): number {
-    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-  }
+  // Removed unused private getWeekNumber function
 
   calculateLevel(xp: number): number {
     // Level progression: Level 1 = 0-99 XP, Level 2 = 100-199 XP, Level 3 = 200-299 XP, etc.
@@ -777,7 +775,7 @@ export class DatabaseStorage implements IStorage {
 
     // Calculate expected XP from completions
     const completions = await this.getHabitCompletions(userId);
-    const habits = await this.getUserHabits(userId);
+    // const habits = await this.getUserHabits(userId); // Not used in current calculation
     
     let calculatedXP = 0;
     const completionCounts = new Map<number, number>();
@@ -817,15 +815,14 @@ export class DatabaseStorage implements IStorage {
     if (xpDifference > 100) {
       console.warn(`⚠️ XP inconsistency detected for user ${userId}. Fixing...`);
       
-      const [updatedUser] = await this.db
+      await this.db
         .update(users)
         .set({
           xp: calculatedXP,
           level: expectedLevel,
           updatedAt: new Date(),
         })
-        .where(eq(users.id, userId))
-        .returning();
+        .where(eq(users.id, userId));
 
       return {
         fixed: true,

@@ -208,13 +208,13 @@ export class HabitCompletionManager {
       const status = await this.getHabitCompletionStatus(habitId, userId);
       
       // Check if can uncomplete
-              if (!status.canUncomplete) {
-          return {
-            success: false,
-            message: "Cannot uncomplete after 24 hours",
-            xpLost: 0
-          };
-        }
+      if (!status.canUncomplete) {
+        return {
+          success: false,
+          message: "Cannot uncomplete after 24 hours",
+          xpLost: 0
+        };
+      }
 
       // Delete today's completion
       const completions = await storage.getHabitCompletions(userId);
@@ -222,27 +222,33 @@ export class HabitCompletionManager {
         c.habitId === habitId && isSameDay(c.completedAt, today)
       );
 
-              if (!todayCompletion) {
-          return {
-            success: false,
-            message: "No completion found for today",
-            xpLost: 0
-          };
-        }
+      if (!todayCompletion) {
+        return {
+          success: false,
+          message: "No completion found for today",
+          xpLost: 0
+        };
+      }
 
+      // Calculate XP lost before deleting completion
+      const xpLost = status.xpEarned;
+
+      // Delete the completion
       await storage.deleteHabitCompletion(habitId, userId, today);
       
       // Recalculate streak
       await this.recalculateStreak(habitId, userId);
       
-      // Calculate XP lost
-      const xpLost = status.xpEarned;
+      // Actually deduct XP from user's total
+      if (xpLost > 0) {
+        await storage.updateUserXP(userId, -xpLost);
+      }
 
-              return {
-          success: true,
-          message: `Habit uncompleted. -${xpLost} XP lost`,
-          xpLost
-        };
+      return {
+        success: true,
+        message: `Habit uncompleted. -${xpLost} XP lost`,
+        xpLost
+      };
     } catch (error) {
       console.error("Error uncompleting habit:", error);
       throw new Error("Failed to uncomplete habit");
