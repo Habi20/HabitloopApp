@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useUISettings } from "@/hooks/useUISettings";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { getCurrentDateString, isSameDay, getTimezoneWarning } from "@/lib/timezone";
+import { getCurrentDateString, getTimezoneWarning } from "@/lib/timezone";
 import { Sidebar } from "@/components/Sidebar";
 import { HabitCard } from "@/components/HabitCard";
 import { AddHabitModal } from "@/components/AddHabitModal";
@@ -13,6 +14,7 @@ import { HabitRecommendationCarousel } from "@/components/HabitRecommendationCar
 import { MLPredictionCard } from "@/components/MLPredictionCard";
 import { CoachingDashboard } from "@/components/CoachingDashboard";
 import { AIInsightCard } from "@/components/AIInsightCard";
+import NotificationPanel from "@/components/NotificationPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +28,7 @@ declare global {
 export default function Home() {
   const { user, refreshUserData, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { settings: uiSettings, isLoaded: uiSettingsLoaded } = useUISettings();
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
@@ -186,7 +189,7 @@ export default function Home() {
       // Return context for rollback
       return { previousCompletions };
     },
-    onError: (error, variables, context) => {
+    onError: (error, _variables, context) => {
       // Rollback on error
       if (context?.previousCompletions) {
         queryClient.setQueryData(["/api/completions", today], context.previousCompletions);
@@ -265,13 +268,7 @@ export default function Home() {
   // Create Set of completed habit IDs for efficient lookup
   const completedHabitIds = new Set(completedToday.map((c: any) => c.habitId));
 
-  const todayStats = {
-    completed: completedToday.length,
-    total: habits.length || 0,
-    completionRate: habits.length > 0
-      ? Math.min(100, Math.round((completedToday.length / habits.length) * 100))
-      : 0,
-  };
+
 
   const currentStreak = streaksData?.data?.summary?.totalCurrentStreak || 0;
   const longestStreak = streaksData?.data?.summary?.totalLongestStreak || 0;
@@ -291,9 +288,7 @@ export default function Home() {
               <i className="fas fa-bars text-xl"></i>
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Today</h1>
-            <button className="text-gray-600 hover:text-gray-900">
-              <i className="fas fa-bell text-xl"></i>
-            </button>
+            <NotificationPanel />
           </div>
         </header>
 
@@ -320,20 +315,8 @@ export default function Home() {
 
           <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
             {showTimezoneWarning}
-            {/* AI Coaching Section */}
-            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4 md:mb-6">
-                AI Coach
-              </h2>
-              <CoachingDashboard />
-            </div>
-
-            {/* AI Insight Card */}
-            {insights && insights.length > 0 && (
-              <AIInsightCard insight={insights[0]} className="mb-6 sm:mb-8 md:mb-10 lg:mb-12" />
-            )}
-
-            {/* Stats Cards */}
+            
+            {/* Stats Cards - Moved to top */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-10 lg:mb-12">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -367,9 +350,9 @@ export default function Home() {
                   <i className="fas fa-fire text-muted-foreground"></i>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{streaksData?.currentStreak || 0}</div>
+                  <div className="text-2xl font-bold">{currentStreak}</div>
                   <p className="text-xs text-muted-foreground">
-                    Longest: {streaksData?.longestStreak || 0} days
+                    Longest: {longestStreak} days
                   </p>
                 </CardContent>
               </Card>
@@ -389,7 +372,7 @@ export default function Home() {
             </div>
 
             {/* Debug Section - Data Consistency Check */}
-            {mlEvaluation && (
+            {mlEvaluation && uiSettingsLoaded && uiSettings.showDataConsistencyCheck && (
               <Card className="mb-6 border-orange-200 bg-orange-50">
                 <CardHeader>
                   <CardTitle className="text-sm text-orange-800 flex items-center gap-2">
@@ -471,7 +454,7 @@ export default function Home() {
                         <p>Level: {mlEvaluation?.user_profile?.level || 'N/A'}</p>
                         <p>XP: {mlEvaluation?.user_profile?.xp || 'N/A'}</p>
                         <p>Habits: {mlEvaluation?.user_profile?.existing_habits_count || 'N/A'}</p>
-                        <p>Success Rate: {mlEvaluation?.interpretation?.success_probability || 'N/A'}</p>
+                        <p>Success Rate: {mlEvaluation?.prediction?.successProbability ? `${Math.round(mlEvaluation.prediction.successProbability * 100)}%` : 'N/A'}</p>
                       </div>
                     </div>
                     {(user?.level !== mlEvaluation?.user_profile?.level || 
@@ -485,20 +468,7 @@ export default function Home() {
               </Card>
             )}
 
-            {/* AI Habit Recommendations */}
-            <div className="mb-8">
-              <HabitRecommendationCarousel />
-            </div>
-
-            {/* ML Prediction Section */}
-            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-              <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">
-                AI Success Predictor
-              </h3>
-              <MLPredictionCard />
-            </div>
-
-            {/* Today's Habits */}
+            {/* Today's Habits - Moved up after stats */}
             <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                 <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
@@ -529,7 +499,7 @@ export default function Home() {
                     key={habit.id}
                     habit={habit}
                     completed={completedHabitIds.has(habit.id)}
-                    onToggle={(completed) => {
+                    onToggle={(_completed) => {
                       toggleHabitCompletion.mutate({
                         habitId: habit.id,
                         isCompleted: completedHabitIds.has(habit.id), // Pass current completion status, not desired status
@@ -557,6 +527,34 @@ export default function Home() {
                 )}
               </div>
             </div>
+
+            {/* AI Habit Recommendations - Moved after Today's Habits */}
+            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+              <HabitRecommendationCarousel />
+            </div>
+
+            {/* Notifications and User Insights - Renamed from AI Coach */}
+            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4 md:mb-6">
+                Notifications and User Insights
+              </h2>
+              <CoachingDashboard />
+            </div>
+
+            {/* AI Insight Card */}
+            {insights && insights.length > 0 && (
+              <AIInsightCard insight={insights[0]} className="mb-6 sm:mb-8 md:mb-10 lg:mb-12" />
+            )}
+
+            {/* ML Prediction Section */}
+            {uiSettingsLoaded && uiSettings.showMLSuccessPredictor && (
+              <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+                <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">
+                  AI Success Predictor
+                </h3>
+                <MLPredictionCard />
+              </div>
+            )}
           </div>
         </div>
       </main>

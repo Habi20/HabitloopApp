@@ -12,17 +12,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GoogleCalendarIntegrationSimple } from "@/components/GoogleCalendarIntegrationSimple";
+// import { GoogleCalendarIntegrationSimple } from "@/components/GoogleCalendarIntegrationSimple";
+import { apiRequest } from "@/lib/queryClient";
+import { AlertTriangle, Trophy, Lightbulb } from "lucide-react";
 
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState({
-    notifications: true,
+    pushNotifications: true,
     reminderSound: true,
     weeklyReport: true,
-    reminderTime: "09:00",
+    defaultReminderTime: "09:00",
+    inactivityAlerts: true,
+    achievementAlerts: true,
+    insightAlerts: true,
     theme: "light",
+    showDataConsistencyCheck: false,
+    showMLSuccessPredictor: false,
   });
 
   useEffect(() => {
@@ -39,16 +46,66 @@ export default function Settings() {
     }
   }, [user, authLoading, toast]);
 
+  // Load settings from localStorage on component mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('habitloop_ui_settings');
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(prev => ({ ...prev, ...parsedSettings }));
+      } catch (error) {
+        console.error('Error loading settings from localStorage:', error);
+      }
+    }
+  }, []);
+
   const handleSettingChange = (key: string, value: boolean | string) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+    
+    // Save to localStorage immediately for UI components
+    const newSettings = { ...settings, [key]: value };
+    localStorage.setItem('habitloop_ui_settings', JSON.stringify(newSettings));
+    
+    // Show immediate feedback
+    toast({
+      title: "Setting updated",
+      description: "Your preference has been saved.",
+    });
   };
 
   const saveSettings = () => {
-    // Here you would typically save to backend
+    // Save all settings to backend (future implementation)
+    localStorage.setItem('habitloop_ui_settings', JSON.stringify(settings));
     toast({
       title: "Settings saved",
       description: "Your preferences have been updated.",
     });
+  };
+
+  const sendTestNotification = async (type: 'inactivity' | 'achievement' | 'insight') => {
+    try {
+      const response = await apiRequest('/api/notifications/test', 'POST', { type });
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "Test notification sent! 🔔",
+          description: `Check the notification bell to see your ${type} notification.`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to send test notification.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send test notification.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (authLoading) {
@@ -88,9 +145,60 @@ export default function Settings() {
                     </p>
                   </div>
                   <Switch
-                    checked={settings.notifications}
+                    checked={settings.pushNotifications}
                     onCheckedChange={(checked) =>
-                      handleSettingChange("notifications", checked)
+                      handleSettingChange("pushNotifications", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      Inactivity Alerts
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Get notified when you haven't completed habits
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.inactivityAlerts}
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("inactivityAlerts", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      Achievement Alerts
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Celebrate your milestones and achievements
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.achievementAlerts}
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("achievementAlerts", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      AI Insights
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Receive personalized AI-powered insights
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.insightAlerts}
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("insightAlerts", checked)
                     }
                   />
                 </div>
@@ -133,13 +241,13 @@ export default function Settings() {
                       Default Reminder Time
                     </h4>
                     <p className="text-sm text-gray-600">
-                      Time for new habit reminders
+                      Time for new habit reminders (Your timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
                     </p>
                   </div>
                   <Select
-                    value={settings.reminderTime}
+                    value={settings.defaultReminderTime}
                     onValueChange={(value) =>
-                      handleSettingChange("reminderTime", value)
+                      handleSettingChange("defaultReminderTime", value)
                     }
                   >
                     <SelectTrigger className="w-32">
@@ -156,6 +264,46 @@ export default function Settings() {
                       <SelectItem value="21:00">9:00 PM</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Test Notification Buttons */}
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="font-medium text-gray-900 mb-3">Test Notifications</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Test different types of notifications to verify they work properly
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendTestNotification('inactivity')}
+                      className="flex items-center gap-2"
+                    >
+                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                      Test Inactivity Alert
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendTestNotification('achievement')}
+                      className="flex items-center gap-2"
+                    >
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      Test Achievement
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendTestNotification('insight')}
+                      className="flex items-center gap-2"
+                    >
+                      <Lightbulb className="w-4 h-4 text-blue-500" />
+                      Test AI Insight
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 Click the notification bell in the header to see your test notifications
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -188,6 +336,48 @@ export default function Settings() {
                       <SelectItem value="system">System</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* UI Components */}
+            <Card>
+              <CardHeader>
+                <CardTitle>UI Components</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      Data Consistency Check
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Show data consistency monitoring panel on the dashboard
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.showDataConsistencyCheck}
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("showDataConsistencyCheck", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      ML Habit Success Predictor
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Show AI-powered habit success prediction on the dashboard
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.showMLSuccessPredictor}
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("showMLSuccessPredictor", checked)
+                    }
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -228,8 +418,8 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            {/* Google Calendar Integration */}
-            <GoogleCalendarIntegrationSimple />
+            {/* Google Calendar Integration - Temporarily disabled */}
+            {/* <GoogleCalendarIntegrationSimple /> */}
 
             {/* Save Button */}
             <div className="flex justify-end">

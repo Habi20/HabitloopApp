@@ -81,6 +81,8 @@ export interface AuthContextType {
   isLoading: boolean;
   checkAuthStatus: () => Promise<void>;
   refreshUserData: () => Promise<User | undefined>;
+  clearUserCache: () => void;
+  syncUserDataWithBackend: () => Promise<User | undefined>;
   getUserDisplayName: (user: User | null) => string;
   getUserEmail: (user: User | null) => string;
   getUserInitials: (user: User | null) => string;

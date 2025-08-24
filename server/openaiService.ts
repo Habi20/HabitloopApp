@@ -1,6 +1,7 @@
 import type { Questionnaire } from "../shared/schema";
 import { generatePersonalizedHabits } from "./syntheticDatabase";
-import { env, isOpenAIEnabled } from './env';
+import { env } from './env';
+// isOpenAIEnabled 
 // import OpenAI from 'openai';
 
 // Fix: openai typed as an instance of the OpenAI class

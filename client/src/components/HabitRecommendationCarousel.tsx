@@ -48,7 +48,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   }, []);
 
   // Fetch AI-powered recommendations
-  const { data: recommendations = [], isLoading, refetch } = useQuery<HabitRecommendation[]>({
+  const { data: recommendations = [], isLoading } = useQuery<HabitRecommendation[]>({
     queryKey: ['/api/ai/recommendations'],
     queryFn: async () => {
       // First try to get recommendations from localStorage (from questionnaire)

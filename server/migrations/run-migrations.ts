@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { migrationTracker } from './migration-tracker';
-import { env } from '../env';
+// import { env } from '../env';
 
 // ESM-compatible __dirname replacement
 const __filename = fileURLToPath(import.meta.url);
@@ -16,8 +16,8 @@ export class ManualMigrationRunner {
 
   async runPendingMigrations() {
     console.log('🔄 Initializing migration tracker...');
-    console.log('📍 Environment:', env.nodeEnv);
-    console.log('📍 Database URL configured:', env.dbUrl ? 'Yes ✅' : 'No ❌');
+    // console.log('📍 Environment:', env.nodeEnv);
+    // console.log('📍 Database URL configured:', env.dbUrl ? 'Yes ✅' : 'No ❌');
     
     try {
       await migrationTracker.initializeTracker();
@@ -151,5 +151,5 @@ if (isMainModule) {
     process.exit(1);
   });
 } else {
-  console.log('📍 Loaded as module - not executing main function');
+  console.log('📍 Loaded as module - not executing main func    ction');
 }

@@ -416,26 +416,34 @@ export function authRoutes() {
   // HabitLoop user signup (JWT only, no sessions)
   router.post('/habitloop/signup', async (req: any, res) => {
     try {
-      const { email, firstName, lastName, password, difficulty = 'medium' } = req.body;
+      const { userId, email, firstName, lastName, password, difficulty = 'medium', profileImageUrl } = req.body;
 
-      if (!email || !firstName || !password) {
+      if (!userId || !email || !firstName || !password) {
         return res.status(400).json({
           success: false,
-          error: { message: 'Email, first name, and password required' }
+          error: { message: 'User ID, email, first name, and password required' }
         });
       }
 
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
+      // Check if user already exists by ID
+      const existingUserById = await storage.getUser(userId);
+      if (existingUserById) {
+        console.log('🔐 Signup conflict: User ID already exists:', userId);
+        return res.status(409).json({
+          success: false,
+          error: { message: 'User with this ID already exists' }
+        });
+      }
+
+      // Check if user already exists by email
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
+        console.log('🔐 Signup conflict: Email already exists:', email);
         return res.status(409).json({
           success: false,
           error: { message: 'User with this email already exists' }
         });
       }
-
-      // Generate unique user ID
-      const userId = `user-${Date.now()}`;
       
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -452,7 +460,7 @@ export function authRoutes() {
         role: 'habitloop_user',
         isGuest: false,
         difficulty,
-        profileImageUrl: '👤'
+        profileImageUrl: profileImageUrl || '👤'
       });
 
       // Generate JWT token
@@ -603,10 +611,55 @@ export function authRoutes() {
           difficulty: 'easy',
           profileImageUrl: '🆕',
           password: 'test123'
+        },
+        'user-010': {
+          id: 'user-010',
+          email: 'user-010@habitloop.local',
+          firstName: 'Anna',
+          lastName: 'Taylor',
+          role: 'habitloop_user',
+          isGuest: false,
+          difficulty: 'medium',
+          profileImageUrl: '👩‍💼',
+          password: 'test123'
+        },
+        'user-011': {
+          id: 'user-011',
+          email: 'user-011@habitloop.local',
+          firstName: 'James',
+          lastName: 'Bond',
+          role: 'habitloop_user',
+          isGuest: false,
+          difficulty: 'medium',
+          profileImageUrl: '🕵️‍♂️',
+          password: 'test123'
         }
       };
 
-      const userMetadata = habitLoopUserMetadata[userId as keyof typeof habitLoopUserMetadata];
+      // First check hardcoded metadata for pre-configured users
+      let userMetadata = habitLoopUserMetadata[userId as keyof typeof habitLoopUserMetadata];
+
+      // If not found in hardcoded metadata, check database for newly created users
+      if (!userMetadata) {
+        const dbUser = await storage.getUser(userId);
+        if (dbUser && !dbUser.isGuest && 
+            (dbUser.role === 'habitloop_user' || 
+             dbUser.id.startsWith('user-') ||
+             !dbUser.supabaseAuthId ||
+             dbUser.role === 'user')) {
+          userMetadata = {
+            id: dbUser.id,
+            email: dbUser.email || `${dbUser.id}@habitloop.local`,
+            firstName: dbUser.firstName || 'User',
+            lastName: dbUser.lastName || 'Name',
+            role: dbUser.role || 'user',
+            isGuest: false,
+            difficulty: dbUser.difficulty || 'medium',
+            profileImageUrl: dbUser.profileImageUrl || '👤',
+            password: 'test123' // Default password for new users
+          };
+        }
+      }
 
       if (!userMetadata) {
         return res.status(404).json({
@@ -615,12 +668,29 @@ export function authRoutes() {
         });
       }
 
-      // Check password for pre-configured users
-      if (password && userMetadata.password && password !== userMetadata.password) {
-        return res.status(401).json({
-          success: false,
-          error: { message: 'Invalid password' }
-        });
+      // Check password for users
+      if (password) {
+        // For hardcoded users, check against metadata password
+        if (habitLoopUserMetadata[userId as keyof typeof habitLoopUserMetadata]) {
+          if (userMetadata.password && password !== userMetadata.password) {
+            return res.status(401).json({
+              success: false,
+              error: { message: 'Invalid password' }
+            });
+          }
+        } else {
+          // For database users, check against hashed password
+          const dbUser = await storage.getUser(userId);
+          if (dbUser && dbUser.passwordHash) {
+            const isValidPassword = await bcrypt.compare(password, dbUser.passwordHash);
+            if (!isValidPassword) {
+              return res.status(401).json({
+                success: false,
+                error: { message: 'Invalid password' }
+              });
+            }
+          }
+        }
       }
 
       // Get fresh user data from database (or create if needed)
@@ -631,46 +701,39 @@ export function authRoutes() {
           // Use database values - NEVER overwrite with hardcoded values
           freshUserData = {
             ...userMetadata,
-            level: existingUser.level,
-            xp: existingUser.xp,
-            difficulty: existingUser.difficulty
+            level: existingUser.level || 1,
+            xp: existingUser.xp || 0,
+            difficulty: existingUser.difficulty || 'medium'
           };
-          // Using database values for HabitLoop user
         } else {
-          // User doesn't exist, create with calculated values (not hardcoded)
-          // Creating new HabitLoop user with calculated values
-          // Calculate initial XP and level based on completions
-          const calculatedXP = 0; // Start with 0 XP for new users
-          const calculatedLevel = 1; // Start with level 1
+          // Create new user in database if doesn't exist
+          console.log('Creating new HabitLoop user in database:', userMetadata.id);
+          await storage.createUser({
+            id: userMetadata.id,
+            email: userMetadata.email,
+            firstName: userMetadata.firstName,
+            lastName: userMetadata.lastName,
+            level: 1,
+            xp: 0,
+            role: userMetadata.role,
+            isGuest: false,
+            difficulty: userMetadata.difficulty,
+            profileImageUrl: userMetadata.profileImageUrl
+          });
           
           freshUserData = {
             ...userMetadata,
-            level: calculatedLevel,
-            xp: calculatedXP,
+            level: 1,
+            xp: 0,
             difficulty: userMetadata.difficulty
           };
-          
-          // Create user in database with calculated values
-          await storage.upsertUser({
-            id: freshUserData.id,
-            email: freshUserData.email,
-            firstName: freshUserData.firstName,
-            lastName: freshUserData.lastName,
-            level: freshUserData.level,
-            xp: freshUserData.xp,
-            role: freshUserData.role,
-            isGuest: false,
-            difficulty: freshUserData.difficulty
-          });
         }
       } catch (error) {
-        console.warn('⚠️ Error fetching user data, using fallback values:', error);
-        // Continue with original userMetadata as fallback, but don't overwrite database
-        freshUserData = {
-          ...userMetadata,
-          level: 1,
-          xp: 0
-        };
+        console.error('Error getting/creating user data:', error);
+        return res.status(500).json({
+          success: false,
+          error: { message: 'Failed to get user data' }
+        });
       }
 
       // Generate JWT token (no session cookie for HabitLoop users)
@@ -704,6 +767,47 @@ export function authRoutes() {
       } catch (responseError) {
         console.error('❌ Failed to send error response:', responseError);
       }
+    }
+  });
+
+  // Get all HabitLoop users
+  router.get('/habitloop/users', async (_req: any, res) => {
+    try {
+      // Get all users from database
+      const allUsers = await storage.getAllUsers();
+      
+      // Filter to only HabitLoop users (not Supabase users) and exclude guest users
+      const habitLoopUsers = allUsers.filter(user => 
+        !user.isGuest && // Exclude guest users
+        (user.role === 'habitloop_user' || 
+        user.id.startsWith('user-') ||
+        !user.supabaseAuthId || // HabitLoop users don't have supabaseAuthId
+        user.role === 'user') // Include users with role 'user' (non-Supabase users)
+      );
+
+      // Transform to match frontend interface and sort by ID
+      const users = habitLoopUsers
+        .map(user => ({
+          id: user.id,
+          username: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          difficulty: user.difficulty || 'medium',
+          avatar: user.profileImageUrl || '👤',
+          description: `${user.firstName} ${user.lastName} - ${user.difficulty || 'medium'} difficulty`
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id)); // Sort by ID in ascending order
+
+      res.json({
+        success: true,
+        users
+      });
+    } catch (error) {
+      console.error('Get HabitLoop users error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: { message: 'Failed to fetch users' } 
+      });
     }
   });
 

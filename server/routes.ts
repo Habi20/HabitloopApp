@@ -4,7 +4,7 @@ import { createServer } from "http";
 import { setupSession } from "./routes/middlewareRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { habitRoutes } from "./routes/habitRoutes";
-import { aiRoutes } from "./routes/aiRoutes";
+// import { aiRoutes } from "./routes/aiRoutes";
 import { mlPredictionRoutes } from "./routes/mlPredictionRoutes";
 import emailRoutes from "./routes/emailRoutes";
 import { adminRoutes } from "./routes/adminRoutes";
@@ -18,7 +18,7 @@ export async function registerRoutes(app: express.Application) {
   // Mount all route modules
   app.use('/api', authRoutes());
   app.use('/api/habits', habitRoutes());
-  app.use('/api/ai', aiRoutes());
+  // app.use('/api/ai', aiRoutes());
   app.use('/api/ml', mlPredictionRoutes());
   app.use('/api/email', emailRoutes);
   app.use('/api/guest', guestRoutes());

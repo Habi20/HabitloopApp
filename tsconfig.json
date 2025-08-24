@@ -1,5 +1,5 @@
 {
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
+  "include": ["client/src/**/*", "shared/**/*", "server/**/*", "test/test_ai-coach/test-ai-coach-direct.cjs", "test/test_ai-coach/test-ai-coach.cjs", "test/test_ai-coach/test-ai-insight.cjs", "test/test_ai-coach/test-ai-insight.js", "test/user_based/check-all-users.cjs", "test/user_based/cleanup-test-data.cjs", "test/user_based/fix-user-007.cjs", "test/user_based/fix-user-storage.cjs", "test/user_based/fix-all-issues.cjs", "test/user_based/diagnose-user-data.cjs", "test/test_ai-coach/test-insight-response.cjs", "test/user_based/test-new-users.cjs", "test/user_based/test-zero-user.cjs", "test/db_based/deep-cleanup.cjs", "test/db_based/direct-db-cleanup.cjs"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
     "incremental": true,

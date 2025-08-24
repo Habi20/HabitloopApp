@@ -2,7 +2,6 @@
 import { Router, Request, Response } from "express";
 import { requireAuth } from "./middlewareRoutes";
 import { storage } from "../storage";
-import { getCurrentDateString, getWeekNumber, getMonthNumber } from "../utils/timezone.js";
 import { getDailyHabitStatus } from "../utils/habitCompletionManager.js";
 
 export function challengeRoutes() {
@@ -71,10 +70,20 @@ const CHALLENGE_DEFINITIONS = {
       const dailyStatus = await getDailyHabitStatus(userId);
       const totalHabits = dailyStatus.length;
       const completedHabits = dailyStatus.filter(h => h.isCompleted).length;
+      
+      // If no habits exist, challenge cannot be completed
+      if (totalHabits === 0) {
+        return {
+          progress: 0,
+          target: 0,
+          isCompleted: false,
+        };
+      }
+      
       return {
         progress: completedHabits,
         target: totalHabits,
-        isCompleted: totalHabits > 0 && completedHabits === totalHabits,
+        isCompleted: completedHabits === totalHabits,
       };
     },
   },
@@ -119,33 +128,53 @@ const CHALLENGE_DEFINITIONS = {
       const habits = await storage.getUserHabits(userId);
       const allCompletions = await storage.getHabitCompletions(userId);
       
-      // Get morning habits (with reminder times before 9 AM)
-      const morningHabits = habits.filter(h => {
-        if (!h.reminderTime) return false;
-        const [hours] = h.reminderTime.split(':').map(Number);
-        return hours < 9;
+      // Get morning habits (habits with morning reminder times or early morning times)
+      const morningHabits = habits.filter(habit => {
+        if (!habit.reminderTime) return false;
+        
+        // Check for text-based morning reminder
+        if (habit.reminderTime.includes('morning')) return true;
+        
+        // Check for time-based morning reminder (before 12:00)
+        const timeMatch = habit.reminderTime.match(/^(\d{1,2}):(\d{2})$/);
+        if (timeMatch) {
+          const hour = parseInt(timeMatch[1]);
+          return hour < 12; // Morning hours (before noon)
+        }
+        
+        return false;
       });
 
-      if (morningHabits.length === 0) {
-        return { progress: 0, target: 5, isCompleted: false };
-      }
-
-      // Check last 7 days for early completions
+      // Check last 7 days for early completions (before 9 AM)
       const last7Days = Array.from({length: 7}, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - i);
         return date.toISOString().split('T')[0];
       });
 
-      const earlyBirdDays = last7Days.filter(date => {
+      let earlyBirdDays = 0;
+      
+      for (const date of last7Days) {
+        // Get completions for this specific date
         const dayCompletions = allCompletions.filter(c => c.completedAt === date);
-        return dayCompletions.length >= morningHabits.length;
-      });
+        
+        // Check if any completion was before 9 AM
+        const earlyCompletions = dayCompletions.filter(completion => {
+          if (!completion.completedAt) return false;
+          const completionTime = new Date(completion.completedAt);
+          return completionTime.getHours() < 9;
+        });
+        
+        // If we have early completions and they match morning habits, count this day
+        if (earlyCompletions.length > 0 && morningHabits.length > 0) {
+          earlyBirdDays++;
+        }
+      }
 
       return {
-        progress: Math.min(earlyBirdDays.length, 5),
+        progress: earlyBirdDays,
         target: 5,
-        isCompleted: earlyBirdDays.length >= 5,
+        isCompleted: earlyBirdDays >= 5,
       };
     },
   },
@@ -163,7 +192,7 @@ const CHALLENGE_DEFINITIONS = {
       const currentYear = new Date().getFullYear();
       
       const habitsThisMonth = habits.filter(habit => {
-        const habitDate = new Date(habit.createdAt);
+        const habitDate = new Date(habit.createdAt || new Date());
         return habitDate.getMonth() === currentMonth && 
                habitDate.getFullYear() === currentYear;
       });
@@ -212,10 +241,18 @@ const CHALLENGE_DEFINITIONS = {
 };
 
 async function generateUserChallenges(userId: string) {
-  const challenges = [];
-  const now = new Date();
+  const challenges: any[] = [];
 
-  for (const [key, definition] of Object.entries(CHALLENGE_DEFINITIONS)) {
+  // Check if user has any habits first
+  const userHabits = await storage.getUserHabits(userId);
+  const activeHabits = userHabits.filter(h => h.isActive);
+  
+  // If user has no active habits, return empty challenges array
+  if (activeHabits.length === 0) {
+    return challenges;
+  }
+
+  for (const [, definition] of Object.entries(CHALLENGE_DEFINITIONS)) {
     const completion = await definition.checkCompletion(userId);
     
     // Calculate expiration date
@@ -252,14 +289,14 @@ async function generateUserChallenges(userId: string) {
 }
 
 function categorizeChallenges(challenges: any[]) {
-  const categories = [
+  const categories: any[] = [
     { title: "Daily", challenges: [], totalXP: 0, completedCount: 0 },
     { title: "Weekly", challenges: [], totalXP: 0, completedCount: 0 },
     { title: "Monthly", challenges: [], totalXP: 0, completedCount: 0 },
   ];
 
-  challenges.forEach(challenge => {
-    const category = categories.find(c => c.title.toLowerCase() === challenge.type);
+  challenges.forEach((challenge: any) => {
+    const category = categories.find((c: any) => c.title.toLowerCase() === challenge.type);
     if (category) {
       category.challenges.push(challenge);
       category.totalXP += challenge.xpReward;
@@ -278,25 +315,35 @@ async function claimChallengeReward(userId: string, challengeId: string) {
     return { success: false, xpEarned: 0, message: "Challenge not found" };
   }
 
-  const completion = await definition.checkCompletion(userId);
-  if (!completion.isCompleted) {
-    return { success: false, xpEarned: 0, message: "Challenge not completed" };
+  // Check if challenge was already claimed and hasn't reset yet
+  const today = new Date().toISOString().split('T')[0];
+  const existingClaim = await storage.getChallengeCompletion(userId, challengeId);
+  
+  if (existingClaim) {
+    // Check if the challenge has reset
+    if (existingClaim.resetAt && existingClaim.resetAt > today) {
+      return { success: false, xpEarned: 0, message: "Challenge already claimed and hasn't reset yet" };
+    }
   }
 
-  // Award XP
-  const user = await storage.updateUserXP(userId, definition.xpReward);
-  
-  // Create AI insight for challenge completion
-  await storage.createAIInsight(
-    userId,
-    'challenge_completed',
-    `Challenge Completed: ${definition.title}`,
-    `Congratulations! You earned ${definition.xpReward} XP for completing the "${definition.title}" challenge.`
-  );
+  const completion = await definition.checkCompletion(userId);
+  if (!completion.isCompleted) {
+    return { success: false, xpEarned: 0, message: "Challenge not completed yet" };
+  }
 
-  return {
-    success: true,
-    xpEarned: definition.xpReward,
-    message: `Challenge completed! +${definition.xpReward} XP earned`,
-  };
+  // Use the awardChallengeXP method which handles double-claiming prevention
+  try {
+    const user = await storage.awardChallengeXP(userId, challengeId, definition.xpReward, definition.title);
+    
+    return {
+      success: true,
+      xpEarned: definition.xpReward,
+      message: `Challenge completed! +${definition.xpReward} XP earned`,
+      newXP: user.xp,
+      newLevel: user.level,
+    };
+  } catch (error) {
+    console.error('Error claiming challenge reward:', error);
+    return { success: false, xpEarned: 0, message: "Failed to claim challenge reward" };
+  }
 }

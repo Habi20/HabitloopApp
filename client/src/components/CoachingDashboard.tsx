@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 
 interface CoachingMessage {
-  id?: number;
+  id?: number | string;
   userId?: string;
   habitId?: number;
   messageType?: string;
@@ -18,6 +18,8 @@ interface CoachingMessage {
   triggerData?: any;
   isRead?: boolean;
   createdAt?: string;
+  source?: 'coaching' | 'notification';
+  severity?: 'low' | 'medium' | 'high';
 }
 
 export function CoachingDashboard() {
@@ -25,8 +27,13 @@ export function CoachingDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: coachingData, isLoading } = useQuery<{ messages: any[] }>({
+  const { data: coachingData, isLoading: coachingLoading } = useQuery<{ messages: any[] }>({
     queryKey: ["/api/coaching/messages"],
+    enabled: !!user,
+  });
+
+  const { data: notificationsData, isLoading: notificationsLoading } = useQuery<{ data: any[] }>({
+    queryKey: ['/api/notifications'],
     enabled: !!user,
   });
 
@@ -41,14 +48,69 @@ export function CoachingDashboard() {
     triggerData: message.triggerData,
     isRead: message.isRead,
     createdAt: message.createdAt || message.timestamp, // Handle both 'createdAt' and 'timestamp' fields
+    source: 'coaching' as const,
   }));
 
+  // Extract notifications and convert them to coaching message format
+  const notifications = (notificationsData?.data || []).map((notification: any) => ({
+    id: `notification-${notification.id}`,
+    userId: notification.userId,
+    habitId: undefined,
+    messageType: notification.type,
+    title: notification.title,
+    content: notification.message,
+    triggerData: notification.data,
+    isRead: notification.isRead,
+    createdAt: notification.timestamp,
+    source: 'notification' as const,
+    severity: notification.severity,
+  }));
+
+  // Combine and sort all messages by timestamp (newest first)
+  const allMessages = [...coachingMessages, ...notifications]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const isLoading = coachingLoading || notificationsLoading;
+
   const markAsReadMutation = useMutation({
-    mutationFn: async (messageId: number) => {
-      await apiRequest(`/api/coaching/messages/${messageId}/read`, "PUT");
+    mutationFn: async ({ messageId, source }: { messageId: string | number, source: 'coaching' | 'notification' }) => {
+      if (source === 'notification') {
+        // Extract numeric ID from notification ID (remove 'notification-' prefix)
+        const numericId = typeof messageId === 'string' && messageId.startsWith('notification-') 
+          ? messageId.replace('notification-', '') 
+          : messageId;
+        
+        await apiRequest(`/api/notifications/${numericId}/read`, "POST");
+      } else {
+        await apiRequest(`/api/coaching/messages/${messageId}/read`, "PUT");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coaching/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
+
+  const clearMessageMutation = useMutation({
+    mutationFn: async ({ messageId, source }: { messageId: string | number, source: 'coaching' | 'notification' }) => {
+      if (source === 'notification') {
+        // Extract numeric ID from notification ID (remove 'notification-' prefix)
+        const numericId = typeof messageId === 'string' && messageId.startsWith('notification-') 
+          ? messageId.replace('notification-', '') 
+          : messageId;
+        
+        // Remove notification via API
+        const response = await apiRequest(`/api/notifications/${numericId}`, "DELETE");
+        return response.json();
+      } else {
+        // For coaching messages, we could implement a "dismiss" endpoint
+        // For now, just return success
+        return { success: true };
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaching/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     },
   });
 
@@ -89,9 +151,26 @@ export function CoachingDashboard() {
     );
   }
 
-  const getMessageIcon = (messageType?: string) => {
+  const getMessageIcon = (messageType?: string, source?: 'coaching' | 'notification') => {
     if (!messageType) return '💡';
     
+    // Handle notification types
+    if (source === 'notification') {
+      switch (messageType) {
+        case 'inactivity':
+          return '⚠️';
+        case 'achievement':
+          return '🏆';
+        case 'insight':
+          return '💡';
+        case 'reminder':
+          return '🔔';
+        default:
+          return '📢';
+      }
+    }
+    
+    // Handle coaching message types
     switch (messageType) {
       case 'streak_celebration':
         return '🔥';
@@ -150,7 +229,7 @@ export function CoachingDashboard() {
         </Button>
       </div>
 
-      {(!coachingMessages || coachingMessages.length === 0) ? (
+      {(!allMessages || allMessages.length === 0) ? (
         <Card>
           <CardContent className="p-8 text-center">
             <div className="text-6xl mb-4">🤖</div>
@@ -165,16 +244,24 @@ export function CoachingDashboard() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {coachingMessages.map((message: CoachingMessage) => {
+          {allMessages.map((message: CoachingMessage) => {
             const priority = getMessagePriority(message.messageType || undefined);
-            const icon = getMessageIcon(message.messageType || undefined);
+            const icon = getMessageIcon(message.messageType || undefined, message.source);
+            
+            // Different styling for notifications vs coaching messages
+            const isNotification = message.source === 'notification';
+            const cardClassName = isNotification 
+              ? `transition-all duration-200 hover:shadow-lg ${
+                  !message.isRead ? 'ring-2 ring-orange-200 bg-orange-50/30' : 'border-orange-200'
+                }`
+              : `transition-all duration-200 hover:shadow-lg ${
+                  !message.isRead ? 'ring-2 ring-blue-200 bg-blue-50/30' : ''
+                }`;
             
             return (
               <Card 
                 key={message.id || `message-${message.createdAt || Date.now()}`} 
-                className={`transition-all duration-200 hover:shadow-lg ${
-                  !message.isRead ? 'ring-2 ring-blue-200 bg-blue-50/30' : ''
-                }`}
+                className={cardClassName}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -187,9 +274,17 @@ export function CoachingDashboard() {
                           {message.title || 'Untitled Message'}
                         </CardTitle>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant={isNotification ? "destructive" : "secondary"} className="text-xs">
+                            {isNotification ? 'Notification' : 'Coaching'}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
                             {message.messageType ? message.messageType.replace('_', ' ') : 'Unknown'}
                           </Badge>
+                          {message.triggerData?.isTest && (
+                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                              Test
+                            </Badge>
+                          )}
                           <span className="text-xs text-gray-500">
                             {message.createdAt ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true }) : 'Unknown time'}
                           </span>
@@ -197,16 +292,34 @@ export function CoachingDashboard() {
                       </div>
                     </div>
                     
-                    {!message.isRead && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {!message.isRead && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => message.id && message.source && markAsReadMutation.mutate({ 
+                            messageId: message.id, 
+                            source: message.source 
+                          })}
+                          disabled={markAsReadMutation.isPending || !message.id}
+                          className="text-xs"
+                        >
+                          Mark Read
+                        </Button>
+                      )}
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => message.id && markAsReadMutation.mutate(message.id)}
-                        disabled={markAsReadMutation.isPending || !message.id}
+                        onClick={() => message.id && message.source && clearMessageMutation.mutate({ 
+                          messageId: message.id, 
+                          source: message.source 
+                        })}
+                        disabled={clearMessageMutation.isPending || !message.id}
+                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        Mark Read
+                        Clear
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </CardHeader>
                 
@@ -220,15 +333,47 @@ export function CoachingDashboard() {
                   {message.triggerData && (
                     <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                       <div className="text-xs font-medium text-gray-600 mb-1">Context</div>
-                      {message.triggerData.streakCount !== undefined && message.triggerData.streakCount !== null && (
-                        <div className="text-sm text-gray-700">
-                          Streak: {message.triggerData.streakCount} days
-                        </div>
+                      
+                      {/* Coaching message context */}
+                      {message.source === 'coaching' && (
+                        <>
+                          {message.triggerData.streakCount !== undefined && message.triggerData.streakCount !== null && (
+                            <div className="text-sm text-gray-700">
+                              Streak: {message.triggerData.streakCount} days
+                            </div>
+                          )}
+                          {message.triggerData.completionRate !== undefined && message.triggerData.completionRate !== null && (
+                            <div className="text-sm text-gray-700">
+                              Today's completion: {Math.round(message.triggerData.completionRate)}%
+                            </div>
+                          )}
+                        </>
                       )}
-                      {message.triggerData.completionRate !== undefined && message.triggerData.completionRate !== null && (
-                        <div className="text-sm text-gray-700">
-                          Today's completion: {Math.round(message.triggerData.completionRate)}%
-                        </div>
+                      
+                      {/* Test notification context */}
+                      {message.source === 'notification' && message.triggerData?.context && (
+                        <>
+                          {message.triggerData.context.daysInactive && (
+                            <div className="text-sm text-gray-700">
+                              Days Inactive: {message.triggerData.context.daysInactive}
+                            </div>
+                          )}
+                          {message.triggerData.context.consistencyDrop && (
+                            <div className="text-sm text-gray-700">
+                              Consistency Drop: {message.triggerData.context.consistencyDrop}
+                            </div>
+                          )}
+                          {message.triggerData.context.achievementType && (
+                            <div className="text-sm text-gray-700">
+                              Achievement: {message.triggerData.context.achievementType} ({message.triggerData.context.streakCount} days)
+                            </div>
+                          )}
+                          {message.triggerData.context.analysisType && (
+                            <div className="text-sm text-gray-700">
+                              Analysis: {message.triggerData.context.analysisType} ({message.triggerData.context.confidence} confidence)
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}

@@ -243,7 +243,7 @@ export class TimezoneUtils {
     currentDate: string;
     isDST: boolean;
   } {
-    const now = new Date();
+    // const now = new Date();
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     
     return {

@@ -4,8 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
 import { GuestModeModal } from "@/components/GuestModeModal";
 import { LoginModal } from "@/components/LoginModal";
-import { HabitLoopUserModal } from "@/components/HabitLoopUserModal";
-import { useAuth } from "@/contexts/AuthContext";
+import { HabitLoopLoginModal } from "@/components/HabitLoopLoginModal";
+// import { useAuth } from "@/contexts/AuthContext";
 
 export default function Landing() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
@@ -50,11 +50,11 @@ export default function Landing() {
 
           <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
             <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                <i className="fas fa-mobile-alt text-white text-sm sm:text-base"></i>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <i className="fas fa-trophy text-white text-sm sm:text-base"></i>
               </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2">Mobile Optimized</h3>
-              <p className="text-indigo-100 text-sm sm:text-base">Track habits anywhere with our responsive, mobile-first design</p>
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Gamified Progress</h3>
+              <p className="text-indigo-100 text-sm sm:text-base">Level up with XP, unlock achievements, and compete with yourself</p>
             </CardContent>
           </Card>
         </div>
@@ -63,10 +63,10 @@ export default function Landing() {
           <Button 
             size="lg" 
             className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold px-4 sm:px-6 md:px-8 lg:px-12 py-3 sm:py-4 md:py-5 text-sm sm:text-base md:text-lg lg:text-xl w-full sm:w-auto md:w-auto lg:w-auto"
-            onClick={() => setShowLoginModal(true)}
+            onClick={() => setShowHabitLoopUserModal(true)}
           >
             <i className="fas fa-rocket mr-2"></i>
-            Get Started Free
+            Get Started
           </Button>
           
           <div className="text-white/80 space-y-2 text-xs sm:text-sm md:text-base lg:text-lg">
@@ -77,15 +77,6 @@ export default function Landing() {
                 onClick={() => setShowGuestModal(true)}
               >
                 try as guest
-              </button>
-            </div>
-            <div>
-              <span>or </span>
-              <button 
-                className="underline hover:text-white transition-colors"
-                onClick={() => setShowHabitLoopUserModal(true)}
-              >
-                try as a habitloop user
               </button>
             </div>
           </div>
@@ -119,7 +110,7 @@ export default function Landing() {
         }}
       />
 
-      <HabitLoopUserModal
+      <HabitLoopLoginModal
         open={showHabitLoopUserModal}
         onClose={() => setShowHabitLoopUserModal(false)}
         onSuccess={() => {

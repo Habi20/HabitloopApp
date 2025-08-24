@@ -9,7 +9,7 @@ export function analyticsRoutes() {
   const router = Router();
 
   // Get fair XP calculation for user
-    router.get('/xp-calculation', requireAuth, async (req: Request, res: Response) => {
+  router.get('/xp-calculation', requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -32,30 +32,58 @@ export function analyticsRoutes() {
       const STREAK_BONUS_PER_DAY = 2;
       const MAX_STREAK_BONUS = 20;
       
-      // Group completions by habit and calculate XP using current streaks
+      // Group completions by habit and calculate XP using historical streaks
       const habitsData = habits.map(habit => {
         const habitCompletions = allCompletions.filter(c => c.habitId === habit.id);
-        const streak = userStreaks.find(s => s.habitId === habit.id);
-        const currentStreak = streak?.currentStreak || 1;
         
-        // HabitCompletionManager XP calculation
-        const streakBonus = Math.min(currentStreak * STREAK_BONUS_PER_DAY, MAX_STREAK_BONUS);
-        const xpPerCompletion = BASE_XP + streakBonus;
-        const totalHabitXP = habitCompletions.length * xpPerCompletion;
+        // Sort completions by date to calculate historical streaks
+        habitCompletions.sort((a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime());
+        
+        let historicalStreak = 0;
+        let totalHabitXP = 0;
+        
+        // Calculate XP for each completion using historical streak at that time
+        const completionDetails = habitCompletions.map((completion, index) => {
+          // Calculate streak at the time of this completion
+          if (index === 0) {
+            historicalStreak = 1; // First completion starts streak
+          } else {
+            const prevCompletion = habitCompletions[index - 1];
+            const daysDiff = Math.floor(
+              (new Date(completion.completedAt).getTime() - new Date(prevCompletion.completedAt).getTime()) / (1000 * 60 * 60 * 24)
+            );
+            
+            if (daysDiff === 1) {
+              historicalStreak++; // Consecutive day
+            } else if (daysDiff === 0) {
+              // Same day completion, keep same streak
+            } else {
+              historicalStreak = 1; // Reset streak
+            }
+          }
+          
+          // Calculate XP for this completion using historical streak
+          const streakBonus = Math.min(historicalStreak * STREAK_BONUS_PER_DAY, MAX_STREAK_BONUS);
+          const xpEarned = BASE_XP + streakBonus;
+          totalHabitXP += xpEarned;
+          
+          return {
+            completionId: completion.id,
+            completedAt: completion.completedAt,
+            streakAtCompletion: historicalStreak,
+            xpEarned,
+          };
+        });
+        
+        const currentStreak = userStreaks.find(s => s.habitId === habit.id)?.currentStreak || 0;
         
         return {
           habitId: habit.id,
           habitTitle: habit.title,
           completions: habitCompletions.length,
           maxStreak: currentStreak,
-          xpPerCompletion,
           totalHabitXP,
-          completionDetails: habitCompletions.map(c => ({
-            completionId: c.id,
-            completedAt: c.completedAt,
-            streakAtCompletion: currentStreak,
-            xpEarned: xpPerCompletion,
-          })),
+          completionDetails,
         };
       });
       

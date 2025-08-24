@@ -8,11 +8,14 @@ import { Separator } from '@/components/ui/separator';
 import { Brain, TrendingUp, Target, Clock } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ModelStatus } from '@/types';
+// import { useToast } from '@/hooks/use-toast';
 
 interface MLPrediction {
-  prediction: number;
+  prediction?: number; // Legacy format
+  successProbability?: number; // New format
   success: boolean;
-  confidence: string;
+  confidence?: string; // Legacy format
+  confidenceLevel?: string; // New format
 }
 
 interface MLEvaluation {
@@ -35,6 +38,7 @@ interface MLEvaluation {
 }
 
 export function MLPredictionCard() {
+  // const { toast } = useToast();
   const [evaluation, setEvaluation] = useState<MLEvaluation | null>(null);
   const [trainingOutput, setTrainingOutput] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
@@ -94,8 +98,10 @@ export function MLPredictionCard() {
         },
         prediction: {
           prediction: 0.65,
+          successProbability: 0.65,
           success: true,
-          confidence: 'medium'
+          confidence: 'medium',
+          confidenceLevel: 'medium'
         },
         interpretation: {
           success_probability: '65.0%',
@@ -195,7 +201,7 @@ export function MLPredictionCard() {
                 </div>
               </div>
               <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded">
-                <div className="text-muted-foreground">Algorithm</div>
+                <div className="text-muted-foreground">Prediction Method</div>
                 <div className="font-semibold text-xs text-orange-600 dark:text-orange-400">
                   {trainMutation.data.algorithm || 'Hybrid ML'}
                 </div>
@@ -231,7 +237,7 @@ export function MLPredictionCard() {
                 </span>
               </div>
               <Progress 
-                value={evaluation.prediction.prediction * 100} 
+                value={(evaluation.prediction.successProbability || evaluation.prediction.prediction || 0) * 100} 
                 className="h-2"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -252,8 +258,8 @@ export function MLPredictionCard() {
               </div>
               <div className="p-2 bg-muted rounded">
                 <div className="text-muted-foreground">Confidence</div>
-                <div className={`font-medium capitalize ${getConfidenceColor(evaluation.interpretation.confidence_level)}`}>
-                  {evaluation.interpretation.confidence_level}
+                <div className={`font-medium capitalize ${getConfidenceColor(evaluation.prediction.confidenceLevel || evaluation.prediction.confidence || evaluation.interpretation.confidence_level)}`}>
+                  {evaluation.prediction.confidenceLevel || evaluation.prediction.confidence || evaluation.interpretation.confidence_level}
                 </div>
               </div>
               <div className="p-2 bg-muted rounded">
@@ -278,7 +284,7 @@ export function MLPredictionCard() {
                   <div><strong>Target Value:</strong> {evaluation.user_profile.target_value}</div>
                   <div><strong>Reminders:</strong> {evaluation.user_profile.reminder_set ? 'Yes' : 'No'}</div>
                   <div><strong>Difficulty:</strong> {evaluation.user_profile.difficulty_score}</div>
-                  <div><strong>Raw Score:</strong> {evaluation.prediction.prediction.toFixed(4)}</div>
+                  <div><strong>Raw Score:</strong> {(evaluation.prediction.successProbability || evaluation.prediction.prediction || 0).toFixed(4)}</div>
                 </div>
               </div>
             </details>

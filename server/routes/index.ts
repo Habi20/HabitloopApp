@@ -10,6 +10,8 @@ import { analyticsRoutes } from "./analyticsRoutes";
 import { challengeRoutes } from "./challengeRoutes";
 import { guestRoutes } from "./guestRoutes";
 import { healthRoutes } from "./healthRoutes";
+// import { enhancedNotificationRoutes } from "./enhancedNotificationRoutes";
+import { notificationRoutes } from "./notificationRoutes";
 import emailRoutes from "./emailRoutes";
 import { storage } from "../storage";
 import { env, isOpenAIEnabled } from "../env";
@@ -28,6 +30,9 @@ export async function registerRoutes(app: express.Application) {
   app.use("/api/analytics", analyticsRoutes());
   app.use("/api/challenges", challengeRoutes());
   app.use("/api/health", healthRoutes());
+  // Temporarily disable enhanced routes due to schema mismatch
+  // app.use("/api", enhancedNotificationRoutes());
+  app.use("/api", notificationRoutes());
 
   // Add missing routes for frontend compatibility
   app.use("/api/completions", completionsRoutes());

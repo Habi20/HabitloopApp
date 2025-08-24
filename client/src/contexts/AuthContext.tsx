@@ -369,7 +369,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     try {
       console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', userData.id);
       
-      const response = await apiRequest('/api/habitloop/signin', 'POST', { userId: userData.id });
+      // Send both userId and password if provided
+      const requestBody: any = { userId: userData.id };
+      if (userData.password) {
+        requestBody.password = userData.password;
+      }
+      
+      const response = await apiRequest('/api/habitloop/signin', 'POST', requestBody);
       const userDataResponse = await response.json();
       
       console.log('🔐 AuthContext: HabitLoop login response:', {
@@ -431,8 +437,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     window.location.href = '/';
   };
 
-  // Function to refresh user data from backend
-  const refreshUserData = async () => {
+  // Function to refresh user data from backend - VIVA-SAFE VERSION
+  const refreshUserData = async (_forceBackend = true) => {
     try {
       const guestToken = localStorage.getItem('guest_token');
       const verifiedToken = localStorage.getItem('verified_token');
@@ -445,7 +451,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         return;
       }
 
-      console.log('🔐 AuthContext: Refreshing user data with token length:', token.length);
+      console.log('🔐 AuthContext: Refreshing user data from backend (VIVA-SAFE)');
 
       const response = await fetch('/api/user', {
         headers: {
@@ -459,20 +465,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         
         if (responseData.success && responseData.user) {
           const userData = responseData.user;
+          
+          // ALWAYS prioritize backend data over localStorage (VIVA-SAFE)
           setUser(userData);
           setIsAuthenticated(true);
           
-          // Update localStorage with fresh data
+          // Update localStorage with fresh backend data
           if (userData.isGuest) {
             localStorage.setItem('guestUser', JSON.stringify(userData));
           } else {
             localStorage.setItem('verifiedUser', JSON.stringify(userData));
           }
           
-          console.log('🔐 AuthContext: User data refreshed from backend:', userData);
+          console.log('🔐 AuthContext: User data refreshed from backend (VIVA-SAFE):', userData);
           return userData;
         } else {
-          console.warn('Invalid response format from /api/auth/user');
+          console.warn('Invalid response format from /api/user');
           return null;
         }
       } else {
@@ -509,6 +517,39 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       }
     } catch (error) {
       console.error('Error refreshing user data:', error);
+    }
+  };
+
+  // Professional cache management system
+  const clearUserCache = () => {
+    // Clear all localStorage user data
+    localStorage.removeItem('guestUser');
+    localStorage.removeItem('verifiedUser');
+    localStorage.removeItem('authUser');
+    
+    // Clear tokens
+    localStorage.removeItem('guest_token');
+    localStorage.removeItem('verified_token');
+    localStorage.removeItem('auth_token');
+    
+    // Reset state
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
+  const syncUserDataWithBackend = async () => {
+    try {
+      const result = await refreshUserData();
+      if (result) {
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(new CustomEvent('userDataUpdated', { 
+          detail: { user: result } 
+        }));
+      }
+      return result;
+    } catch (error) {
+      console.error('Error syncing user data:', error);
+      return null;
     }
   };
 
@@ -616,6 +657,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     isLoading,
     checkAuthStatus,
     refreshUserData,
+    clearUserCache,
+    syncUserDataWithBackend,
     getUserDisplayName,
     getUserEmail,
     getUserInitials,

@@ -99,6 +99,39 @@ export const streaks = pgTable("streaks", {
   updatedAt: timestamp("updated_at"),
 });
 
+// Challenge completions table
+export const challengeCompletions = pgTable("challenge_completions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  challengeId: varchar("challenge_id").notNull(),
+  xpAwarded: integer("xp_awarded").notNull(),
+  completedAt: date("completed_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  resetAt: date("reset_at"),
+});
+
+// Challenge progress tracking table
+export const challengeProgress = pgTable("challenge_progress", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  challengeId: varchar("challenge_id").notNull(),
+  progressValue: integer("progress_value").default(0),
+  lastUpdated: date("last_updated").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ML predictions table
+export const mlPredictions = pgTable("ml_predictions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  habitId: integer("habit_id").references(() => habits.id),
+  predictionPercentage: integer("prediction_percentage").notNull(),
+  confidenceLevel: varchar("confidence_level").default("low"),
+  predictionDate: date("prediction_date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const aiInsights = pgTable("ai_insights", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
@@ -122,6 +155,50 @@ export const coachingMessages = pgTable("coaching_messages", {
   triggerData: jsonb("trigger_data"),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Notification system tables
+export const notificationTypes = pgTable("notification_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull().unique(),
+  description: text("description"),
+  defaultPriority: integer("default_priority").default(2),
+  icon: varchar("icon"),
+  color: varchar("color"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: varchar("type").notNull(), // 'inactivity', 'achievement', 'reminder', 'insight'
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  severity: varchar("severity").notNull(), // 'low', 'medium', 'high'
+  isRead: boolean("is_read").default(false),
+  actionRequired: boolean("action_required").default(false),
+  data: jsonb("data"),
+  typeId: integer("type_id").references(() => notificationTypes.id),
+  expiresAt: timestamp("expires_at"),
+  priority: integer("priority").default(2),
+  metadata: jsonb("metadata").default('{}'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  emailEnabled: boolean("email_enabled").default(true),
+  pushEnabled: boolean("push_enabled").default(true),
+  inAppEnabled: boolean("in_app_enabled").default(true),
+  digestFrequency: varchar("digest_frequency").default("daily"), // never, daily, weekly
+  mutedTypes: jsonb("muted_types").default([]),
+  quietHoursStart: varchar("quiet_hours_start").default("22:00"),
+  quietHoursEnd: varchar("quiet_hours_end").default("08:00"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const rolePermissions = pgTable('role_permissions', {
@@ -197,6 +274,29 @@ export const coachingMessagesRelations = relations(coachingMessages, ({ one }) =
   }),
 }));
 
+// Notification relations
+export const notificationTypesRelations = relations(notificationTypes, ({ many }) => ({
+  notifications: many(notifications),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  type: one(notificationTypes, {
+    fields: [notifications.typeId],
+    references: [notificationTypes.id],
+  }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
 // Add relations for RBAC
 export const userPermissionsRelations = relations(userPermissions, ({ one }) => ({
   user: one(users, {
@@ -233,6 +333,19 @@ export type Streak = typeof streaks.$inferSelect;
 export type AIInsight = typeof aiInsights.$inferSelect;
 export type CoachingMessage = typeof coachingMessages.$inferSelect;
 export type InsertCoachingMessage = typeof coachingMessages.$inferInsert;
+
+// Challenge types
+export type ChallengeCompletion = typeof challengeCompletions.$inferSelect;
+export type ChallengeProgress = typeof challengeProgress.$inferSelect;
+export type MLPrediction = typeof mlPredictions.$inferSelect;
+
+// Notification types
+export type NotificationType = typeof notificationTypes.$inferSelect;
+export type InsertNotificationType = typeof notificationTypes.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreferences = typeof notificationPreferences.$inferInsert;
 
 export const questionnaireSchema = z.object({
   focusAreas: z.array(z.string()),

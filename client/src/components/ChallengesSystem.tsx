@@ -30,14 +30,15 @@ interface ChallengeCategory {
 }
 
 export function ChallengesSystem() {
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Fetch challenges data
-  const { data: challengesData, isLoading } = useQuery({
+  const { data: challengesData, isLoading, error } = useQuery({
     queryKey: ["/api/challenges"],
     enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
 
   // Claim challenge reward mutation
@@ -49,17 +50,41 @@ export function ChallengesSystem() {
     onSuccess: (data) => {
       if (data.success) {
         toast({
-          title: "Challenge Completed! 🎉",
-          description: `+${data.xpEarned} XP earned!`,
+          title: "🎉 Challenge Completed!",
+          description: `+${data.xpEarned} XP earned! Keep up the great work!`,
+          duration: 4000,
         });
+        // Invalidate relevant queries to refresh data
         queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
         queryClient.invalidateQueries({ queryKey: ["/api/analytics/xp-calculation"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+        
+        // Refresh user data to update XP and level
+        refreshUserData();
+        
+        // Invalidate ALL user-related queries to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/stats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/streaks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/ml/evaluate"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/ml/predictions"] });
+        
+        // Force immediate refetch of all invalidated queries
+        queryClient.refetchQueries({ queryKey: ["/api/user"] });
+        queryClient.refetchQueries({ queryKey: ["/api/analytics/xp-calculation"] });
+      } else {
+        toast({
+          title: "Unable to Claim",
+          description: data.message || "Challenge cannot be claimed at this time",
+          variant: "destructive",
+        });
       }
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Claim error:", error);
       toast({
-        title: "Error",
-        description: "Failed to claim reward",
+        title: "Claim Failed",
+        description: "There was an error claiming your reward. Please try again.",
         variant: "destructive",
       });
     },
@@ -67,22 +92,52 @@ export function ChallengesSystem() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-              <div className="h-2 bg-gray-200 rounded w-full"></div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div className="h-2 bg-gray-200 rounded w-full"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
-  const challenges = challengesData?.data?.challenges || [];
-  const categories = challengesData?.data?.categories || [];
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <i className="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Challenges</h3>
+          <p className="text-gray-600 mb-4">Unable to load your challenges. Please try again.</p>
+          <Button 
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/challenges"] })}
+            variant="outline"
+          >
+            <i className="fas fa-refresh mr-2"></i>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const categories = (challengesData as any)?.data?.categories || [];
 
   const getCategoryIcon = (type: string) => {
     const icons: Record<string, string> = {
@@ -102,22 +157,53 @@ export function ChallengesSystem() {
     return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
-  const getProgressColor = (progress: number, target: number) => {
-    const percentage = (progress / target) * 100;
-    if (percentage >= 100) return "bg-green-500";
-    if (percentage >= 75) return "bg-blue-500";
-    if (percentage >= 50) return "bg-yellow-500";
-    return "bg-gray-300";
-  };
-
   return (
     <div className="space-y-8">
-      {/* Challenge Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      {/* Challenge Overview Header */}
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Challenges & Achievements
+            </h2>
+            <p className="text-gray-600">
+              Complete challenges to earn XP and unlock achievements
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold text-blue-600">
+              {categories.reduce((sum: number, cat: any) => 
+                sum + (cat.challenges.filter((c: any) => c.isCompleted).reduce((catSum: number, c: any) => 
+                  catSum + c.xpReward, 0)), 0
+              )}
+            </div>
+            <div className="text-sm text-gray-600">
+              XP Earned
+            </div>
+          </div>
+        </div>
+
+        {/* Gamification Tips */}
+        <div className="bg-white rounded-lg p-4 border border-blue-100">
+          <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+            <i className="fas fa-lightbulb text-yellow-500 mr-2"></i>
+            Pro Tips:
+          </h4>
+          <ul className="text-sm text-gray-600 space-y-1">
+            <li>• Complete all daily habits to unlock daily challenges</li>
+            <li>• Maintain streaks to earn bonus XP</li>
+            <li>• Claim rewards immediately when challenges are completed</li>
+            <li>• Check back daily for new challenges</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Challenge Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-yellow-600 mb-1">
-              {categories.find(c => c.title === "Daily")?.completedCount || 0}
+              {categories.find((c: any) => c.title === "Daily")?.completedCount || 0}
             </div>
             <div className="text-sm text-yellow-700">Daily Challenges</div>
           </CardContent>
@@ -126,7 +212,7 @@ export function ChallengesSystem() {
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-blue-600 mb-1">
-              {categories.find(c => c.title === "Weekly")?.completedCount || 0}
+              {categories.find((c: any) => c.title === "Weekly")?.completedCount || 0}
             </div>
             <div className="text-sm text-blue-700">Weekly Challenges</div>
           </CardContent>
@@ -135,7 +221,7 @@ export function ChallengesSystem() {
         <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-purple-600 mb-1">
-              {categories.find(c => c.title === "Monthly")?.completedCount || 0}
+              {categories.find((c: any) => c.title === "Monthly")?.completedCount || 0}
             </div>
             <div className="text-sm text-purple-700">Monthly Challenges</div>
           </CardContent>
@@ -150,8 +236,13 @@ export function ChallengesSystem() {
               <i className={`${getCategoryIcon(category.title.toLowerCase())} mr-2 text-${category.title.toLowerCase() === 'daily' ? 'yellow' : category.title.toLowerCase() === 'weekly' ? 'blue' : 'purple'}-500`}></i>
               {category.title} Challenges
             </h3>
-            <div className="text-sm text-gray-500">
-              {category.completedCount}/{category.challenges.length} completed
+            <div className="flex items-center space-x-2">
+              <Badge className={getCategoryColor(category.title.toLowerCase())}>
+                {category.totalXP} XP Available
+              </Badge>
+              <div className="text-sm text-gray-500">
+                {category.completedCount}/{category.challenges.length} completed
+              </div>
             </div>
           </div>
 
@@ -210,18 +301,27 @@ export function ChallengesSystem() {
                       </span>
                     </div>
 
-                    {challenge.isCompleted && !challenge.isActive && (
+                    {challenge.isCompleted && (
                       <Button
                         onClick={() => claimRewardMutation.mutate(challenge.id)}
                         disabled={claimRewardMutation.isPending}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        className={`w-full transition-all duration-200 ${
+                          challenge.isActive 
+                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
                         {claimRewardMutation.isPending ? (
-                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                          <>
+                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                            Claiming...
+                          </>
                         ) : (
-                          <i className="fas fa-gift mr-2"></i>
+                          <>
+                            <i className="fas fa-gift mr-2"></i>
+                            Claim {challenge.xpReward} XP
+                          </>
                         )}
-                        Claim {challenge.xpReward} XP
                       </Button>
                     )}
                   </div>

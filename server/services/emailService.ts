@@ -2,7 +2,7 @@ import sgMail from '@sendgrid/mail';
 import { env } from '../env';
 
 // Initialize SendGrid with API key (handle missing key gracefully)
-const apiKey = env.sendgridApiKey;
+const apiKey = env.SENDGRID_API_KEY;
 if (apiKey && apiKey.startsWith('SG.') && apiKey !== 'SG.placeholder-key-for-development') {
   sgMail.setApiKey(apiKey);
 } else {

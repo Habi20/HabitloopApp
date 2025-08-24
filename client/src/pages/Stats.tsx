@@ -46,15 +46,15 @@ export default function Stats() {
     return null;
   }
 
-  const habits = habitsResponse?.habits || [];
-  const completions = completionsResponse?.completions || [];
+  const habits = (habitsResponse as any)?.habits || [];
+  const completions = (completionsResponse as any)?.completions || [];
 
   const habitsArray = habits || [];
   const completionsArray = completions || [];
 
-  const habitStats = habitsArray.map((habit) => {
+  const habitStats = habitsArray.map((habit: any) => {
     const habitCompletions = completionsArray.filter(
-      (c) => c.habitId === habit.id
+      (c: any) => c.habitId === habit.id
     );
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
@@ -63,7 +63,7 @@ export default function Stats() {
     });
 
     const completedLast7Days = last7Days.filter((date) =>
-      habitCompletions.some((c) => c.completedAt === date)
+      habitCompletions.some((c: any) => c.completedAt === date)
     ).length;
 
     return {
@@ -131,7 +131,7 @@ export default function Stats() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {habitStats.map((habit) => (
+                {habitStats.map((habit: any) => (
                   <div key={habit.id} className="flex items-center space-x-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">

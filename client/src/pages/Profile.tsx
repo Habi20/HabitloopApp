@@ -5,7 +5,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import XPBreakdownCard from "@/components/XPBreakdownCard";
+import SimpleXPDisplay from "@/components/SimpleXPDisplay";
+import MLAnalyticsCard from "@/components/MLAnalyticsCard";
 
 export default function Profile() {
   const {
@@ -17,8 +18,8 @@ export default function Profile() {
     logout,
   } = useAuth();
   const { toast } = useToast();
-  const [habits, setHabits] = useState([]);
-  const [completions, setCompletions] = useState([]);
+  const [, setHabits] = useState([]);
+  const [, setCompletions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,7 +107,10 @@ export default function Profile() {
                 <CardContent className="space-y-6">
                   <div className="flex items-center space-x-6">
                     <Avatar className="h-20 w-20">
-                      <AvatarImage src={user.profileImageUrl || ""} />
+                      <AvatarImage 
+                        src={user.profileImageUrl && user.profileImageUrl !== "👤" ? user.profileImageUrl : ""} 
+                        alt={`${getUserDisplayName(user)}'s profile`}
+                      />
                       <AvatarFallback className="text-lg font-semibold bg-primary text-white">
                         {userInitials}
                       </AvatarFallback>
@@ -160,40 +164,40 @@ export default function Profile() {
 
             {/* Stats Sidebar */}
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-center">Level & XP</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl font-bold text-white">
-                      {user.level || 1}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Level {user.level || 1}
-                  </h3>
-                  <p className="text-gray-600 mb-4">{user.xp || 0} XP earned</p>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(user.xp || 0) % 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {100 - ((user.xp || 0) % 100)} XP to next level
-                  </p>
-                </CardContent>
-              </Card>
 
               {/* XP Breakdown Card */}
               {!loading && (
-                <XPBreakdownCard 
-                  user={user} 
-                  habits={habits} 
-                  completions={completions} 
-                />
+                <SimpleXPDisplay user={user} />
               )}
+
+              {/* ML Analytics Card */}
+              {!loading && (
+                <MLAnalyticsCard user={user} />
+              )}
+
+              {/* Quick Challenge Claims */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-center flex items-center justify-center">
+                    <i className="fas fa-trophy mr-2 text-yellow-500"></i>
+                    Quick Challenge Claims
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600 text-center mb-4">
+                      Claim your completed challenge rewards here
+                    </p>
+                    <Button 
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                      onClick={() => window.location.href = '/challenges'}
+                    >
+                      <i className="fas fa-gift mr-2"></i>
+                      View All Challenges
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader>

@@ -60,10 +60,7 @@ export default function Habits() {
     enabled: !!user,
   });
 
-  const { data: completions } = useQuery({
-    queryKey: ["/api/completions"],
-    enabled: !!user,
-  });
+
 
   const deleteHabitMutation = useMutation({
     mutationFn: async (habitId: number) => {
@@ -96,6 +93,11 @@ export default function Habits() {
     },
   });
 
+  // const { data: completions } = useQuery({
+  //   queryKey: ["/api/completions"],
+  //   enabled: !!user,
+  // });
+
   if (authLoading || habitsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -108,22 +110,21 @@ export default function Habits() {
     return null;
   }
 
-  const habitsArray = habits?.habits || [];
-  const completionsArray = completions?.completions || [];
+  const habitsArray = (habits as any)?.habits || [];
 
   const groupedHabits =
-    habitsArray.reduce((acc, habit) => {
+    habitsArray.reduce((acc: Record<string, any[]>, habit: any) => {
       if (!acc[habit.category]) {
         acc[habit.category] = [];
       }
       acc[habit.category].push(habit);
       return acc;
-    }, {} as Record<string, typeof habitsArray>) || {};
+    }, {} as Record<string, any[]>) || {};
 
   // Filter out recommendations that are already added as habits or dismissed
-  const filteredRecommendations = recommendations.filter((rec: any) => {
+  const filteredRecommendations = (recommendations as any[]).filter((rec: any) => {
     const existingHabit = habitsArray?.find(
-      (habit) =>
+      (habit: any) =>
         habit.title.toLowerCase() === rec.title.toLowerCase() ||
         (habit.title.toLowerCase().includes(rec.title.toLowerCase()) &&
           habit.category === rec.category)
@@ -137,23 +138,23 @@ export default function Habits() {
     setShowAddHabit(true);
   };
 
-  const handleDismissRecommendation = (index: number) => {
-    const recommendation = filteredRecommendations[index];
-    if (recommendation) {
-      const newDismissed = [...dismissedRecommendations, recommendation.title];
-      setDismissedRecommendations(newDismissed);
-      localStorage.setItem(
-        "dismissedRecommendations",
-        JSON.stringify(newDismissed)
-      );
+  // const handleDismissRecommendation = (index: number) => {
+  //   const recommendation = filteredRecommendations[index];
+  //   if (recommendation && recommendation.title) {
+  //     const newDismissed = [...dismissedRecommendations, recommendation.title];
+  //     setDismissedRecommendations(newDismissed);
+  //     localStorage.setItem(
+  //       "dismissedRecommendations",
+  //       JSON.stringify(newDismissed)
+  //     );
 
-      toast({
-        title: "Recommendation dismissed",
-        description:
-          "You can always retake the questionnaire to get new suggestions.",
-      });
-    }
-  };
+  //     toast({
+  //       title: "Recommendation dismissed",
+  //       description:
+  //         "You can always retake the questionnaire to get new suggestions.",
+  //     });
+  //   }
+  // };
 
   const handleEditHabit = (habit: any) => {
     setEditingHabit(habit);
@@ -191,9 +192,7 @@ export default function Habits() {
           {filteredRecommendations.length > 0 && (
             <div className="mb-8">
               <HabitRecommendationCarousel
-                recommendations={filteredRecommendations}
-                onAddHabit={handleAddHabitFromCarousel}
-                onDismissRecommendation={handleDismissRecommendation}
+                onHabitAdd={handleAddHabitFromCarousel}
               />
             </div>
           )}
@@ -224,7 +223,7 @@ export default function Habits() {
                     </h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {categoryHabits.map((habit) => (
+                      {(categoryHabits as any[]).map((habit: any) => (
                         <Card
                           key={habit.id}
                           className="hover:shadow-md transition-shadow"
@@ -302,14 +301,16 @@ export default function Habits() {
         selectedRecommendation={selectedRecommendation}
       />
 
-      <EditHabitModal
-        open={showEditHabit}
-        onClose={() => {
-          setShowEditHabit(false);
-          setEditingHabit(null);
-        }}
-        habit={editingHabit}
-      />
+      {editingHabit && (
+        <EditHabitModal
+          open={showEditHabit}
+          onClose={() => {
+            setShowEditHabit(false);
+            setEditingHabit(null);
+          }}
+          habit={editingHabit}
+        />
+      )}
 
       <AICoachAssistant
         open={showAICoach}

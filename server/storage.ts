@@ -8,6 +8,9 @@ import {
   coachingMessages,
   rolePermissions,
   userPermissions,
+  challengeCompletions,
+  challengeProgress,
+  mlPredictions,
   type User,
   type UpsertUser,
   type Habit,
@@ -19,9 +22,12 @@ import {
   type CoachingMessage,
   type InsertCoachingMessage,
   type Questionnaire,
+  type ChallengeCompletion,
+  type ChallengeProgress,
+  type MLPrediction,
 } from "../shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte } from "drizzle-orm";
 import { getCurrentDateString, getDaysDifference, getWeekNumber, getMonthNumber, TimezoneUtils } from "./utils/timezone.js";
 
 // Interface for storage operations
@@ -29,6 +35,7 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(userData: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
@@ -75,6 +82,31 @@ export interface IStorage {
 
   // Email settings operations
   updateEmailSettings(userId: string, settings: any): Promise<User>;
+
+  // Challenge completion operations
+  getChallengeCompletion(userId: string, challengeId: string): Promise<ChallengeCompletion | null>;
+  createChallengeCompletion(data: {
+    userId: string;
+    challengeId: string;
+    xpAwarded: number;
+    completedAt: string;
+  }): Promise<void>;
+  getChallengeProgress(userId: string, challengeId: string): Promise<ChallengeProgress | null>;
+  updateChallengeProgress(userId: string, challengeId: string, progressValue: number): Promise<void>;
+
+  // ML prediction operations
+  getMLPrediction(userId: string, habitId: number, predictionDate: string): Promise<any>;
+  createMLPrediction(data: {
+    userId: string;
+    habitId: number;
+    predictionPercentage: number;
+    confidenceLevel: string;
+    predictionDate: string;
+  }): Promise<void>;
+  updateMLPrediction(userId: string, habitId: number, predictionDate: string, updates: {
+    predictionPercentage: number;
+    confidenceLevel: string;
+  }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -118,6 +150,22 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error getting user by email:', error);
       return undefined;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const allUsers = await this.db.select().from(users);
+      
+      return allUsers.map(user => ({
+        ...user,
+        role: user.role || 'user',
+        difficulty: user.difficulty || 'medium',
+        passwordHash: user.passwordHash || null,
+      }));
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      return [];
     }
   }
 
@@ -290,7 +338,7 @@ export class DatabaseStorage implements IStorage {
     if (habit.id) {
       // Try to update existing habit
       try {
-        const { id, ...habitData } = habit; // Remove id from the update data
+        const { id: _id, ...habitData } = habit; // Remove id from the update data
         const [updatedHabit] = await this.db
           .update(habits)
           .set({ 
@@ -379,7 +427,7 @@ export class DatabaseStorage implements IStorage {
     if (completion.id) {
       // Try to update existing completion
       try {
-        const { id, ...completionData } = completion; // Remove id from the update data
+        const { id: _id, ...completionData } = completion; // Remove id from the update data
         const [updatedCompletion] = await this.db
           .update(habitCompletions)
           .set({ 
@@ -641,10 +689,38 @@ export class DatabaseStorage implements IStorage {
   async awardChallengeXP(userId: string, challengeId: string, xpAmount: number, challengeType: string): Promise<User> {
     console.log(`🏆 Awarding challenge XP: ${xpAmount} XP for challenge ${challengeId} (${challengeType}) to user ${userId}`);
     
+    // Check if challenge was already completed this week/month
+    const existingCompletion = await this.db
+      .select()
+      .from(challengeCompletions)
+      .where(
+        and(
+          eq(challengeCompletions.userId, userId),
+          eq(challengeCompletions.challengeId, challengeId),
+          gte(challengeCompletions.completedAt, getCurrentDateString())
+        )
+      )
+      .limit(1);
+    
+    if (existingCompletion.length > 0) {
+      console.log(`⚠️ Challenge ${challengeId} already completed for user ${userId}`);
+      return await this.getUser(userId) as User;
+    }
+    
+    // Award XP
     const user = await this.updateUserXP(userId, xpAmount);
     
-    // Create a record of the challenge completion (optional - for tracking)
+    // Record challenge completion
     try {
+      await this.db.insert(challengeCompletions).values({
+        userId,
+        challengeId,
+        xpAwarded: xpAmount,
+        completedAt: getCurrentDateString(),
+        resetAt: this.calculateResetDate(challengeId, getCurrentDateString()),
+      });
+      
+      // Create AI insight for challenge completion
       await this.createAIInsight(
         userId,
         'challenge_completed',
@@ -652,7 +728,7 @@ export class DatabaseStorage implements IStorage {
         `Congratulations! You earned ${xpAmount} XP for completing the "${challengeType}" challenge.`
       );
     } catch (error) {
-      console.warn('Failed to create challenge completion insight:', error);
+      console.warn('Failed to record challenge completion:', error);
     }
     
     return user;
@@ -704,14 +780,51 @@ export class DatabaseStorage implements IStorage {
 
   private async checkEarlyBirdChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], weekNumber: number): Promise<void> {
     // Check if user completed morning habits before 9 AM for 5 days
-    const morningHabits = habits.filter(h => h.reminderTime && h.reminderTime.includes('morning'));
-    const earlyCompletions = completions.filter(c => {
-      if (!c.completedAt) return false;
-      const completionTime = new Date(c.completedAt);
-      return completionTime.getHours() < 9;
+    const morningHabits = habits.filter(h => {
+      if (!h.reminderTime) return false;
+      
+      // Check for text-based morning reminder
+      if (h.reminderTime.includes('morning')) return true;
+      
+      // Check for time-based morning reminder (before 12:00)
+      const timeMatch = h.reminderTime.match(/^(\d{1,2}):(\d{2})$/);
+      if (timeMatch) {
+        const hour = parseInt(timeMatch[1]);
+        return hour < 12; // Morning hours (before noon)
+      }
+      
+      return false;
     });
+    
+    if (morningHabits.length === 0) return; // No morning habits to check
+    
+    // Check last 7 days for early completions
+    const last7Days = Array.from({length: 7}, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return getCurrentDateString();
+    });
+    
+    let earlyBirdDays = 0;
+    
+    for (const date of last7Days) {
+      // Get completions for this specific date
+      const dayCompletions = completions.filter(c => c.completedAt === date);
+      
+      // Check if any completion was before 9 AM
+      const earlyCompletions = dayCompletions.filter(completion => {
+        if (!completion.completedAt) return false;
+        const completionTime = new Date(completion.completedAt);
+        return completionTime.getHours() < 9;
+      });
+      
+      // If we have early completions, count this day
+      if (earlyCompletions.length > 0) {
+        earlyBirdDays++;
+      }
+    }
 
-    if (morningHabits.length > 0 && earlyCompletions.length >= 5) {
+    if (earlyBirdDays >= 5) {
       await this.awardChallengeXP(userId, `early-bird-${weekNumber}`, 25, 'Early Bird');
     }
   }
@@ -841,6 +954,202 @@ export class DatabaseStorage implements IStorage {
       newLevel: currentLevel
     };
   }
+
+  // Challenge completion methods - Using database tables
+  async getChallengeCompletion(userId: string, challengeId: string): Promise<any> {
+    try {
+      const result = await db
+        .select()
+        .from(challengeCompletions)
+        .where(
+          and(
+            eq(challengeCompletions.userId, userId),
+            eq(challengeCompletions.challengeId, challengeId)
+          )
+        )
+        .limit(1);
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error getting challenge completion:', error);
+      return null;
+    }
+  }
+
+  async createChallengeCompletion(data: {
+    userId: string;
+    challengeId: string;
+    xpAwarded: number;
+    completedAt: string;
+  }): Promise<void> {
+    try {
+      await db.insert(challengeCompletions).values({
+        userId: data.userId,
+        challengeId: data.challengeId,
+        xpAwarded: data.xpAwarded,
+        completedAt: data.completedAt,
+        resetAt: this.calculateResetDate(data.challengeId, data.completedAt),
+        createdAt: new Date(),
+      });
+      console.log('Challenge completion recorded in database:', data);
+    } catch (error) {
+      console.error('Error creating challenge completion:', error);
+      throw error;
+    }
+  }
+
+  calculateResetDate(challengeId: string, completedAt: string): string {
+    const completedDate = new Date(completedAt);
+    
+    if (challengeId.startsWith('daily_')) {
+      // Daily challenges reset the next day
+      const resetDate = new Date(completedDate);
+      resetDate.setDate(resetDate.getDate() + 1);
+      return resetDate.toISOString().split('T')[0];
+    } else if (challengeId.startsWith('weekly_')) {
+      // Weekly challenges reset next week
+      const resetDate = new Date(completedDate);
+      resetDate.setDate(resetDate.getDate() + 7);
+      return resetDate.toISOString().split('T')[0];
+    } else if (challengeId.startsWith('monthly_')) {
+      // Monthly challenges reset next month
+      const resetDate = new Date(completedDate);
+      resetDate.setMonth(resetDate.getMonth() + 1);
+      return resetDate.toISOString().split('T')[0];
+    }
+    
+    // Default to next day
+    const resetDate = new Date(completedDate);
+    resetDate.setDate(resetDate.getDate() + 1);
+    return resetDate.toISOString().split('T')[0];
+  }
+
+  async getChallengeProgress(userId: string, challengeId: string): Promise<ChallengeProgress | null> {
+    try {
+      const result = await db
+        .select()
+        .from(challengeProgress)
+        .where(
+          and(
+            eq(challengeProgress.userId, userId),
+            eq(challengeProgress.challengeId, challengeId)
+          )
+        )
+        .limit(1);
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error getting challenge progress:', error);
+      return null;
+    }
+  }
+
+  async updateChallengeProgress(userId: string, challengeId: string, progressValue: number): Promise<void> {
+    try {
+      const existingProgress = await this.getChallengeProgress(userId, challengeId);
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      if (existingProgress) {
+        // Update existing progress
+        await db
+          .update(challengeProgress)
+          .set({
+            progressValue,
+            lastUpdated: currentDate,
+          })
+          .where(
+            and(
+              eq(challengeProgress.userId, userId),
+              eq(challengeProgress.challengeId, challengeId)
+            )
+          );
+      } else {
+        // Create new progress record
+        await db.insert(challengeProgress).values({
+          userId,
+          challengeId,
+          progressValue,
+          lastUpdated: currentDate,
+          createdAt: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error('Error updating challenge progress:', error);
+      throw error;
+    }
+  }
+
+  // ML prediction operations
+  async getMLPrediction(userId: string, habitId: number, predictionDate: string): Promise<MLPrediction | null> {
+    try {
+      const result = await db
+        .select()
+        .from(mlPredictions)
+        .where(
+          and(
+            eq(mlPredictions.userId, userId),
+            eq(mlPredictions.habitId, habitId),
+            eq(mlPredictions.predictionDate, predictionDate)
+          )
+        )
+        .limit(1);
+      
+      return result[0] || null;
+    } catch (error) {
+      console.error('Error getting ML prediction:', error);
+      return null;
+    }
+  }
+
+  async createMLPrediction(data: {
+    userId: string;
+    habitId: number;
+    predictionPercentage: number;
+    confidenceLevel: string;
+    predictionDate: string;
+  }): Promise<void> {
+    try {
+      await db.insert(mlPredictions).values({
+        userId: data.userId,
+        habitId: data.habitId,
+        predictionPercentage: data.predictionPercentage,
+        confidenceLevel: data.confidenceLevel,
+        predictionDate: data.predictionDate,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      console.log('ML prediction recorded in database:', data);
+    } catch (error) {
+      console.error('Error creating ML prediction:', error);
+      throw error;
+    }
+  }
+
+  async updateMLPrediction(userId: string, habitId: number, predictionDate: string, updates: {
+    predictionPercentage: number;
+    confidenceLevel: string;
+  }): Promise<void> {
+    try {
+      await db
+        .update(mlPredictions)
+        .set({
+          predictionPercentage: updates.predictionPercentage,
+          confidenceLevel: updates.confidenceLevel,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(mlPredictions.userId, userId),
+            eq(mlPredictions.habitId, habitId),
+            eq(mlPredictions.predictionDate, predictionDate)
+          )
+        );
+      console.log('ML prediction updated in database:', { userId, habitId, predictionDate, updates });
+    } catch (error) {
+      console.error('Error updating ML prediction:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -854,6 +1163,9 @@ export {
   coachingMessages,
   rolePermissions,
   userPermissions,
+  challengeCompletions,
+  challengeProgress,
+  mlPredictions,
   User,
   UpsertUser,
   Habit,
@@ -864,5 +1176,8 @@ export {
   AIInsight,
   CoachingMessage,
   InsertCoachingMessage,
-  Questionnaire
+  Questionnaire,
+  ChallengeCompletion,
+  ChallengeProgress,
+  MLPrediction
 };

@@ -181,7 +181,7 @@ router.post('/recommendations', async (req, res) => {
 });
 
 // Get available AI Coach services
-router.get('/coach/services', requireAuth, async (req, res) => {
+router.get('/coach/services', requireAuth, async (_req, res) => {
   try {
     const services = getAvailableServices();
     res.json({ services });

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+// import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +22,7 @@ interface AIQuestionnaireModalProps {
 
 export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+
   const [, setLocation] = useLocation();
   
   const [questionnaire, setQuestionnaire] = useState({

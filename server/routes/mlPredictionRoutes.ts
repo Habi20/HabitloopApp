@@ -65,9 +65,21 @@ export function mlPredictionRoutes() {
   };
 
   // Train ML model (no auth required)
-  router.post('/train', async (_req: Request, res: Response) => {
+  router.post('/train', async (req: Request, res: Response) => {
     try {
       console.log('🔄 ML training requested');
+      
+      // Check if user has any habit data
+      const userId = getUserId(req);
+      const userHabits = await storage.getUserHabits(userId);
+      
+      if (!userHabits || userHabits.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No habits found. Please create some habits first before training the model.'
+        });
+      }
+      
       const result = await mlAdvancedService.trainModelsWithSyntheticData();
 
       if (result.success) {
@@ -103,13 +115,62 @@ export function mlPredictionRoutes() {
         return res.status(400).json({ error: 'Questionnaire data required' });
       }
 
-      const prediction = await mlAdvancedService.predictHabitSuccess(userId, habitData, questionnaireData);
+      // Check if user has any habit data
+      const userHabits = await storage.getUserHabits(userId);
+      if (!userHabits || userHabits.length === 0) {
+        return res.status(400).json({ 
+          error: 'No habits found. Please create some habits first before making predictions.' 
+        });
+      }
+
+      // Get today's date for prediction storage
+      const today = new Date().toISOString().split('T')[0];
+      const habitId = habitData?.id || 0;
+
+      // Check if we already have a prediction for today
+      const existingPrediction = await storage.getMLPrediction(userId, habitId, today);
+
+      let prediction;
+      if (existingPrediction) {
+        // Use existing prediction
+        prediction = {
+          successProbability: existingPrediction.predictionPercentage / 100,
+          confidenceLevel: existingPrediction.confidenceLevel,
+          message: 'Using stored prediction from earlier today'
+        };
+        console.log(`📊 Using stored ML prediction for ${userId}, habit ${habitId}: ${existingPrediction.predictionPercentage}%`);
+      } else {
+        // Generate new prediction
+        const mlResult = await mlAdvancedService.predictHabitSuccess(userId, habitData, questionnaireData);
+        
+        // Convert ML result to our format
+        prediction = {
+          successProbability: mlResult.success_probability,
+          confidenceLevel: mlResult.confidence_level,
+          message: 'New prediction generated'
+        };
+        
+        // Store the prediction
+        const predictionPercentage = Math.round(mlResult.success_probability * 100);
+        const confidenceLevel = mlResult.confidence_level || 'medium';
+        
+        await storage.createMLPrediction({
+          userId,
+          habitId,
+          predictionPercentage,
+          confidenceLevel,
+          predictionDate: today
+        });
+        
+        console.log(`💾 Stored new ML prediction for ${userId}, habit ${habitId}: ${predictionPercentage}%`);
+      }
 
       res.json({
         success: true,
         prediction,
         user_id: userId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        stored: !!existingPrediction
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Prediction failed';
@@ -234,22 +295,22 @@ export function mlPredictionRoutes() {
       }
       
       // Create dynamic questionnaire based on user profile
-      const dynamicQuestionnaire = {
-        focus_areas: userHabits.length > 0 ? 
-          [...new Set(userHabits.map(h => h.category))].slice(0, 3) : 
-          ['Health & Fitness'],
-        motivation_time: userLevel > 3 ? 'Morning' : 'Evening',
-        current_habits: userHabits.slice(0, 3).map(h => h.title),
-        main_goals: userLevel > 5 ? 'Build advanced habits' : 'Build consistency',
-        mood_description: userXP > 1000 ? 'Energized' : userXP > 500 ? 'Balanced' : 'Stressed',
-        motivation_type: userLevel > 4 ? 'Intrinsic rewards' : 'Visual progress',
-        procrastination_time: userLevel < 3 ? 'Evening' : 'Afternoon',
-        best_habit_time: userLevel > 3 ? 'Right after waking' : 'Before bed',
-        missed_habit_feeling: userLevel > 2 ? 'Determined to restart' : 'Frustrated',
-        biggest_distraction: userLevel < 3 ? 'Phone/social media' : 'Work stress'
-      };
+      // const dynamicQuestionnaire = {
+      //   focus_areas: userHabits.length > 0 ? 
+      //     [...new Set(userHabits.map(h => h.category))].slice(0, 3) : 
+      //     ['Health & Fitness'],
+      //   motivation_time: userLevel > 3 ? 'Morning' : 'Evening',
+      //   current_habits: userHabits.slice(0, 3).map(h => h.title),
+      //   main_goals: userLevel > 5 ? 'Build advanced habits' : 'Build consistency',
+      //   mood_description: userXP > 1000 ? 'Energized' : userXP > 500 ? 'Balanced' : 'Stressed',
+      //   motivation_type: userLevel > 4 ? 'Intrinsic rewards' : 'Visual progress',
+      //   procrastination_time: userLevel < 3 ? 'Evening' : 'Afternoon',
+      //   best_habit_time: userLevel > 3 ? 'Right after waking' : 'Before bed',
+      //   missed_habit_feeling: userLevel > 2 ? 'Determined to restart' : 'Frustrated',
+      //   biggest_distraction: userLevel < 3 ? 'Phone/social media' : 'Work stress'
+      // };
 
-      const evaluation = await mlAdvancedService.evaluateQuestionnaire(dynamicQuestionnaire);
+      // const _evaluation = await mlAdvancedService.evaluateQuestionnaire(dynamicQuestionnaire);
 
       // Calculate dynamic user profile based on ACTUAL data
       const userProfile = {
@@ -307,6 +368,139 @@ export function mlPredictionRoutes() {
       const errorMessage = error instanceof Error ? error.message : 'Evaluation failed';
       console.error('ML evaluation error:', errorMessage);
       res.status(500).json({ error: 'Failed to evaluate questionnaire' });
+    }
+  });
+
+  // Get comprehensive ML analytics for user
+  router.get('/analytics', async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId as string || getUserId(req);
+      console.log('🔍 ML Analytics: Processing for user:', userId);
+
+      // Get user data
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Get user habits and completions
+      const habits = await storage.getUserHabits(userId);
+      const completions = await storage.getHabitCompletions(userId);
+
+      // Calculate user-specific analytics
+      const totalHabits = habits?.length || 0;
+      const totalCompletions = completions?.length || 0;
+      const userXP = user.xp || 0;
+      const userLevel = user.level || 1;
+
+      // Get recent completion data (last 7 days) for inactivity penalty
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const recentCompletions = completions?.filter(c => 
+        new Date(c.completedAt) >= sevenDaysAgo
+      ) || [];
+      
+      const recentCompletionCount = recentCompletions.length;
+      const daysSinceLastCompletion = recentCompletionCount > 0 ? 0 : 
+        Math.floor((Date.now() - new Date(completions?.[completions.length - 1]?.completedAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24));
+
+      // Calculate base consistency score
+      const baseConsistencyScore = totalHabits > 0 
+        ? Math.min(95, Math.max(20, Math.floor((totalCompletions / (totalHabits * 7)) * 100)))
+        : 50;
+
+      // Apply inactivity penalty
+      let inactivityPenalty = 0;
+      if (daysSinceLastCompletion > 7) inactivityPenalty = 30;
+      else if (daysSinceLastCompletion > 3) inactivityPenalty = 20;
+      else if (daysSinceLastCompletion > 1) inactivityPenalty = 10;
+      
+      const consistencyScore = Math.max(20, baseConsistencyScore - inactivityPenalty);
+
+      // Calculate motivation level with inactivity consideration
+      let motivationLevel = "Low";
+      if (daysSinceLastCompletion > 7) {
+        motivationLevel = "Low"; // Force low if inactive
+      } else if (userXP > 100 && recentCompletionCount > 0) {
+        motivationLevel = "High";
+      } else if (userXP > 50 && recentCompletionCount > 0) {
+        motivationLevel = "Medium";
+      } else {
+        motivationLevel = "Low";
+      }
+
+      // Calculate engagement level with recent activity consideration
+      const baseEngagement = Math.min(90, Math.max(30, 
+        Math.floor((totalHabits * 10) + (userXP / 10))
+      ));
+      
+      // Apply recent activity bonus/penalty
+      let engagementBonus = 0;
+      if (recentCompletionCount >= 5) engagementBonus = 15;
+      else if (recentCompletionCount >= 3) engagementBonus = 10;
+      else if (recentCompletionCount >= 1) engagementBonus = 5;
+      else if (daysSinceLastCompletion > 7) engagementBonus = -20;
+      else if (daysSinceLastCompletion > 3) engagementBonus = -10;
+      
+      const engagementLevel = Math.max(20, Math.min(95, baseEngagement + engagementBonus));
+
+      // Calculate weekly forecast with realistic expectations
+      const baseForecast = Math.min(95, Math.max(40, 
+        Math.floor(consistencyScore * 0.8 + (userLevel * 5))
+      ));
+      
+      // Adjust forecast based on recent activity
+      let forecastAdjustment = 0;
+      if (recentCompletionCount >= 3) forecastAdjustment = 10;
+      else if (recentCompletionCount >= 1) forecastAdjustment = 5;
+      else if (daysSinceLastCompletion > 7) forecastAdjustment = -25;
+      else if (daysSinceLastCompletion > 3) forecastAdjustment = -15;
+      
+      const weeklyForecast = Math.max(20, Math.min(95, baseForecast + forecastAdjustment));
+
+      // Determine optimal times based on user's habit patterns
+      const optimalTimes = habits?.length > 0 
+        ? habits.map(h => h.reminderTime || "09:00").slice(0, 3)
+        : ["07:00", "18:00", "21:00"];
+
+      // Determine performance categories based on habit types
+      const categories = habits?.map(h => h.category).filter(Boolean) || [];
+      const performanceCategories = categories.length > 0 
+        ? [...new Set(categories)].slice(0, 3)
+        : ["Productivity", "Health", "Learning"];
+
+      // Calculate confidence level with recent activity consideration
+      let confidenceLevel = "Low";
+      if (totalHabits > 2 && userXP > 50 && recentCompletionCount > 0) {
+        confidenceLevel = "High";
+      } else if (totalHabits > 0 && userXP > 20 && recentCompletionCount > 0) {
+        confidenceLevel = "Medium";
+      } else if (daysSinceLastCompletion > 7) {
+        confidenceLevel = "Low"; // Force low confidence for inactive users
+      } else {
+        confidenceLevel = "Low";
+      }
+
+      res.json({
+        success: true,
+        data: {
+          consistencyScore,
+          motivationLevel,
+          engagementLevel,
+          optimalTimes,
+          weeklyForecast,
+          performanceCategories,
+          confidenceLevel,
+          userLevel,
+          userXP,
+          habitCount: totalHabits,
+          completionCount: totalCompletions
+        }
+      });
+
+    } catch (error) {
+      console.error('ML analytics error:', error);
+      res.status(500).json({ error: 'Failed to get ML analytics' });
     }
   });
 
@@ -389,7 +583,7 @@ export function mlPredictionRoutes() {
         
         // Calculate longest streak
         tempStreak = 0;
-        for (const completion of sortedCompletions) {
+        for (const _completion of sortedCompletions) {
           tempStreak++;
           longestStreak = Math.max(longestStreak, tempStreak);
         }
