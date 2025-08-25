@@ -140,7 +140,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
     setFetchingUsers(true);
     
     try {
-      const response = await fetch('/api/habitloop/users', {
+             const response = await fetch(`${API_BASE_URL}/habitloop/users`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
