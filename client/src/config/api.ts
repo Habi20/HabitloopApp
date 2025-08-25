@@ -13,4 +13,5 @@ export const buildApiUrl = (endpoint: string): string => {
 
 // Environment check helpers
 export const isDevelopment = import.meta.env.DEV;
+
 export const isProduction = import.meta.env.PROD;
