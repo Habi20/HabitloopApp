@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { buildApiUrl } from '@/config/api';
 
 interface HabitLoopSignupModalProps {
   open: boolean;
@@ -140,7 +141,7 @@ export function HabitLoopSignupModal({ open, onClose, onSuccess }: HabitLoopSign
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/habitloop/signup', {
+      const response = await fetch(buildApiUrl('habitloop/signup'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

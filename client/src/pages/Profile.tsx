@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { buildApiUrl } from "@/config/api";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,8 +52,8 @@ export default function Profile() {
           }
 
           const [habitsRes, completionsRes] = await Promise.all([
-            fetch('/api/habits', { headers }),
-            fetch('/api/completions', { headers })
+            fetch(buildApiUrl('habits'), { headers }),
+            fetch(buildApiUrl('completions'), { headers })
           ]);
           
           if (habitsRes.ok) {

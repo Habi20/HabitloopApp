@@ -63,7 +63,7 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
   const generateRecommendationsMutation = useMutation({
     mutationFn: async () => {
       console.log("Sending questionnaire data:", JSON.stringify(questionnaire, null, 2));
-      const response = await apiRequest("/api/ai/questionnaire", "POST", questionnaire);
+      const response = await apiRequest("ai/questionnaire", "POST", questionnaire);
       return response.json();
     },
     onSuccess: (data) => {

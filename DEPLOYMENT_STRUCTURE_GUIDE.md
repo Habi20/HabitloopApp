@@ -1,254 +1,242 @@
-# 🚀 HabitLoop Deployment Structure Guide
+# HabitLoop Deployment Structure Guide
 
-## 📁 **Local Project Structure (Root Directory)**
+## Overview
+This guide documents the deployment strategy for HabitLoop using a three-branch approach to separate frontend and backend deployments while maintaining a development environment.
 
-```
-C:\Users\ASUS\Videos\itVideo\git\HabitMaster2907251711PM-2 - HLRUN 10.08.25 - Copy\
-├── .env                          # Root environment variables
-├── package.json                   # Root package.json with workspaces
-├── tsconfig.json                 # Root TypeScript config
-├── client/                       # Frontend React application
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── hooks/
-│   │   ├── utils/
-│   │   └── ...
-│   ├── dist/                     # Built React app (for deployment)
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── node_modules/
-├── server/                       # Backend Node.js application
-│   ├── routes/
-│   │   ├── authRoutes.ts
-│   │   ├── habitRoutes.ts
-│   │   ├── mlPredictionRoutes.ts
-│   │   └── ...
-│   ├── services/
-│   │   ├── NotificationService.ts
-│   │   ├── emailService.ts
-│   │   └── ...
-│   ├── utils/
-│   │   ├── habitCompletionManager.ts
-│   │   ├── timezone.js
-│   │   └── ...
-│   ├── database/
-│   ├── ml/
-│   ├── deployment/               # Deployment-specific files
-│   │   └── vite.ts
-│   ├── index.ts                  # Main server entry point
-│   ├── env.ts                    # Environment configuration
-│   ├── db.ts                     # Database connection
-│   ├── storage.ts                # Data layer
-│   ├── supabaseAuth.ts           # Authentication
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── Procfile                  # For Heroku deployment
-│   ├── railway.json              # For Railway deployment
-│   └── node_modules/
-├── shared/                       # Shared code between client and server
-│   ├── schema.ts                 # Database schema
-│   ├── types.ts                  # Shared TypeScript types
-│   └── ...
-├── docs/                         # Documentation
-│   ├── HABITLOOP COMPREHENSIVE_DOC.md
-│   ├── AUTHENTICATION_WORKFLOW.md
-│   └── ...
-├── test/                         # Test files
-└── node_modules/                 # Root dependencies
-```
+## Branch Structure
 
----
+### 1. `habitloop-dev` (Main Development Branch)
+**Purpose:** Local development with full-stack setup
+**Location:** Local development environment
+**Configuration:** 
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
+- API calls: Relative URLs (`/api/*`) handled by Vite proxy
 
-## 🌐 **Recommended Hosting Folder Structure**
+**Key Files:**
+- `client/src/config/api.ts` - Environment-based API configuration
+- `vite.config.ts` - Proxy configuration for local development
+- Complete codebase (client + server + shared)
 
-```
-/home/techvers/
-├── .env                          # Root environment variables (if needed)
-├── client/                       # Frontend package
-│   ├── dist/                     # Built React app
-│   │   ├── index.html
-│   │   ├── assets/
-│   │   └── ...
-│   ├── package.json
-│   └── node_modules/
-├── server/                       # Backend package (Node.js application)
-│   ├── routes/
-│   │   ├── authRoutes.ts
-│   │   ├── habitRoutes.ts
-│   │   ├── mlPredictionRoutes.ts
-│   │   ├── index.ts
-│   │   └── ...
-│   ├── services/
-│   │   ├── NotificationService.ts
-│   │   ├── emailService.ts
-│   │   └── ...
-│   ├── utils/
-│   │   ├── habitCompletionManager.ts
-│   │   ├── timezone.js
-│   │   └── ...
-│   ├── database/
-│   ├── ml/
-│   ├── index.ts                  # Main server entry point
-│   ├── env.ts                    # Environment configuration
-│   ├── db.ts                     # Database connection
-│   ├── storage.ts                # Data layer
-│   ├── supabaseAuth.ts           # Authentication
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── Procfile
-│   ├── railway.json
-│   └── node_modules/
-├── shared/                       # Shared schema and types
-│   ├── schema.ts                 # Database schema
-│   ├── types.ts                  # Shared TypeScript types
-│   └── ...
-├── public_html/                  # Web root (HostGator's web directory)
-│   ├── index.html                # Copy from client/dist/
-│   ├── assets/                   # Copy from client/dist/
-│   └── ...                       # All files from client/dist/
-└── node_modules/                 # Root dependencies (if needed)
+### 2. `habitloop-fe` (Frontend Deployment Branch)
+**Purpose:** Frontend-only deployment to Hostinger
+**Location:** `https://techversehublk.site/`
+**Configuration:**
+- API calls: Always point to Railway backend
+- No backend code included
+- Optimized for production
+
+**Key Files:**
+- `client/src/config/api.ts` - Always uses Railway URL
+- `client/` directory only
+- Production build configuration
+
+### 3. `habitloop-be` (Backend Deployment Branch)
+**Purpose:** Backend-only deployment to Railway
+**Location:** `https://habitloopapp-development.up.railway.app/`
+**Configuration:**
+- No frontend code included
+- Database connections
+- API endpoints only
+
+**Key Files:**
+- `server/` directory only
+- `shared/` directory (if needed)
+- `railway.json` - Railway deployment configuration
+
+## Security Considerations
+
+### ✅ Security Fixes Applied
+1. **Password Hint Removal:** Removed default password hint (`test123`) from HabitLoop login modal
+2. **Generic Placeholders:** Changed password placeholders to generic text
+3. **No Hardcoded Credentials:** No sensitive information exposed in UI
+
+### 🔒 Security Best Practices
+- **Environment Variables:** All sensitive data stored in environment variables
+- **JWT Tokens:** Secure token-based authentication
+- **HTTPS Only:** All production deployments use HTTPS
+- **Input Validation:** Server-side validation for all inputs
+- **Rate Limiting:** API rate limiting implemented
+
+## API Configuration Strategy
+
+### Development Environment (`habitloop-dev`)
+```typescript
+// client/src/config/api.ts
+const getApiBaseUrl = () => {
+  if (import.meta.env.DEV) {
+    return '/api'; // Vite proxy handles this
+  }
+  return 'https://habitloopapp-development.up.railway.app/api';
+};
 ```
 
----
-
-## 📋 **Deployment Instructions**
-
-### **1. Upload Files to Hosting**
-
-#### **Server Directory:**
-```
-Upload from local: C:\Users\ASUS\Videos\itVideo\git\HabitMaster2907251711PM-2 - HLRUN 10.08.25 - Copy\server\
-Upload to hosting: /home/techvers/server/
+### Frontend Deployment (`habitloop-fe`)
+```typescript
+// client/src/config/api.ts
+export const API_BASE_URL = 'https://habitloopapp-development.up.railway.app';
+export const buildApiUrl = (endpoint: string): string => {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  return `${API_BASE_URL}/api/${cleanEndpoint}`;
+};
 ```
 
-#### **Shared Directory:**
-```
-Upload from local: C:\Users\ASUS\Videos\itVideo\git\HabitMaster2907251711PM-2 - HLRUN 10.08.25 - Copy\shared\
-Upload to hosting: /home/techvers/shared/
+## Deployment Workflow
+
+### 1. Development Workflow
+```bash
+# Start in habitloop-dev branch
+git checkout habitloop-dev
+
+# Local development
+cd client && npm run dev
+cd server && npm run dev
+
+# API calls work via Vite proxy
+fetch('/api/habitloop/signin', ...) // → localhost:5000/api/habitloop/signin
 ```
 
-#### **Client Build:**
+### 2. Frontend Deployment
+```bash
+# Switch to frontend branch
+git checkout habitloop-fe
+
+# Build for production
+cd client && npm run build
+
+# Upload dist/ folder to Hostinger
+# Site: https://techversehublk.site/
 ```
-Upload from local: C:\Users\ASUS\Videos\itVideo\git\HabitMaster2907251711PM-2 - HLRUN 10.08.25 - Copy\client\dist\
-Upload to hosting: /home/techvers/public_html/
+
+### 3. Backend Deployment
+```bash
+# Switch to backend branch
+git checkout habitloop-be
+
+# Railway automatically deploys from this branch
+# Site: https://habitloopapp-development.up.railway.app/
 ```
 
-### **2. Hosting Configuration**
+## Migration Between Branches
 
-#### **Node.js Application:**
-- **Application Root**: `/home/techvers/server/`
-- **Application Startup File**: `index.ts`
-- **Application Mode**: `development` (or `production`)
+### From Development to Production
+1. **Frontend Changes:**
+   - Copy `client/src/config/api.ts` changes to `habitloop-fe`
+   - Ensure all API calls use `buildApiUrl()`
+   - Test build process
 
-#### **Environment Variables:**
+2. **Backend Changes:**
+   - Copy `server/` changes to `habitloop-be`
+   - Update Railway environment variables if needed
+   - Test API endpoints
+
+### From Production to Development
+1. **Frontend Changes:**
+   - Copy `client/src/config/api.ts` changes to `habitloop-dev`
+   - Ensure Vite proxy configuration is correct
+   - Test local development
+
+2. **Backend Changes:**
+   - Copy `server/` changes to `habitloop-dev`
+   - Update local environment variables
+   - Test local API endpoints
+
+## TODO List
+
+### 🔧 Security Fixes Needed
+- [x] **Remove password hint from `habitloop-fe` branch** ✅ COMPLETED
+  - File: `client/src/components/HabitLoopLoginModal.tsx`
+  - Removed: `Default password: test123` hint
+  - Updated placeholder text to generic "Enter your password"
+- [ ] **Remove password hint from `habitloop-dev` branch** 🔄 TODO
+  - File: `client/src/components/HabitLoopLoginModal.tsx`
+  - Remove: `Default password: test123` hint
+  - Update placeholder text to generic "Enter your password"
+- [ ] **Remove password hint from `habitloop-be` branch** 🔄 TODO
+  - Same changes as above
+  - Ensure all branches are secure
+
+### 🔄 Branch Synchronization
+- [ ] **Sync API configuration changes across all branches**
+- [ ] **Ensure consistent security practices across environments**
+- [ ] **Update documentation for each branch**
+
+### 🧪 Testing Checklist
+- [ ] **Local Development (`habitloop-dev`)**
+  - [ ] Frontend connects to local backend
+  - [ ] API calls work via Vite proxy
+  - [ ] No hardcoded URLs
+  - [ ] Security fixes applied
+
+- [ ] **Frontend Deployment (`habitloop-fe`)**
+  - [ ] Builds successfully
+  - [ ] Connects to Railway backend
+  - [ ] All API calls work
+  - [ ] No password hints visible
+
+- [ ] **Backend Deployment (`habitloop-be`)**
+  - [ ] Railway deployment successful
+  - [ ] Health check endpoint working
+  - [ ] All API endpoints responding
+  - [ ] Database connections stable
+
+## Environment Variables
+
+### Railway Backend Environment
 ```env
 NODE_ENV=development
 PORT=5000
-DATABASE_URL=postgresql://postgres.hkkvlenrqxoaavofwiuc:Getintosup_123@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
-JWT_SECRET=your_jwt_secret_key
-FRONTEND_URL=https://techversehublk.site/
-OPENAI_API_KEY=your_openai_api_key
-SENDGRID_API_KEY=your_sendgrid_api_key
-SENDGRID_FROM_EMAIL=noreply@yourdomain.com
-TIMEZONE=Asia/Colombo
-TZ=Asia/Colombo
+DATABASE_URL=your_database_url
+JWT_SECRET=your_jwt_secret
+# Add other required environment variables
 ```
 
-### **3. File Upload Checklist**
-
-#### **Essential Server Files:**
-- ✅ `index.ts` (main entry point)
-- ✅ `package.json` (dependencies)
-- ✅ `tsconfig.json` (TypeScript config)
-- ✅ `env.ts` (environment config)
-- ✅ `db.ts` (database connection)
-- ✅ `storage.ts` (data layer)
-- ✅ `supabaseAuth.ts` (authentication)
-- ✅ `routes/` directory (all route files)
-- ✅ `services/` directory (all service files)
-- ✅ `utils/` directory (all utility files)
-- ✅ `database/` directory
-- ✅ `ml/` directory
-- ✅ `Procfile`
-- ✅ `railway.json`
-
-#### **Essential Shared Files:**
-- ✅ `shared/schema.ts` (database schema)
-- ✅ `shared/types.ts` (shared types)
-
-#### **Essential Client Files:**
-- ✅ `client/dist/` → `public_html/` (all built frontend files)
-
----
-
-## 🔧 **Post-Deployment Steps**
-
-### **1. Install Dependencies**
-```bash
-cd /home/techvers/server
-npm install
+### Local Development Environment
+```env
+# .env file in root
+NODE_ENV=development
+PORT=5000
+DATABASE_URL=your_local_database_url
+JWT_SECRET=your_jwt_secret
+# Add other required environment variables
 ```
 
-### **2. Start the Application**
-- Use the hosting panel to run the `start` script
-- Or manually run: `npm start`
+## Troubleshooting
 
-### **3. Test Endpoints**
-```bash
-# Test backend
-curl https://techversehublk.site/
-curl https://techversehublk.site/api/health
+### Common Issues
+1. **404 Errors on API Calls**
+   - Check if using correct branch
+   - Verify API configuration in `client/src/config/api.ts`
+   - Ensure Railway backend is running
 
-# Test frontend
-curl https://techversehublk.site/
-```
+2. **CORS Errors**
+   - Backend should allow requests from frontend domain
+   - Check Railway CORS configuration
 
-### **4. Verify Database Connection**
-- Check application logs for database connection messages
-- Look for: "✅ Database pool connection established"
+3. **Build Failures**
+   - Ensure all dependencies are installed
+   - Check for TypeScript errors
+   - Verify import paths
 
----
+### Health Checks
+- **Frontend:** `https://techversehublk.site/` (should load HabitLoop app)
+- **Backend:** `https://habitloopapp-development.up.railway.app/api/health` (should return healthy status)
 
-## 🚨 **Common Issues & Solutions**
+## Maintenance
 
-### **Import Path Issues:**
-- **Problem**: `Cannot find module '../shared/schema'`
-- **Solution**: Ensure `shared/` directory is at the same level as `server/`
+### Regular Tasks
+1. **Security Updates:** Regularly review and update security measures
+2. **Dependency Updates:** Keep all packages updated
+3. **Backup Verification:** Ensure database backups are working
+4. **Performance Monitoring:** Monitor Railway and Hostinger performance
 
-### **Environment Variables:**
-- **Problem**: Missing environment variables
-- **Solution**: Set all required environment variables in hosting panel
-
-### **Port Issues:**
-- **Problem**: Port conflicts or wrong port
-- **Solution**: Check `PORT` environment variable matches hosting configuration
-
-### **Database Connection:**
-- **Problem**: Database connection failures
-- **Solution**: Verify `DATABASE_URL` and SSL settings
+### Emergency Procedures
+1. **Rollback Plan:** Keep previous working versions ready
+2. **Database Backup:** Regular automated backups
+3. **Monitoring:** Set up alerts for downtime
 
 ---
 
-## ✅ **Verification Checklist**
-
-- [ ] All server files uploaded to `/home/techvers/server/`
-- [ ] Shared files uploaded to `/home/techvers/shared/`
-- [ ] Frontend files uploaded to `/home/techvers/public_html/`
-- [ ] Environment variables set in hosting panel
-- [ ] Node.js application started successfully
-- [ ] Backend API responding (no 503 errors)
-- [ ] Frontend loading correctly
-- [ ] Database connection established
-- [ ] All API endpoints working
-
----
-
-## 📞 **Support**
-
-If you encounter issues:
-1. Check application logs in hosting panel
-2. Verify all files are uploaded correctly
-3. Confirm environment variables are set
-4. Test database connectivity
-5. Check import paths and file structure
+**Last Updated:** 2025-08-25
+**Version:** 1.0.0
+**Maintainer:** Development Team

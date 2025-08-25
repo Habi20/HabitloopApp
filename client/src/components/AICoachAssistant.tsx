@@ -51,7 +51,7 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
 
   const generateInsightMutation = useMutation({
     mutationFn: async (type: string) => {
-      const response = await apiRequest("/api/insights/generate", "POST", {
+      const response = await apiRequest("insights/generate", "POST", {
         type,
       });
       return await response.json();
@@ -85,7 +85,7 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
 
   const askCoachMutation = useMutation({
     mutationFn: async (question: string) => {
-      const response = await apiRequest("/api/coach/ask", "POST", {
+      const response = await apiRequest("coach/ask", "POST", {
         question,
         context: {
           habits: habits || [],

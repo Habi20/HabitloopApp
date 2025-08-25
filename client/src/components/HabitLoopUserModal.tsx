@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { buildApiUrl } from "@/config/api";
 
 interface HabitLoopUserModalProps {
   open: boolean;
@@ -201,7 +202,7 @@ export function HabitLoopUserModal({ open, onClose, onSuccess }: HabitLoopUserMo
     setFetchingData(prev => ({ ...prev, [userId]: true }));
     
     try {
-      const response = await fetch('/api/habitloop/signin', {
+      const response = await fetch(buildApiUrl('habitloop/signin'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -360,7 +361,7 @@ export function HabitLoopUserModal({ open, onClose, onSuccess }: HabitLoopUserMo
     setLoading(true);
 
     try {
-             const response = await fetch('/api/habitloop/signup', {
+             const response = await fetch(buildApiUrl('habitloop/signup'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

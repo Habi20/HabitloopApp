@@ -52,7 +52,7 @@ export function MLPredictionCard() {
   // Training mutation
   const trainMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/ml/train', 'POST');
+              const response = await apiRequest('ml/train', 'POST');
       if (!response.ok) {
         throw new Error(`Training failed: ${response.status}`);
       }
@@ -73,7 +73,7 @@ export function MLPredictionCard() {
   // Evaluation mutation
   const evaluateMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/ml/evaluate', 'GET');
+      const response = await apiRequest('ml/evaluate', 'GET');
       if (!response.ok) {
         throw new Error(`Evaluation failed: ${response.status}`);
       }

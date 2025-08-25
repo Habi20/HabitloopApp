@@ -25,7 +25,7 @@ export function AIInsightCard({ insight, className }: AIInsightCardProps) {
 
   const markAsReadMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest(`/api/insights/${insight.id}/read`, "PUT");
+      await apiRequest(`insights/${insight.id}/read`, "PUT");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/insights"] });

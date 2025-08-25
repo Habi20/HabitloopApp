@@ -84,7 +84,7 @@ export default function Settings() {
 
   const sendTestNotification = async (type: 'inactivity' | 'achievement' | 'insight') => {
     try {
-      const response = await apiRequest('/api/notifications/test', 'POST', { type });
+              const response = await apiRequest('notifications/test', 'POST', { type });
       const result = await response.json();
       
       if (result.success) {

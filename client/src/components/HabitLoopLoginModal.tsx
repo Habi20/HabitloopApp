@@ -15,8 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { API_BASE_URL } from "@/config/api";
-
+import { buildApiUrl } from "@/config/api";
+// API_BASE_URL
 interface HabitLoopLoginModalProps {
   open: boolean;
   onClose: () => void;
@@ -140,7 +140,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
     setFetchingUsers(true);
     
     try {
-             const response = await fetch(`${API_BASE_URL}/habitloop/users`, {
+             const response = await fetch(buildApiUrl('habitloop/users'), {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -170,7 +170,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
     setFetchingData(prev => ({ ...prev, [userId]: true }));
     
     try {
-      const response = await fetch('/api/habitloop/signin', {
+      const response = await fetch(buildApiUrl('habitloop/signin'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -386,7 +386,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
     setLoading(true);
 
     try {
-      const response = await fetch('/api/habitloop/signup', {
+      const response = await fetch(buildApiUrl('habitloop/signup'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -762,7 +762,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
                     type="password"
                     value={signupFormData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
-                    placeholder="Create a strong password"
+                    placeholder="Enter your password"
                     className="h-10 sm:h-11 text-sm"
                     required
                   />
@@ -1070,7 +1070,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter password"
+                      placeholder="Enter your password"
                       className="mt-1"
                       autoFocus
                       onKeyPress={(e) => {
@@ -1079,12 +1079,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
                         }
                       }}
                     />
-                    <div className="flex items-center mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                      <i className="fas fa-info-circle text-blue-500 mr-2"></i>
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        Default password: <code className="bg-blue-200 dark:bg-blue-800 px-1 rounded font-mono">test123</code>
-                      </p>
-                    </div>
+
                   </div>
                   
                   <div className="flex gap-3">

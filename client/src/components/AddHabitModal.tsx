@@ -94,7 +94,7 @@ export function AddHabitModal({
 
   const createHabitMutation = useMutation({
     mutationFn: async (data: HabitFormData) => {
-      await apiRequest("/api/habits", "POST", data);
+              await apiRequest("habits", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/habits"] });

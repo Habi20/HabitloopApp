@@ -18,7 +18,7 @@ export default function MLAnalyticsCard({ user }: MLAnalyticsCardProps) {
   const { data: mlAnalyticsData, isLoading: mlLoading } = useQuery({
     queryKey: ["/api/ml/analytics", user?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/ml/analytics?userId=${user?.id}`);
+      const response = await fetch(`ml/analytics?userId=${user?.id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch ML analytics');
       }

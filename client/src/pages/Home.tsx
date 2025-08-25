@@ -68,7 +68,7 @@ export default function Home() {
   const { data: completionsResponse, isLoading: completionsLoading } = useQuery<any>({
     queryKey: ["/api/completions", today],
     queryFn: async () => {
-      const response = await apiRequest(`/api/completions?date=${today}`, 'GET');
+      const response = await apiRequest(`completions?date=${today}`, 'GET');
       return await response.json();
     },
     enabled: !!user,
@@ -92,7 +92,7 @@ export default function Home() {
   const { data: mlEvaluation } = useQuery<any>({
     queryKey: ["/api/ml/evaluate"],
     queryFn: async () => {
-      const response = await apiRequest("/api/ml/evaluate", 'GET');
+              const response = await apiRequest("ml/evaluate", 'GET');
       return await response.json();
     },
     enabled: !!user,
@@ -115,7 +115,7 @@ export default function Home() {
       
       try {
         if (!isCompleted) {
-          const response = await apiRequest("/api/completions/complete", "POST", {
+          const response = await apiRequest("completions/complete", "POST", {
             habitId,
             value: 1,
           });
@@ -129,7 +129,7 @@ export default function Home() {
           }
           return result;
         } else {
-          const response = await apiRequest("/api/completions/uncomplete", "POST", {
+          const response = await apiRequest("completions/uncomplete", "POST", {
             habitId,
           });
           const result = await response.json();
@@ -392,7 +392,7 @@ export default function Home() {
                         size="sm" 
                         onClick={async () => {
                           try {
-                            const response = await apiRequest("/api/analytics/audit-xp", 'POST');
+                            const response = await apiRequest("analytics/audit-xp", 'POST');
                             const result = await response.json();
                             if (result.success) {
                               toast({

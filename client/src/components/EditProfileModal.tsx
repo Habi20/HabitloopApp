@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { buildApiUrl } from '@/config/api';
 
 interface EditProfileModalProps {
   open: boolean;
@@ -50,7 +50,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email || '',
-        difficulty: (user.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
+                 difficulty: (user.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
         profileImageUrl: user.profileImageUrl || '',
         emailSettings: {
           dailyReminders: true,
@@ -85,12 +85,12 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/user/${user?.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+             const response = await fetch(buildApiUrl(`user/${user?.id}`), {
+         method: 'PUT',
+         headers: {
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${localStorage.getItem('token')}`,
+         },
         body: JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,

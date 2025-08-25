@@ -86,7 +86,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       }
       
       // Fall back to API if no stored recommendations
-      const response = await apiRequest('/api/ai/recommendations', 'GET');
+              const response = await apiRequest('ai/recommendations', 'GET');
       return await response.json();
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -115,7 +115,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       };
       
       console.log('Adding habit with data:', habitData);
-      return await apiRequest('/api/habits', 'POST', habitData);
+              return await apiRequest('habits', 'POST', habitData);
     },
     onSuccess: (_habitData, variables) => {
       // Success haptic feedback

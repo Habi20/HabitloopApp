@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthContextType, User } from '@/types';
 import { apiRequest } from '../lib/queryClient';
-import { API_BASE_URL } from '@/config/api';
-
+import { buildApiUrl } from '@/config/api';
+// API_BASE_URL
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       if (guestToken) {
         try {
-          const response = await fetch(`${API_BASE_URL}/guest/verify`, {
+          const response = await fetch(buildApiUrl('guest/verify'), {
             headers: { 'Authorization': `Bearer ${guestToken}` }
           });
           
@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       if (verifiedToken) {
         try {
-          const response = await fetch(`${API_BASE_URL}/guest/verify`, {
+          const response = await fetch(buildApiUrl('guest/verify'), {
             headers: { 'Authorization': `Bearer ${verifiedToken}` }
           });
           
@@ -181,7 +181,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const authToken = localStorage.getItem('auth_token');
       if (authToken) {
         try {
-          const response = await fetch(`${API_BASE_URL}/auth/user`, {
+          const response = await fetch(buildApiUrl('auth/user'), {
             credentials: 'include',
           });
           
@@ -218,7 +218,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/signin`, {
+      const response = await fetch(buildApiUrl('auth/signin'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -376,7 +376,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         requestBody.password = userData.password;
       }
       
-      const response = await apiRequest('/api/habitloop/signin', 'POST', requestBody);
+      const response = await apiRequest('habitloop/signin', 'POST', requestBody);
       const userDataResponse = await response.json();
       
       console.log('🔐 AuthContext: HabitLoop login response:', {
@@ -454,7 +454,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
       console.log('🔐 AuthContext: Refreshing user data from backend (VIVA-SAFE)');
 
-      const response = await fetch('/api/user', {
+      const response = await fetch(buildApiUrl('user'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -490,7 +490,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         // Try alternative endpoint for guest users
         if (response.status === 401) {
           console.log('🔐 AuthContext: Trying guest-compatible endpoint...');
-          const guestResponse = await fetch('/api/guest/auth', {
+          const guestResponse = await fetch(buildApiUrl('guest/auth'), {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -556,7 +556,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const signup = async (email: string, password: string, firstName: string, lastName: string) => {
     try {
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch(buildApiUrl('auth/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

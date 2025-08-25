@@ -54,7 +54,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   const connectEmailMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/email/connect", "POST");
+      const response = await apiRequest("email/connect", "POST");
       return await response.json();
     },
     onSuccess: (data: any) => {
@@ -85,7 +85,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
-      const response = await apiRequest("/api/email/settings", "PUT", settings);
+      const response = await apiRequest("email/settings", "PUT", settings);
       return await response.json();
     },
     onSuccess: () => {
@@ -106,7 +106,7 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   const sendTestEmailMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/email/test", "POST");
+      const response = await apiRequest("email/test", "POST");
       return await response.json();
     },
     onSuccess: () => {

@@ -88,7 +88,7 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
 
   const updateHabitMutation = useMutation({
     mutationFn: async (data: HabitFormData) => {
-      await apiRequest(`/api/habits/${habit.id}`, "PUT", data);
+      await apiRequest(`habits/${habit.id}`, "PUT", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
