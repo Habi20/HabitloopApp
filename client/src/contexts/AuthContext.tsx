@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthContextType, User } from '@/types';
 import { apiRequest } from '../lib/queryClient';
+import { API_BASE_URL } from '@/config/api';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -130,7 +131,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       if (guestToken) {
         try {
-          const response = await fetch('/api/guest/verify', {
+          const response = await fetch(`${API_BASE_URL}/guest/verify`, {
             headers: { 'Authorization': `Bearer ${guestToken}` }
           });
           
@@ -154,7 +155,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       if (verifiedToken) {
         try {
-          const response = await fetch('/api/guest/verify', {
+          const response = await fetch(`${API_BASE_URL}/guest/verify`, {
             headers: { 'Authorization': `Bearer ${verifiedToken}` }
           });
           
@@ -180,7 +181,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const authToken = localStorage.getItem('auth_token');
       if (authToken) {
         try {
-          const response = await fetch('/api/auth/user', {
+          const response = await fetch(`${API_BASE_URL}/auth/user`, {
             credentials: 'include',
           });
           
@@ -217,7 +218,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/signin', {
+      const response = await fetch(`${API_BASE_URL}/auth/signin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
