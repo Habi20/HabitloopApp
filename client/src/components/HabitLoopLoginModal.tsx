@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { API_BASE_URL } from "@/config/api";
+// import { API_BASE_URL } from "@/config/api";
 
 interface HabitLoopLoginModalProps {
   open: boolean;
@@ -1070,7 +1070,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter password"
+                      placeholder="Enter your password"
                       className="mt-1"
                       autoFocus
                       onKeyPress={(e) => {
@@ -1079,12 +1079,7 @@ export function HabitLoopLoginModal({ open, onClose, onSuccess }: HabitLoopLogin
                         }
                       }}
                     />
-                    <div className="flex items-center mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                      <i className="fas fa-info-circle text-blue-500 mr-2"></i>
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        Default password: <code className="bg-blue-200 dark:bg-blue-800 px-1 rounded font-mono">test123</code>
-                      </p>
-                    </div>
+
                   </div>
                   
                   <div className="flex gap-3">
