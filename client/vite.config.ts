@@ -14,14 +14,33 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        // Railway Backend (Production)
+        target: "https://habitloopapp-development.up.railway.app",
         changeOrigin: true,
-        secure: false,
+        secure: true,
+        
+        // Local Backend (Development) - Uncomment to switch back
+        // target: "http://localhost:5000",
+        // changeOrigin: true,
+        // secure: false,
       },
       "/auth": {
-        target: "http://localhost:5000",
+        // Railway Backend (Production)
+        target: "https://habitloopapp-development.up.railway.app",
         changeOrigin: true,
-        secure: false
+        secure: true,
+        
+        // Local Backend (Development) - Uncomment to switch back
+        // target: "http://localhost:5000",
+        // changeOrigin: true,
+        // secure: false,
+      },
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
       },
     },
   },

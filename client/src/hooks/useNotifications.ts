@@ -15,7 +15,8 @@ import {
 } from '../types/notifications';
 
 // API base URL
-const API_BASE = '/api';
+import { API_BASE_URL } from '../config/api';
+const API_BASE = API_BASE_URL;
 
 // Helper function for API requests
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {

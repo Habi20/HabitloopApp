@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
-import { insertHabitSchema } from "../../shared/schema";
+import { insertHabitSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { validateHabitInput, requireAuth } from "./middlewareRoutes";
 import { TimezoneUtils } from "../utils/timezone.js";

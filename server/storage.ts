@@ -25,7 +25,7 @@ import {
   type ChallengeCompletion,
   type ChallengeProgress,
   type MLPrediction,
-} from "../shared/schema";
+} from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte } from "drizzle-orm";
 import { getCurrentDateString, getDaysDifference, getWeekNumber, getMonthNumber, TimezoneUtils } from "./utils/timezone.js";

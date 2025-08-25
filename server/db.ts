@@ -2,7 +2,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { env } from './env';
-import * as schema from '../shared/schema';
+import * as schema from '@shared/schema';
 
 // ✅ ENHANCED: SSL configuration for local development and production
 const pool = new Pool({

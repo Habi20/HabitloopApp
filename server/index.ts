@@ -2,6 +2,7 @@
 import './env';
 
 import express, { type Express } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes/index";
 
 // Supabase authentication setup
@@ -11,6 +12,18 @@ const setupAuth = async (app: Express) => {
 };
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+  origin: [
+    'https://techversehublk.site',
+    'http://localhost:5173', // For local development
+    'http://localhost:3000'  // Alternative local port
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

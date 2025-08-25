@@ -2,8 +2,8 @@
 import express from 'express';
 import { generateServiceInsight, getAvailableServices } from '../services/aiCoachService';
 import { requireAuth } from './middlewareRoutes';
-import { Habit } from '../../shared/schema';
-import { questionnaireSchema } from '../../shared/schema';
+import { Habit } from '@shared/schema';
+import { questionnaireSchema } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { storage } from '../storage';
