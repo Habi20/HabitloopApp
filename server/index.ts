@@ -65,6 +65,16 @@ app.use((req, res, next) => {
   await setupAuth(app);
   const server = await registerRoutes(app);
 
+  // Health check endpoint for Railway
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
   // Add default route handler for root path
   app.get('/', (_req, res) => {
     res.json({
