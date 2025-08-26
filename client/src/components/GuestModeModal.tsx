@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildApiUrl } from "@/config/api";
 
 interface GuestModeModalProps {
   open: boolean;
@@ -52,7 +53,7 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
         setLoading(true);
         setError('');
 
-        const response = await fetch('/api/guest/auth', {
+        const response = await fetch(buildApiUrl('guest/auth'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -94,7 +95,7 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
       setLoading(true);
       setError('');
 
-      const response = await fetch('/api/guest/auth', {
+      const response = await fetch(buildApiUrl('guest/auth'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -137,7 +138,7 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
       setLoading(true);
       setError('');
 
-      const response = await fetch('/api/guest/auth', {
+      const response = await fetch(buildApiUrl('guest/auth'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

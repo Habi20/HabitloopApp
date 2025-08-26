@@ -89,4 +89,6 @@ export interface AuthContextType {
   getCurrentUser: () => User | null;
   isGuestUser: () => boolean;
   isAuthenticatedUser: () => boolean;
+  clearUserSpecificData: () => void;
+  refreshQuestionnaireData: () => Promise<void>;
 }

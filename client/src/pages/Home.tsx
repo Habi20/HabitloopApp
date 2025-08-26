@@ -33,6 +33,13 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false);
+
+  // Check if questionnaire is completed
+  useEffect(() => {
+    const completed = localStorage.getItem("questionnaireCompleted") === "true";
+    setQuestionnaireCompleted(completed);
+  }, []);
   const [debugSectionMinimized, setDebugSectionMinimized] = useState(false);
 
   // Get current date in Sri Lanka timezone
@@ -68,7 +75,7 @@ export default function Home() {
   const { data: completionsResponse, isLoading: completionsLoading } = useQuery<any>({
     queryKey: ["/api/completions", today],
     queryFn: async () => {
-      const response = await apiRequest(`/api/completions?date=${today}`, 'GET');
+      const response = await apiRequest(`completions?date=${today}`, 'GET');
       return await response.json();
     },
     enabled: !!user,
@@ -92,7 +99,7 @@ export default function Home() {
   const { data: mlEvaluation } = useQuery<any>({
     queryKey: ["/api/ml/evaluate"],
     queryFn: async () => {
-      const response = await apiRequest("/api/ml/evaluate", 'GET');
+      const response = await apiRequest("ml/evaluate", 'GET');
       return await response.json();
     },
     enabled: !!user,
@@ -114,11 +121,11 @@ export default function Home() {
       window.activeRequests.add(requestKey);
       
       try {
-        if (!isCompleted) {
-          const response = await apiRequest("/api/completions/complete", "POST", {
-            habitId,
-            value: 1,
-          });
+                 if (!isCompleted) {
+           const response = await apiRequest("completions/complete", "POST", {
+             habitId,
+             value: 1,
+           });
           const result = await response.json();
           
           if (result.success && result.data.xpEarned > 0) {
@@ -128,10 +135,10 @@ export default function Home() {
             });
           }
           return result;
-        } else {
-          const response = await apiRequest("/api/completions/uncomplete", "POST", {
-            habitId,
-          });
+                 } else {
+           const response = await apiRequest("completions/uncomplete", "POST", {
+             habitId,
+           });
           const result = await response.json();
           
           if (result.success && result.data.xpLost > 0) {
@@ -392,7 +399,7 @@ export default function Home() {
                         size="sm" 
                         onClick={async () => {
                           try {
-                            const response = await apiRequest("/api/analytics/audit-xp", 'POST');
+                                                         const response = await apiRequest("analytics/audit-xp", 'POST');
                             const result = await response.json();
                             if (result.success) {
                               toast({
@@ -475,14 +482,16 @@ export default function Home() {
                   Today's Habits
                 </h3>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                  <Button
-                    onClick={() => setShowQuestionnaire(true)}
-                    variant="outline"
-                    className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
-                  >
-                    <i className="fas fa-brain"></i>
-                    <span className="hidden sm:inline">AI Setup</span>
-                  </Button>
+                  {!questionnaireCompleted && uiSettings.showAIQuestionnaire && (
+                    <Button
+                      onClick={() => setShowQuestionnaire(true)}
+                      variant="outline"
+                      className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
+                    >
+                      <i className="fas fa-brain"></i>
+                      <span className="hidden sm:inline">AI Setup</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowAddHabit(true)}
                     className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"

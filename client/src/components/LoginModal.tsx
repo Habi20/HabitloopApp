@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildApiUrl } from "@/config/api";
 
 interface LoginModalProps {
   open: boolean;
@@ -36,7 +37,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
     try {
       if (showMagicLink) {
         // Send magic link
-        const response = await fetch("/api/auth/magic-link", {
+        const response = await fetch(buildApiUrl('auth/magic-link'), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -60,7 +61,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
 
       if (isSignUp) {
         // Handle signup
-        const response = await fetch("/api/auth/signup", {
+        const response = await fetch(buildApiUrl('auth/signup'), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",

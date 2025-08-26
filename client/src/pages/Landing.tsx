@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
 import { GuestModeModal } from "@/components/GuestModeModal";
 import { LoginModal } from "@/components/LoginModal";
-import { HabitLoopLoginModal } from "@/components/HabitLoopLoginModal";
+import { HabitLoopUserModal } from "@/components/HabitLoopUserModal";
 // import { useAuth } from "@/contexts/AuthContext";
 
 export default function Landing() {
@@ -110,7 +110,7 @@ export default function Landing() {
         }}
       />
 
-      <HabitLoopLoginModal
+      <HabitLoopUserModal
         open={showHabitLoopUserModal}
         onClose={() => setShowHabitLoopUserModal(false)}
         onSuccess={() => {

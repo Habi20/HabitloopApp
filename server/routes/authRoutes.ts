@@ -54,7 +54,11 @@ export function authRoutes() {
           xp: user.xp,
           role: user.role,
           isGuest: user.isGuest,
-          difficulty: user.difficulty
+          difficulty: user.difficulty,
+          questionnaire: user.questionnaire,
+          aiRecommendations: user.aiRecommendations,
+          emailSettings: user.emailSettings,
+          userSettings: user.userSettings
         }
       });
     } catch (error) {
@@ -62,6 +66,42 @@ export function authRoutes() {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get user data' 
+      });
+    }
+  });
+
+  // Update user settings
+  router.put('/user/settings', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'User not authenticated' 
+        });
+      }
+
+      const { settings } = req.body;
+      
+      if (!settings) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Settings data required' 
+        });
+      }
+
+      await storage.saveUserSettings(userId, settings);
+      
+      res.json({
+        success: true,
+        message: 'User settings updated successfully'
+      });
+    } catch (error) {
+      console.error('Update user settings error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to update user settings' 
       });
     }
   });
@@ -794,7 +834,9 @@ export function authRoutes() {
           lastName: user.lastName,
           difficulty: user.difficulty || 'medium',
           avatar: user.profileImageUrl || '👤',
-          description: `${user.firstName} ${user.lastName} - ${user.difficulty || 'medium'} difficulty`
+          description: `${user.firstName} ${user.lastName} - ${user.difficulty || 'medium'} difficulty`,
+          level: user.level || 1,
+          xp: user.xp || 0
         }))
         .sort((a, b) => a.id.localeCompare(b.id)); // Sort by ID in ascending order
 

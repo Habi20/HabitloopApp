@@ -29,7 +29,7 @@ export default function NotificationPanel() {
   const { data: notificationsData, isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const response = await apiRequest('/api/notifications?limit=50', 'GET');
+      const response = await apiRequest('notifications?limit=50', 'GET');
       return response.json();
     },
     enabled: !!user?.id,
@@ -81,7 +81,7 @@ export default function NotificationPanel() {
   // Mark notification as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      const response = await apiRequest(`/api/notifications/${notificationId}/read`, 'PATCH');
+      const response = await apiRequest(`notifications/${notificationId}/read`, 'PATCH');
       return response.json();
     },
     onMutate: async (notificationId) => {
@@ -124,7 +124,7 @@ export default function NotificationPanel() {
   // Clear notification mutation (DELETE method)
   const clearNotificationMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      const response = await apiRequest(`/api/notifications/${notificationId}`, 'DELETE');
+      const response = await apiRequest(`notifications/${notificationId}`, 'DELETE');
       return response.json();
     },
     onMutate: async (notificationId) => {

@@ -46,7 +46,7 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
     const fetchPerformanceScore = async () => {
       try {
         setLoadingScore(true);
-        const response = await apiRequest(`/api/ml/habit-scores/${habit.id}`, 'GET');
+        const response = await apiRequest(`ml/habit-scores/${habit.id}`, 'GET');
         const data = await response.json();
         if (data.success) {
           setPerformanceScore(data);

@@ -227,6 +227,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const data = await response.json();
       
       if (response.ok && data.user) {
+        // Clear any previous user's data before setting new user data
+        localStorage.removeItem('habitRecommendations');
+        localStorage.removeItem('questionnaireCompleted');
+        localStorage.removeItem('questionnaireData');
+        localStorage.removeItem('dismissedRecommendations');
+        localStorage.removeItem('userPreferences');
+        localStorage.removeItem('lastSyncTime');
+        localStorage.removeItem('currentUserId');
+        
         // Clear any guest data when authenticating
         localStorage.removeItem('guest_token');
         localStorage.removeItem('guestUser');
@@ -255,6 +264,36 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         if (data.session?.access_token) {
           localStorage.setItem('auth_token', data.session.access_token);
         }
+        
+        // Fetch and restore user's questionnaire data from database
+        try {
+          const userProfileResponse = await fetch('/api/user', {
+            credentials: 'include',
+          });
+          
+          if (userProfileResponse.ok) {
+            const userProfileData = await userProfileResponse.json();
+            
+            if (userProfileData.success && userProfileData.user) {
+              // Restore questionnaire data if available
+              if (userProfileData.user.questionnaire) {
+                localStorage.setItem('questionnaireData', JSON.stringify(userProfileData.user.questionnaire));
+                localStorage.setItem('questionnaireCompleted', 'true');
+                console.log('🔐 AuthContext: Restored questionnaire data from database');
+              }
+              
+              // Restore AI recommendations if available
+              if (userProfileData.user.aiRecommendations && userProfileData.user.aiRecommendations.length > 0) {
+                localStorage.setItem('habitRecommendations', JSON.stringify(userProfileData.user.aiRecommendations));
+                console.log('🔐 AuthContext: Restored AI recommendations from database:', userProfileData.user.aiRecommendations.length);
+              }
+            }
+          }
+        } catch (profileError) {
+          console.log('🔐 AuthContext: Could not fetch user profile data:', profileError);
+        }
+        
+        console.log('🔐 AuthContext: User logged in successfully, cleared previous user data');
       } else {
         throw new Error(data.error?.message || 'Login failed');
       }
@@ -375,7 +414,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         requestBody.password = userData.password;
       }
       
-      const response = await apiRequest('/api/habitloop/signin', 'POST', requestBody);
+      const response = await apiRequest('habitloop/signin', 'POST', requestBody);
       const userDataResponse = await response.json();
       
       console.log('🔐 AuthContext: HabitLoop login response:', {
@@ -398,6 +437,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           profileImageUrl: userDataResponse.user.profileImageUrl
         };
 
+        // Clear any previous user's data before setting new user data
+        localStorage.removeItem('habitRecommendations');
+        localStorage.removeItem('questionnaireCompleted');
+        localStorage.removeItem('questionnaireData');
+        localStorage.removeItem('dismissedRecommendations');
+        localStorage.removeItem('userPreferences');
+        localStorage.removeItem('lastSyncTime');
+        localStorage.removeItem('currentUserId');
+
         // HabitLoop users should ONLY use verifiedUser storage (no guestUser)
         localStorage.setItem('verified_token', userDataResponse.token);
         localStorage.setItem('verifiedUser', JSON.stringify(user));
@@ -413,8 +461,12 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setUser(user);
         setIsAuthenticated(true);
         
+        // Fetch and restore user's questionnaire data and settings from database
+        await refreshQuestionnaireData();
+        
         console.log('🔐 AuthContext: HabitLoop user logged in successfully:', user.firstName);
         console.log('🔐 AuthContext: Stored as verifiedUser only (no guestUser)');
+        console.log('🔐 AuthContext: Cleared previous user data from localStorage');
       } else {
         console.error('🔐 AuthContext: HabitLoop login failed - invalid response');
         throw new Error('Invalid response from server');
@@ -428,12 +480,29 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const logout = async () => {
     setUser(null);
     setIsAuthenticated(false);
+    
+    // Clear all authentication data
     localStorage.removeItem('verifiedUser');
     localStorage.removeItem('guestUser');
     localStorage.removeItem('authUser');
     localStorage.removeItem('verified_token');
     localStorage.removeItem('guest_token');
     localStorage.removeItem('auth_token');
+    
+    // Clear AI questionnaire and recommendation data
+    localStorage.removeItem('habitRecommendations');
+    localStorage.removeItem('questionnaireCompleted');
+    localStorage.removeItem('questionnaireData');
+    localStorage.removeItem('dismissedRecommendations');
+    
+    // Clear user-specific UI settings
+    localStorage.removeItem('habitloop_ui_settings');
+    
+    // Clear any other user-specific data
+    localStorage.removeItem('userPreferences');
+    localStorage.removeItem('lastSyncTime');
+    localStorage.removeItem('currentUserId');
+    
     window.location.href = '/';
   };
 
@@ -646,6 +715,88 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     return isAuthenticated && !user?.isGuest;
   };
 
+  // Utility function to clear user-specific data from localStorage
+  const clearUserSpecificData = () => {
+    console.log('🔐 AuthContext: Clearing user-specific data from localStorage');
+    
+    // Clear AI questionnaire and recommendation data
+    localStorage.removeItem('habitRecommendations');
+    localStorage.removeItem('questionnaireCompleted');
+    localStorage.removeItem('questionnaireData');
+    localStorage.removeItem('dismissedRecommendations');
+    
+    // Clear other user-specific data
+    localStorage.removeItem('userPreferences');
+    localStorage.removeItem('lastSyncTime');
+    localStorage.removeItem('currentUserId');
+    
+    // Clear user-specific UI settings
+    localStorage.removeItem('habitloop_ui_settings');
+    
+    // Note: We don't clear authentication data as that's handled by logout
+    
+    console.log('🔐 AuthContext: User-specific data cleared');
+  };
+
+  // Utility function to refresh user's questionnaire data from database
+  const refreshQuestionnaireData = async () => {
+    if (!user?.id) {
+      console.log('🔐 AuthContext: No user logged in, cannot refresh questionnaire data');
+      return;
+    }
+
+    try {
+      console.log('🔐 AuthContext: Refreshing questionnaire data from database');
+      
+      const userProfileResponse = await apiRequest('user', 'GET');
+      const userProfileData = await userProfileResponse.json();
+      
+      if (userProfileData.success && userProfileData.user) {
+        // Restore questionnaire data if available
+        if (userProfileData.user.questionnaire) {
+          localStorage.setItem('questionnaireData', JSON.stringify(userProfileData.user.questionnaire));
+          localStorage.setItem('questionnaireCompleted', 'true');
+          console.log('🔐 AuthContext: Refreshed questionnaire data from database');
+        }
+        
+        // Restore AI recommendations if available
+        if (userProfileData.user.aiRecommendations && userProfileData.user.aiRecommendations.length > 0) {
+          localStorage.setItem('habitRecommendations', JSON.stringify(userProfileData.user.aiRecommendations));
+          console.log('🔐 AuthContext: Refreshed AI recommendations from database:', userProfileData.user.aiRecommendations.length);
+        } else {
+          // Clear recommendations if none available
+          localStorage.removeItem('habitRecommendations');
+          console.log('🔐 AuthContext: No AI recommendations found in database, cleared localStorage');
+        }
+        
+        // Restore user settings if available
+        if (userProfileData.user.userSettings) {
+          localStorage.setItem('habitloop_ui_settings', JSON.stringify(userProfileData.user.userSettings));
+          console.log('🔐 AuthContext: Refreshed user settings from database');
+        } else {
+          // Set default settings if none available
+          const defaultSettings = {
+            pushNotifications: true,
+            reminderSound: true,
+            weeklyReport: true,
+            defaultReminderTime: "09:00",
+            inactivityAlerts: true,
+            achievementAlerts: true,
+            insightAlerts: true,
+            theme: "light",
+            showDataConsistencyCheck: false,
+            showMLSuccessPredictor: false,
+            showAIQuestionnaire: true,
+          };
+          localStorage.setItem('habitloop_ui_settings', JSON.stringify(defaultSettings));
+          console.log('🔐 AuthContext: Set default user settings');
+        }
+      }
+    } catch (profileError) {
+      console.log('🔐 AuthContext: Could not refresh questionnaire data:', profileError);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     login,
@@ -665,6 +816,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     getCurrentUser,
     isGuestUser,
     isAuthenticatedUser,
+    clearUserSpecificData,
+    refreshQuestionnaireData,
   };
 
   return (

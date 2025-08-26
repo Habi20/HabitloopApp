@@ -107,6 +107,10 @@ export interface IStorage {
     predictionPercentage: number;
     confidenceLevel: string;
   }): Promise<void>;
+
+  // Questionnaire operations
+  saveQuestionnaire(userId: string, questionnaireData: any): Promise<void>;
+  saveRecommendations(userId: string, recommendations: any[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1148,6 +1152,58 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error updating ML prediction:', error);
       throw error;
+    }
+  }
+
+  // Save questionnaire data to database
+  async saveQuestionnaire(userId: string, questionnaireData: any): Promise<void> {
+    try {
+      // Store questionnaire data in the user's questionnaire field
+      await this.updateUser(userId, {
+        questionnaire: questionnaireData
+      });
+      console.log('Questionnaire data saved for user:', userId);
+    } catch (error) {
+      console.error('Error saving questionnaire data:', error);
+      throw error;
+    }
+  }
+
+  // Save recommendations to database
+  async saveRecommendations(userId: string, recommendations: any[]): Promise<void> {
+    try {
+      // Store recommendations in the user's aiRecommendations field
+      await this.updateUser(userId, {
+        aiRecommendations: recommendations
+      });
+      console.log('Recommendations saved for user:', userId);
+    } catch (error) {
+      console.error('Error saving recommendations:', error);
+      throw error;
+    }
+  }
+
+  // Save user settings to database
+  async saveUserSettings(userId: string, settings: any): Promise<void> {
+    try {
+      await this.updateUser(userId, {
+        userSettings: settings
+      });
+      console.log('User settings saved for user:', userId);
+    } catch (error) {
+      console.error('Error saving user settings:', error);
+      throw error;
+    }
+  }
+
+  // Get user settings from database
+  async getUserSettings(userId: string): Promise<any> {
+    try {
+      const user = await this.getUser(userId);
+      return user?.userSettings || null;
+    } catch (error) {
+      console.error('Error getting user settings:', error);
+      return null;
     }
   }
 }
