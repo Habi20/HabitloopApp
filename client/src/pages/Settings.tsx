@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useUISettings } from "@/hooks/useUISettings";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -19,18 +20,11 @@ import { AlertTriangle, Trophy, Lightbulb } from "lucide-react";
 export default function Settings() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [settings, setSettings] = useState({
-    pushNotifications: true,
-    reminderSound: true,
-    weeklyReport: true,
-    defaultReminderTime: "09:00",
-    inactivityAlerts: true,
-    achievementAlerts: true,
-    insightAlerts: true,
-    theme: "light",
-    showDataConsistencyCheck: false,
-    showMLSuccessPredictor: false,
-  });
+  const {
+    settings,
+    updateSetting,
+    isLoaded: uiSettingsLoaded,
+  } = useUISettings();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -46,26 +40,9 @@ export default function Settings() {
     }
   }, [user, authLoading, toast]);
 
-  // Load settings from localStorage on component mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('habitloop_ui_settings');
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(prev => ({ ...prev, ...parsedSettings }));
-      } catch (error) {
-        console.error('Error loading settings from localStorage:', error);
-      }
-    }
-  }, []);
+  const handleSettingChange = async (key: string, value: boolean | string) => {
+    await updateSetting(key as any, value);
 
-  const handleSettingChange = (key: string, value: boolean | string) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-    
-    // Save to localStorage immediately for UI components
-    const newSettings = { ...settings, [key]: value };
-    localStorage.setItem('habitloop_ui_settings', JSON.stringify(newSettings));
-    
     // Show immediate feedback
     toast({
       title: "Setting updated",
@@ -74,19 +51,20 @@ export default function Settings() {
   };
 
   const saveSettings = () => {
-    // Save all settings to backend (future implementation)
-    localStorage.setItem('habitloop_ui_settings', JSON.stringify(settings));
+    // Settings are now automatically saved via the useUISettings hook
     toast({
       title: "Settings saved",
       description: "Your preferences have been updated.",
     });
   };
 
-  const sendTestNotification = async (type: 'inactivity' | 'achievement' | 'insight') => {
+  const sendTestNotification = async (
+    type: "inactivity" | "achievement" | "insight"
+  ) => {
     try {
-              const response = await apiRequest('notifications/test', 'POST', { type });
+      const response = await apiRequest("notifications/test", "POST", { type });
       const result = await response.json();
-      
+
       if (result.success) {
         toast({
           title: "Test notification sent! 🔔",
@@ -108,7 +86,7 @@ export default function Settings() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || !uiSettingsLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -188,9 +166,7 @@ export default function Settings() {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">
-                      AI Insights
-                    </h4>
+                    <h4 className="font-medium text-gray-900">AI Insights</h4>
                     <p className="text-sm text-gray-600">
                       Receive personalized AI-powered insights
                     </p>
@@ -241,7 +217,8 @@ export default function Settings() {
                       Default Reminder Time
                     </h4>
                     <p className="text-sm text-gray-600">
-                      Time for new habit reminders (Your timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
+                      Time for new habit reminders (Your timezone:{" "}
+                      {Intl.DateTimeFormat().resolvedOptions().timeZone})
                     </p>
                   </div>
                   <Select
@@ -268,15 +245,18 @@ export default function Settings() {
 
                 {/* Test Notification Buttons */}
                 <div className="pt-4 border-t border-gray-200">
-                  <h4 className="font-medium text-gray-900 mb-3">Test Notifications</h4>
+                  <h4 className="font-medium text-gray-900 mb-3">
+                    Test Notifications
+                  </h4>
                   <p className="text-sm text-gray-600 mb-4">
-                    Test different types of notifications to verify they work properly
+                    Test different types of notifications to verify they work
+                    properly
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => sendTestNotification('inactivity')}
+                      onClick={() => sendTestNotification("inactivity")}
                       className="flex items-center gap-2"
                     >
                       <AlertTriangle className="w-4 h-4 text-orange-500" />
@@ -285,7 +265,7 @@ export default function Settings() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => sendTestNotification('achievement')}
+                      onClick={() => sendTestNotification("achievement")}
                       className="flex items-center gap-2"
                     >
                       <Trophy className="w-4 h-4 text-yellow-500" />
@@ -294,7 +274,7 @@ export default function Settings() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => sendTestNotification('insight')}
+                      onClick={() => sendTestNotification("insight")}
                       className="flex items-center gap-2"
                     >
                       <Lightbulb className="w-4 h-4 text-blue-500" />
@@ -302,7 +282,8 @@ export default function Settings() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    💡 Click the notification bell in the header to see your test notifications
+                    💡 Click the notification bell in the header to see your
+                    test notifications
                   </p>
                 </div>
               </CardContent>
@@ -376,6 +357,24 @@ export default function Settings() {
                     checked={settings.showMLSuccessPredictor}
                     onCheckedChange={(checked) =>
                       handleSettingChange("showMLSuccessPredictor", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      AI Questionnaire Setup
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Show AI setup button on the dashboard (hidden if already
+                      completed)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.showAIQuestionnaire}
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("showAIQuestionnaire", checked)
                     }
                   />
                 </div>

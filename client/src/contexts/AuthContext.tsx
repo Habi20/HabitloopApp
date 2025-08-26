@@ -1,11 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AuthContextType, User } from '@/types';
-import { apiRequest } from '../lib/queryClient';
-import { buildApiUrl } from '@/config/api';
-// API_BASE_URL
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { AuthContextType, User } from "@/types";
+import { apiRequest } from "../lib/queryClient";
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,25 +20,31 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     const handleStorageChange = () => {
       checkAuthStatus();
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
+
+    window.addEventListener("storage", handleStorageChange);
+
     // Also check localStorage immediately if user state is null
     const checkLocalStorage = () => {
-      const verifiedUser = localStorage.getItem('verifiedUser');
-      const guestUser = localStorage.getItem('guestUser');
-      const authUser = localStorage.getItem('authUser');
-      
+      const verifiedUser = localStorage.getItem("verifiedUser");
+      const guestUser = localStorage.getItem("guestUser");
+      const authUser = localStorage.getItem("authUser");
+
       if (verifiedUser && !user?.id) {
         try {
           const userData = JSON.parse(verifiedUser);
           if (userData && userData.id) {
             setUser(userData);
             setIsAuthenticated(true);
-            console.log('🔐 AuthContext: Verified user synced from localStorage:', userData.firstName);
+            console.log(
+              "🔐 AuthContext: Verified user synced from localStorage:",
+              userData.firstName
+            );
           }
         } catch (error) {
-          console.warn('Failed to parse verified user from localStorage:', error);
+          console.warn(
+            "Failed to parse verified user from localStorage:",
+            error
+          );
         }
       } else if (guestUser && !user?.id) {
         try {
@@ -45,10 +52,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           if (userData && userData.id) {
             setUser(userData);
             setIsAuthenticated(true);
-            console.log('🔐 AuthContext: Guest user synced from localStorage:', userData.firstName);
+            console.log(
+              "🔐 AuthContext: Guest user synced from localStorage:",
+              userData.firstName
+            );
           }
         } catch (error) {
-          console.warn('Failed to parse guest user from localStorage:', error);
+          console.warn("Failed to parse guest user from localStorage:", error);
         }
       } else if (authUser && !user?.id) {
         try {
@@ -56,85 +66,88 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           if (userData && userData.id) {
             setUser(userData);
             setIsAuthenticated(true);
-            console.log('🔐 AuthContext: Auth user synced from localStorage:', userData.firstName);
+            console.log(
+              "🔐 AuthContext: Auth user synced from localStorage:",
+              userData.firstName
+            );
           }
         } catch (error) {
-          console.warn('Failed to parse auth user from localStorage:', error);
+          console.warn("Failed to parse auth user from localStorage:", error);
         }
       }
     };
-    
+
     checkLocalStorage();
-    
+
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, [user?.id]);
 
   const checkAuthStatus = async () => {
     try {
       setIsLoading(true);
-      
-                      // Step 1: Check for stored user data first (avoid unnecessary API calls)
-                const storedGuestUser = localStorage.getItem('guestUser');
-                const storedVerifiedUser = localStorage.getItem('verifiedUser');
-                const storedAuthUser = localStorage.getItem('authUser');
-                
-                if (storedGuestUser) {
-                  try {
-                    const guestUser = JSON.parse(storedGuestUser);
-                    if (guestUser && guestUser.isGuest && guestUser.id) {
-                      setUser(guestUser);
-                      setIsAuthenticated(true);
-                      setIsLoading(false);
-                      return;
-                    }
-                  } catch (error) {
-                    console.warn('Failed to parse stored guest user:', error);
-                    localStorage.removeItem('guestUser');
-                  }
-                }
-                
-                if (storedVerifiedUser) {
-                  try {
-                    const verifiedUser = JSON.parse(storedVerifiedUser);
-                    if (verifiedUser && !verifiedUser.isGuest && verifiedUser.id) {
-                      setUser(verifiedUser);
-                      setIsAuthenticated(true);
-                      setIsLoading(false);
-                      return;
-                    }
-                  } catch (error) {
-                    console.warn('Failed to parse stored verified user:', error);
-                    localStorage.removeItem('verifiedUser');
-                  }
-                }
-                
-                if (storedAuthUser) {
-                  try {
-                    const authUser = JSON.parse(storedAuthUser);
-                    if (authUser && !authUser.isGuest && authUser.id) {
-                      setUser(authUser);
-                      setIsAuthenticated(true);
-                      setIsLoading(false);
-                      return;
-                    }
-                  } catch (error) {
-                    console.warn('Failed to parse stored auth user:', error);
-                    localStorage.removeItem('authUser');
-                  }
-                }
-      
+
+      // Step 1: Check for stored user data first (avoid unnecessary API calls)
+      const storedGuestUser = localStorage.getItem("guestUser");
+      const storedVerifiedUser = localStorage.getItem("verifiedUser");
+      const storedAuthUser = localStorage.getItem("authUser");
+
+      if (storedGuestUser) {
+        try {
+          const guestUser = JSON.parse(storedGuestUser);
+          if (guestUser && guestUser.isGuest && guestUser.id) {
+            setUser(guestUser);
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.warn("Failed to parse stored guest user:", error);
+          localStorage.removeItem("guestUser");
+        }
+      }
+
+      if (storedVerifiedUser) {
+        try {
+          const verifiedUser = JSON.parse(storedVerifiedUser);
+          if (verifiedUser && !verifiedUser.isGuest && verifiedUser.id) {
+            setUser(verifiedUser);
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.warn("Failed to parse stored verified user:", error);
+          localStorage.removeItem("verifiedUser");
+        }
+      }
+
+      if (storedAuthUser) {
+        try {
+          const authUser = JSON.parse(storedAuthUser);
+          if (authUser && !authUser.isGuest && authUser.id) {
+            setUser(authUser);
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.warn("Failed to parse stored auth user:", error);
+          localStorage.removeItem("authUser");
+        }
+      }
+
       // Step 2: Check for JWT tokens (only if no stored data)
-      const guestToken = localStorage.getItem('guest_token');
-      const verifiedToken = localStorage.getItem('verified_token');
-      
+      const guestToken = localStorage.getItem("guest_token");
+      const verifiedToken = localStorage.getItem("verified_token");
+
       if (guestToken) {
         try {
-          const response = await fetch(buildApiUrl('guest/verify'), {
-            headers: { 'Authorization': `Bearer ${guestToken}` }
+          const response = await fetch("/api/guest/verify", {
+            headers: { Authorization: `Bearer ${guestToken}` },
           });
-          
+
           if (response.ok) {
             const { user: userData } = await response.json();
             if (userData && userData.id) {
@@ -145,20 +158,20 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
           }
         } catch (error) {
-          console.warn('Guest token verification failed:', error);
+          console.warn("Guest token verification failed:", error);
         }
-        
+
         // Clear invalid guest token
-        localStorage.removeItem('guest_token');
-        localStorage.removeItem('guestUser');
+        localStorage.removeItem("guest_token");
+        localStorage.removeItem("guestUser");
       }
-      
+
       if (verifiedToken) {
         try {
-          const response = await fetch(buildApiUrl('guest/verify'), {
-            headers: { 'Authorization': `Bearer ${verifiedToken}` }
+          const response = await fetch("/api/guest/verify", {
+            headers: { Authorization: `Bearer ${verifiedToken}` },
           });
-          
+
           if (response.ok) {
             const { user: userData } = await response.json();
             if (userData && userData.id) {
@@ -169,29 +182,29 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
           }
         } catch (error) {
-          console.warn('Verified token verification failed:', error);
+          console.warn("Verified token verification failed:", error);
         }
-        
+
         // Clear invalid verified token
-        localStorage.removeItem('verified_token');
-        localStorage.removeItem('verifiedUser');
+        localStorage.removeItem("verified_token");
+        localStorage.removeItem("verifiedUser");
       }
 
       // Step 3: Check for authenticated Supabase session (only if no stored data)
-      const authToken = localStorage.getItem('auth_token');
+      const authToken = localStorage.getItem("auth_token");
       if (authToken) {
         try {
-          const response = await fetch(buildApiUrl('auth/user'), {
-            credentials: 'include',
+          const response = await fetch("/api/auth/user", {
+            credentials: "include",
           });
-          
+
           if (response.ok) {
             const userData = await response.json();
             if (userData && userData.id) {
               // Ensure this is not marked as guest
               const authenticatedUser = {
                 ...userData,
-                isGuest: false
+                isGuest: false,
               };
               setUser(authenticatedUser);
               setIsAuthenticated(true);
@@ -200,7 +213,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
             }
           }
         } catch (error) {
-          console.warn('Authenticated session check failed:', error);
+          console.warn("Authenticated session check failed:", error);
         }
       }
 
@@ -208,7 +221,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error("Auth check failed:", error);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -218,20 +231,29 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch(buildApiUrl('auth/signin'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password })
+      const response = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.user) {
+        // Clear any previous user's data before setting new user data
+        localStorage.removeItem("habitRecommendations");
+        localStorage.removeItem("questionnaireCompleted");
+        localStorage.removeItem("questionnaireData");
+        localStorage.removeItem("dismissedRecommendations");
+        localStorage.removeItem("userPreferences");
+        localStorage.removeItem("lastSyncTime");
+        localStorage.removeItem("currentUserId");
+
         // Clear any guest data when authenticating
-        localStorage.removeItem('guest_token');
-        localStorage.removeItem('guestUser');
-        
+        localStorage.removeItem("guest_token");
+        localStorage.removeItem("guestUser");
+
         // Store authenticated user data based on user type
         const authenticatedUser = {
           id: data.user.id,
@@ -240,152 +262,219 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           lastName: data.user.lastName || data.user.last_name,
           level: data.user.level || 1,
           xp: data.user.xp || 0,
-          role: data.user.role || 'user',
+          role: data.user.role || "user",
           isGuest: false,
-          difficulty: data.user.difficulty || 'medium',
-          profileImageUrl: data.user.profileImageUrl || data.user.profile_image_url
+          difficulty: data.user.difficulty || "medium",
+          profileImageUrl:
+            data.user.profileImageUrl || data.user.profile_image_url,
         };
-        
+
         // Store auth user data
-        localStorage.setItem('authUser', JSON.stringify(authenticatedUser));
-        
+        localStorage.setItem("authUser", JSON.stringify(authenticatedUser));
+
         setUser(authenticatedUser);
         setIsAuthenticated(true);
-        
+
         // Store session token if available
         if (data.session?.access_token) {
-          localStorage.setItem('auth_token', data.session.access_token);
+          localStorage.setItem("auth_token", data.session.access_token);
         }
+
+        // Fetch and restore user's questionnaire data from database
+        try {
+          const userProfileResponse = await fetch("/api/user", {
+            credentials: "include",
+          });
+
+          if (userProfileResponse.ok) {
+            const userProfileData = await userProfileResponse.json();
+
+            if (userProfileData.success && userProfileData.user) {
+              // Restore questionnaire data if available
+              if (userProfileData.user.questionnaire) {
+                localStorage.setItem(
+                  "questionnaireData",
+                  JSON.stringify(userProfileData.user.questionnaire)
+                );
+                localStorage.setItem("questionnaireCompleted", "true");
+                console.log(
+                  "🔐 AuthContext: Restored questionnaire data from database"
+                );
+              }
+
+              // Restore AI recommendations if available
+              if (
+                userProfileData.user.aiRecommendations &&
+                userProfileData.user.aiRecommendations.length > 0
+              ) {
+                localStorage.setItem(
+                  "habitRecommendations",
+                  JSON.stringify(userProfileData.user.aiRecommendations)
+                );
+                console.log(
+                  "🔐 AuthContext: Restored AI recommendations from database:",
+                  userProfileData.user.aiRecommendations.length
+                );
+              }
+            }
+          }
+        } catch (profileError) {
+          console.log(
+            "🔐 AuthContext: Could not fetch user profile data:",
+            profileError
+          );
+        }
+
+        console.log(
+          "🔐 AuthContext: User logged in successfully, cleared previous user data"
+        );
       } else {
-        throw new Error(data.error?.message || 'Login failed');
+        throw new Error(data.error?.message || "Login failed");
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       throw error;
     }
   };
 
   const loginAsGuest = async (userData?: any) => {
-    console.log('🔐 AuthContext: loginAsGuest called with:', {
+    console.log("🔐 AuthContext: loginAsGuest called with:", {
       hasUserData: !!userData,
       userDataKeys: userData ? Object.keys(userData) : [],
-      userData: userData ? JSON.stringify(userData, null, 2) : 'undefined'
+      userData: userData ? JSON.stringify(userData, null, 2) : "undefined",
     });
-    
+
     let user: User;
-    
+
     if (userData && userData.user && userData.user.id) {
       // Use provided user data (from backend)
       const userInfo = userData.user;
-      const isActuallyGuest = userInfo.isGuest || 
-                             userInfo.role === 'guest' || 
-                             userInfo.email?.includes('@guest.local');
-      
+      const isActuallyGuest =
+        userInfo.isGuest ||
+        userInfo.role === "guest" ||
+        userInfo.email?.includes("@guest.local");
+
       user = {
         id: userInfo.id,
-        email: userInfo.email || '',
-        firstName: userInfo.firstName || userInfo.first_name || 'Guest',
-        lastName: userInfo.lastName || userInfo.last_name || 'User',
+        email: userInfo.email || "",
+        firstName: userInfo.firstName || userInfo.first_name || "Guest",
+        lastName: userInfo.lastName || userInfo.last_name || "User",
         level: userInfo.level || 1,
         xp: userInfo.xp || 0,
-        role: userInfo.role || 'guest',
+        role: userInfo.role || "guest",
         isGuest: isActuallyGuest,
-        difficulty: userInfo.difficulty || 'medium',
-        profileImageUrl: userInfo.profileImageUrl || userInfo.profile_image_url
+        difficulty: userInfo.difficulty || "medium",
+        profileImageUrl: userInfo.profileImageUrl || userInfo.profile_image_url,
       };
-      
-      console.log('🔐 AuthContext: Processing user data:', {
+
+      console.log("🔐 AuthContext: Processing user data:", {
         userId: user.id,
         userName: `${user.firstName} ${user.lastName}`,
         isGuest: user.isGuest,
         email: user.email,
-        role: user.role
+        role: user.role,
       });
 
       // Store JWT token and user data based on user type
       if (userData.token && user.id) {
-        console.log('🔐 AuthContext: Token and user ID present, storing data...');
-        console.log('🔐 AuthContext: isActuallyGuest:', isActuallyGuest);
-        console.log('🔐 AuthContext: Token length:', userData.token.length);
-        
+        console.log(
+          "🔐 AuthContext: Token and user ID present, storing data..."
+        );
+        console.log("🔐 AuthContext: isActuallyGuest:", isActuallyGuest);
+        console.log("🔐 AuthContext: Token length:", userData.token.length);
+
         if (isActuallyGuest) {
           // Guest user - store as guest
-          localStorage.setItem('guest_token', userData.token);
-          localStorage.setItem('guestUser', JSON.stringify(user));
-          localStorage.removeItem('verified_token');
-          localStorage.removeItem('verifiedUser');
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('authUser');
-          console.log('🔐 AuthContext: Stored as guest user');
+          localStorage.setItem("guest_token", userData.token);
+          localStorage.setItem("guestUser", JSON.stringify(user));
+          localStorage.removeItem("verified_token");
+          localStorage.removeItem("verifiedUser");
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("authUser");
+          console.log("🔐 AuthContext: Stored as guest user");
         } else {
           // JWT-based authenticated user - store as verified
-          localStorage.setItem('verified_token', userData.token);
-          localStorage.setItem('verifiedUser', JSON.stringify(user));
-          localStorage.removeItem('guest_token');
-          localStorage.removeItem('guestUser');
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('authUser');
-          console.log('🔐 AuthContext: Stored as verified user');
-          console.log('🔐 AuthContext: verifiedUser stored:', JSON.stringify(user, null, 2));
+          localStorage.setItem("verified_token", userData.token);
+          localStorage.setItem("verifiedUser", JSON.stringify(user));
+          localStorage.removeItem("guest_token");
+          localStorage.removeItem("guestUser");
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("authUser");
+          console.log("🔐 AuthContext: Stored as verified user");
+          console.log(
+            "🔐 AuthContext: verifiedUser stored:",
+            JSON.stringify(user, null, 2)
+          );
         }
       } else {
-        console.warn('🔐 AuthContext: Missing token or user ID!');
-        console.warn('🔐 AuthContext: userData.token:', !!userData.token);
-        console.warn('🔐 AuthContext: user.id:', !!user.id);
+        console.warn("🔐 AuthContext: Missing token or user ID!");
+        console.warn("🔐 AuthContext: userData.token:", !!userData.token);
+        console.warn("🔐 AuthContext: user.id:", !!user.id);
       }
     } else {
       // Create temporary guest user (quick mode)
       user = {
         id: `temp-guest-${Date.now()}`,
-        email: '',
-        firstName: 'Guest',
-        lastName: 'User',
+        email: "",
+        firstName: "Guest",
+        lastName: "User",
         level: 1,
         xp: 0,
-        role: 'guest',
+        role: "guest",
         isGuest: true,
-        difficulty: 'medium'
+        difficulty: "medium",
       };
-      
+
       // Store temporary guest data (always as guest, never as verified)
-      localStorage.setItem('guestUser', JSON.stringify(user));
-      localStorage.removeItem('verified_token');
-      localStorage.removeItem('verifiedUser');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('authUser');
+      localStorage.setItem("guestUser", JSON.stringify(user));
+      localStorage.removeItem("verified_token");
+      localStorage.removeItem("verifiedUser");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("authUser");
     }
-    
+
     setUser(user);
     setIsAuthenticated(true);
-    
-    console.log('🔐 AuthContext: User state updated:', {
+
+    console.log("🔐 AuthContext: User state updated:", {
       userId: user.id,
       userName: `${user.firstName} ${user.lastName}`,
       isGuest: user.isGuest,
-      storageKey: user.isGuest ? 'guestUser' : 'verifiedUser'
+      storageKey: user.isGuest ? "guestUser" : "verifiedUser",
     });
   };
 
   const loginAsHabitLoopUser = async (userData: any) => {
     try {
-      console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', userData.id);
-      
+      console.log(
+        "🔐 AuthContext: loginAsHabitLoopUser called with:",
+        userData.id
+      );
+
       // Send both userId and password if provided
       const requestBody: any = { userId: userData.id };
       if (userData.password) {
         requestBody.password = userData.password;
       }
-      
-      const response = await apiRequest('habitloop/signin', 'POST', requestBody);
+
+      const response = await apiRequest(
+        "habitloop/signin",
+        "POST",
+        requestBody
+      );
       const userDataResponse = await response.json();
-      
-      console.log('🔐 AuthContext: HabitLoop login response:', {
+
+      console.log("🔐 AuthContext: HabitLoop login response:", {
         success: userDataResponse.success,
         hasUser: !!userDataResponse.user,
-        hasToken: !!userDataResponse.token
+        hasToken: !!userDataResponse.token,
       });
 
-      if (userDataResponse.success && userDataResponse.user && userDataResponse.token) {
+      if (
+        userDataResponse.success &&
+        userDataResponse.user &&
+        userDataResponse.token
+      ) {
         const user = {
           id: userDataResponse.user.id,
           email: userDataResponse.user.email,
@@ -396,32 +485,54 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           role: userDataResponse.user.role,
           isGuest: false,
           difficulty: userDataResponse.user.difficulty,
-          profileImageUrl: userDataResponse.user.profileImageUrl
+          profileImageUrl: userDataResponse.user.profileImageUrl,
         };
 
+        // Clear any previous user's data before setting new user data
+        localStorage.removeItem("habitRecommendations");
+        localStorage.removeItem("questionnaireCompleted");
+        localStorage.removeItem("questionnaireData");
+        localStorage.removeItem("dismissedRecommendations");
+        localStorage.removeItem("userPreferences");
+        localStorage.removeItem("lastSyncTime");
+        localStorage.removeItem("currentUserId");
+
         // HabitLoop users should ONLY use verifiedUser storage (no guestUser)
-        localStorage.setItem('verified_token', userDataResponse.token);
-        localStorage.setItem('verifiedUser', JSON.stringify(user));
-        
+        localStorage.setItem("verified_token", userDataResponse.token);
+        localStorage.setItem("verifiedUser", JSON.stringify(user));
+
         // Clear any guest data to prevent conflicts
-        localStorage.removeItem('guest_token');
-        localStorage.removeItem('guestUser');
-        
+        localStorage.removeItem("guest_token");
+        localStorage.removeItem("guestUser");
+
         // Clear any Supabase session data
-        localStorage.removeItem('authUser');
-        localStorage.removeItem('auth_token');
-        
+        localStorage.removeItem("authUser");
+        localStorage.removeItem("auth_token");
+
         setUser(user);
         setIsAuthenticated(true);
-        
-        console.log('🔐 AuthContext: HabitLoop user logged in successfully:', user.firstName);
-        console.log('🔐 AuthContext: Stored as verifiedUser only (no guestUser)');
+
+        // Fetch and restore user's questionnaire data and settings from database
+        await refreshQuestionnaireData();
+
+        console.log(
+          "🔐 AuthContext: HabitLoop user logged in successfully:",
+          user.firstName
+        );
+        console.log(
+          "🔐 AuthContext: Stored as verifiedUser only (no guestUser)"
+        );
+        console.log(
+          "🔐 AuthContext: Cleared previous user data from localStorage"
+        );
       } else {
-        console.error('🔐 AuthContext: HabitLoop login failed - invalid response');
-        throw new Error('Invalid response from server');
+        console.error(
+          "🔐 AuthContext: HabitLoop login failed - invalid response"
+        );
+        throw new Error("Invalid response from server");
       }
     } catch (error) {
-      console.error('🔐 AuthContext: HabitLoop login error:', error);
+      console.error("🔐 AuthContext: HabitLoop login error:", error);
       throw error;
     }
   };
@@ -429,87 +540,121 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const logout = async () => {
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('verifiedUser');
-    localStorage.removeItem('guestUser');
-    localStorage.removeItem('authUser');
-    localStorage.removeItem('verified_token');
-    localStorage.removeItem('guest_token');
-    localStorage.removeItem('auth_token');
-    window.location.href = '/';
+
+    // Clear all authentication data
+    localStorage.removeItem("verifiedUser");
+    localStorage.removeItem("guestUser");
+    localStorage.removeItem("authUser");
+    localStorage.removeItem("verified_token");
+    localStorage.removeItem("guest_token");
+    localStorage.removeItem("auth_token");
+
+    // Clear AI questionnaire and recommendation data
+    localStorage.removeItem("habitRecommendations");
+    localStorage.removeItem("questionnaireCompleted");
+    localStorage.removeItem("questionnaireData");
+    localStorage.removeItem("dismissedRecommendations");
+
+    // Clear user-specific UI settings
+    localStorage.removeItem("habitloop_ui_settings");
+
+    // Clear any other user-specific data
+    localStorage.removeItem("userPreferences");
+    localStorage.removeItem("lastSyncTime");
+    localStorage.removeItem("currentUserId");
+
+    window.location.href = "/";
   };
 
   // Function to refresh user data from backend - VIVA-SAFE VERSION
   const refreshUserData = async (_forceBackend = true) => {
     try {
-      const guestToken = localStorage.getItem('guest_token');
-      const verifiedToken = localStorage.getItem('verified_token');
-      const authToken = localStorage.getItem('auth_token');
-      
+      const guestToken = localStorage.getItem("guest_token");
+      const verifiedToken = localStorage.getItem("verified_token");
+      const authToken = localStorage.getItem("auth_token");
+
       let token = guestToken || verifiedToken || authToken;
-      
+
       if (!token) {
-        console.warn('No token found for user data refresh');
+        console.warn("No token found for user data refresh");
         return;
       }
 
-      console.log('🔐 AuthContext: Refreshing user data from backend (VIVA-SAFE)');
+      console.log(
+        "🔐 AuthContext: Refreshing user data from backend (VIVA-SAFE)"
+      );
 
-      const response = await fetch(buildApiUrl('user'), {
+      const response = await fetch("/api/user", {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.ok) {
         const responseData = await response.json();
-        
+
         if (responseData.success && responseData.user) {
           const userData = responseData.user;
-          
+
           // ALWAYS prioritize backend data over localStorage (VIVA-SAFE)
           setUser(userData);
           setIsAuthenticated(true);
-          
+
           // Update localStorage with fresh backend data
           if (userData.isGuest) {
-            localStorage.setItem('guestUser', JSON.stringify(userData));
+            localStorage.setItem("guestUser", JSON.stringify(userData));
           } else {
-            localStorage.setItem('verifiedUser', JSON.stringify(userData));
+            localStorage.setItem("verifiedUser", JSON.stringify(userData));
           }
-          
-          console.log('🔐 AuthContext: User data refreshed from backend (VIVA-SAFE):', userData);
+
+          console.log(
+            "🔐 AuthContext: User data refreshed from backend (VIVA-SAFE):",
+            userData
+          );
           return userData;
         } else {
-          console.warn('Invalid response format from /api/user');
+          console.warn("Invalid response format from /api/user");
           return null;
         }
       } else {
-        console.warn('Failed to refresh user data:', response.status, response.statusText);
-        
+        console.warn(
+          "Failed to refresh user data:",
+          response.status,
+          response.statusText
+        );
+
         // Try alternative endpoint for guest users
         if (response.status === 401) {
-          console.log('🔐 AuthContext: Trying guest-compatible endpoint...');
-          const guestResponse = await fetch(buildApiUrl('guest/auth'), {
+          console.log("🔐 AuthContext: Trying guest-compatible endpoint...");
+          const guestResponse = await fetch("/api/guest/auth", {
             headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           });
-          
+
           if (guestResponse.ok) {
             const guestData = await guestResponse.json();
             if (guestData.success && guestData.user) {
               // Only create guest user if no verified user exists
-              const verifiedUser = localStorage.getItem('verifiedUser');
+              const verifiedUser = localStorage.getItem("verifiedUser");
               if (!verifiedUser) {
                 setUser(guestData.user);
                 setIsAuthenticated(true);
-                localStorage.setItem('guestUser', JSON.stringify(guestData.user));
-                console.log('🔐 AuthContext: User data refreshed via guest endpoint:', guestData.user);
+                localStorage.setItem(
+                  "guestUser",
+                  JSON.stringify(guestData.user)
+                );
+                console.log(
+                  "🔐 AuthContext: User data refreshed via guest endpoint:",
+                  guestData.user
+                );
                 return guestData.user;
               } else {
-                console.log('🔐 AuthContext: Verified user exists, skipping guest user creation');
+                console.log(
+                  "🔐 AuthContext: Verified user exists, skipping guest user creation"
+                );
                 return null;
               }
             }
@@ -517,22 +662,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+      console.error("Error refreshing user data:", error);
     }
   };
 
   // Professional cache management system
   const clearUserCache = () => {
     // Clear all localStorage user data
-    localStorage.removeItem('guestUser');
-    localStorage.removeItem('verifiedUser');
-    localStorage.removeItem('authUser');
-    
+    localStorage.removeItem("guestUser");
+    localStorage.removeItem("verifiedUser");
+    localStorage.removeItem("authUser");
+
     // Clear tokens
-    localStorage.removeItem('guest_token');
-    localStorage.removeItem('verified_token');
-    localStorage.removeItem('auth_token');
-    
+    localStorage.removeItem("guest_token");
+    localStorage.removeItem("verified_token");
+    localStorage.removeItem("auth_token");
+
     // Reset state
     setUser(null);
     setIsAuthenticated(false);
@@ -543,33 +688,40 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const result = await refreshUserData();
       if (result) {
         // Trigger a custom event to notify other components
-        window.dispatchEvent(new CustomEvent('userDataUpdated', { 
-          detail: { user: result } 
-        }));
+        window.dispatchEvent(
+          new CustomEvent("userDataUpdated", {
+            detail: { user: result },
+          })
+        );
       }
       return result;
     } catch (error) {
-      console.error('Error syncing user data:', error);
+      console.error("Error syncing user data:", error);
       return null;
     }
   };
 
-  const signup = async (email: string, password: string, firstName: string, lastName: string) => {
+  const signup = async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string
+  ) => {
     try {
-      const response = await fetch(buildApiUrl('auth/signup'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password, firstName, lastName })
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, firstName, lastName }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.user) {
         // Clear any guest data when signing up
-        localStorage.removeItem('guest_token');
-        localStorage.removeItem('guestUser');
-        
+        localStorage.removeItem("guest_token");
+        localStorage.removeItem("guestUser");
+
         // Store authenticated user data based on user type
         const authenticatedUser = {
           id: data.user.id,
@@ -578,51 +730,52 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           lastName: data.user.lastName || data.user.last_name,
           level: data.user.level || 1,
           xp: data.user.xp || 0,
-          role: data.user.role || 'user',
+          role: data.user.role || "user",
           isGuest: false,
-          difficulty: data.user.difficulty || 'medium',
-          profileImageUrl: data.user.profileImageUrl || data.user.profile_image_url
+          difficulty: data.user.difficulty || "medium",
+          profileImageUrl:
+            data.user.profileImageUrl || data.user.profile_image_url,
         };
-        
+
         // Store auth user data
-        localStorage.setItem('authUser', JSON.stringify(authenticatedUser));
-        
+        localStorage.setItem("authUser", JSON.stringify(authenticatedUser));
+
         setUser(authenticatedUser);
         setIsAuthenticated(true);
-        
+
         if (data.session?.access_token) {
-          localStorage.setItem('auth_token', data.session.access_token);
+          localStorage.setItem("auth_token", data.session.access_token);
         }
       } else {
-        throw new Error(data.error?.message || 'Signup failed');
+        throw new Error(data.error?.message || "Signup failed");
       }
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error("Signup error:", error);
       throw error;
     }
   };
 
   // Helper functions for user data
   const getUserDisplayName = (user: User | null): string => {
-    if (!user) return '';
+    if (!user) return "";
     if (user.isGuest) {
       return `${user.firstName} ${user.lastName}`;
     }
-    return user.firstName && user.lastName 
+    return user.firstName && user.lastName
       ? `${user.firstName} ${user.lastName}`
-      : user.email || 'User';
+      : user.email || "User";
   };
 
   const getUserEmail = (user: User | null): string => {
-    return user?.email || '';
+    return user?.email || "";
   };
 
   const getUserInitials = (user: User | null): string => {
-    if (!user) return '';
-    const firstName = user.firstName || '';
-    const lastName = user.lastName || '';
-    const email = user.email || '';
-    
+    if (!user) return "";
+    const firstName = user.firstName || "";
+    const lastName = user.lastName || "";
+    const email = user.email || "";
+
     if (firstName && lastName) {
       return `${firstName[0]}${lastName[0]}`.toUpperCase();
     }
@@ -632,7 +785,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     if (email) {
       return email[0].toUpperCase();
     }
-    return 'U';
+    return "U";
   };
 
   const getCurrentUser = (): User | null => {
@@ -645,6 +798,119 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const isAuthenticatedUser = (): boolean => {
     return isAuthenticated && !user?.isGuest;
+  };
+
+  // Utility function to clear user-specific data from localStorage
+  const clearUserSpecificData = () => {
+    console.log(
+      "🔐 AuthContext: Clearing user-specific data from localStorage"
+    );
+
+    // Clear AI questionnaire and recommendation data
+    localStorage.removeItem("habitRecommendations");
+    localStorage.removeItem("questionnaireCompleted");
+    localStorage.removeItem("questionnaireData");
+    localStorage.removeItem("dismissedRecommendations");
+
+    // Clear other user-specific data
+    localStorage.removeItem("userPreferences");
+    localStorage.removeItem("lastSyncTime");
+    localStorage.removeItem("currentUserId");
+
+    // Clear user-specific UI settings
+    localStorage.removeItem("habitloop_ui_settings");
+
+    // Note: We don't clear authentication data as that's handled by logout
+
+    console.log("🔐 AuthContext: User-specific data cleared");
+  };
+
+  // Utility function to refresh user's questionnaire data from database
+  const refreshQuestionnaireData = async () => {
+    if (!user?.id) {
+      console.log(
+        "🔐 AuthContext: No user logged in, cannot refresh questionnaire data"
+      );
+      return;
+    }
+
+    try {
+      console.log(
+        "🔐 AuthContext: Refreshing questionnaire data from database"
+      );
+
+      const userProfileResponse = await apiRequest("user", "GET");
+      const userProfileData = await userProfileResponse.json();
+
+      if (userProfileData.success && userProfileData.user) {
+        // Restore questionnaire data if available
+        if (userProfileData.user.questionnaire) {
+          localStorage.setItem(
+            "questionnaireData",
+            JSON.stringify(userProfileData.user.questionnaire)
+          );
+          localStorage.setItem("questionnaireCompleted", "true");
+          console.log(
+            "🔐 AuthContext: Refreshed questionnaire data from database"
+          );
+        }
+
+        // Restore AI recommendations if available
+        if (
+          userProfileData.user.aiRecommendations &&
+          userProfileData.user.aiRecommendations.length > 0
+        ) {
+          localStorage.setItem(
+            "habitRecommendations",
+            JSON.stringify(userProfileData.user.aiRecommendations)
+          );
+          console.log(
+            "🔐 AuthContext: Refreshed AI recommendations from database:",
+            userProfileData.user.aiRecommendations.length
+          );
+        } else {
+          // Clear recommendations if none available
+          localStorage.removeItem("habitRecommendations");
+          console.log(
+            "🔐 AuthContext: No AI recommendations found in database, cleared localStorage"
+          );
+        }
+
+        // Restore user settings if available
+        if (userProfileData.user.userSettings) {
+          localStorage.setItem(
+            "habitloop_ui_settings",
+            JSON.stringify(userProfileData.user.userSettings)
+          );
+          console.log("🔐 AuthContext: Refreshed user settings from database");
+        } else {
+          // Set default settings if none available
+          const defaultSettings = {
+            pushNotifications: true,
+            reminderSound: true,
+            weeklyReport: true,
+            defaultReminderTime: "09:00",
+            inactivityAlerts: true,
+            achievementAlerts: true,
+            insightAlerts: true,
+            theme: "light",
+            showDataConsistencyCheck: false,
+            showMLSuccessPredictor: false,
+            showAIQuestionnaire: true,
+          };
+          localStorage.setItem(
+            "habitloop_ui_settings",
+            JSON.stringify(defaultSettings)
+          );
+          console.log("🔐 AuthContext: Set default user settings");
+        }
+      }
+    } catch (profileError) {
+      console.log(
+        "🔐 AuthContext: Could not refresh questionnaire data:",
+        profileError
+      );
+    }
   };
 
   const value: AuthContextType = {
@@ -666,19 +932,17 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     getCurrentUser,
     isGuestUser,
     isAuthenticatedUser,
+    clearUserSpecificData,
+    refreshQuestionnaireData,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

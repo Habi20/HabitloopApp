@@ -76,7 +76,12 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   loginAsGuest: (userData?: any) => Promise<void>;
   loginAsHabitLoopUser: (userData: any) => Promise<void>;
-  signup: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  signup: (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string
+  ) => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
   checkAuthStatus: () => Promise<void>;
@@ -89,4 +94,6 @@ export interface AuthContextType {
   getCurrentUser: () => User | null;
   isGuestUser: () => boolean;
   isAuthenticatedUser: () => boolean;
+  clearUserSpecificData: () => void;
+  refreshQuestionnaireData: () => Promise<void>;
 }
