@@ -28,7 +28,13 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte } from "drizzle-orm";
-import { getCurrentDateString, getDaysDifference, getWeekNumber, getMonthNumber, TimezoneUtils } from "./utils/timezone.js";
+import {
+  getCurrentDateString,
+  getDaysDifference,
+  getWeekNumber,
+  getMonthNumber,
+  TimezoneUtils,
+} from "./utils/timezone.js";
 
 // Interface for storage operations
 export interface IStorage {
@@ -43,7 +49,11 @@ export interface IStorage {
   // RBAC operations
   getUserPermissions(userId: string): Promise<string[]>;
   hasPermission(userId: string, permission: string): Promise<boolean>;
-  grantPermission(userId: string, permission: string, grantedBy?: string): Promise<void>;
+  grantPermission(
+    userId: string,
+    permission: string,
+    grantedBy?: string
+  ): Promise<void>;
   revokePermission(userId: string, permission: string): Promise<void>;
   getRolePermissions(role: string): Promise<string[]>;
 
@@ -54,22 +64,47 @@ export interface IStorage {
   deleteHabit(id: number): Promise<void>;
 
   // Habit completion operations
-  getHabitCompletions(userId: string, date?: string): Promise<HabitCompletion[]>;
-  createHabitCompletion(completion: InsertHabitCompletion): Promise<HabitCompletion>;
-  deleteHabitCompletion(habitId: number, userId: string, date: string): Promise<void>;
+  getHabitCompletions(
+    userId: string,
+    date?: string
+  ): Promise<HabitCompletion[]>;
+  createHabitCompletion(
+    completion: InsertHabitCompletion
+  ): Promise<HabitCompletion>;
+  deleteHabitCompletion(
+    habitId: number,
+    userId: string,
+    date: string
+  ): Promise<void>;
 
   // Streak operations
   getStreak(habitId: number, userId: string): Promise<Streak | undefined>;
-  updateStreak(habitId: number, userId: string, currentStreak: number, longestStreak: number, lastCompletedAt: string | null): Promise<void>;
+  updateStreak(
+    habitId: number,
+    userId: string,
+    currentStreak: number,
+    longestStreak: number,
+    lastCompletedAt: string | null
+  ): Promise<void>;
 
   // AI insights operations
   getAIInsights(userId: string, limit?: number): Promise<AIInsight[]>;
-  createAIInsight(userId: string, type: string, title: string, content: string): Promise<AIInsight>;
+  createAIInsight(
+    userId: string,
+    type: string,
+    title: string,
+    content: string
+  ): Promise<AIInsight>;
   markInsightAsRead(id: number): Promise<void>;
 
   // Coaching messages operations
-  getCoachingMessages(userId: string, limit?: number): Promise<CoachingMessage[]>;
-  createCoachingMessage(message: InsertCoachingMessage): Promise<CoachingMessage>;
+  getCoachingMessages(
+    userId: string,
+    limit?: number
+  ): Promise<CoachingMessage[]>;
+  createCoachingMessage(
+    message: InsertCoachingMessage
+  ): Promise<CoachingMessage>;
   markCoachingMessageAsRead(id: number): Promise<void>;
 
   // Guest user operations
@@ -84,18 +119,32 @@ export interface IStorage {
   updateEmailSettings(userId: string, settings: any): Promise<User>;
 
   // Challenge completion operations
-  getChallengeCompletion(userId: string, challengeId: string): Promise<ChallengeCompletion | null>;
+  getChallengeCompletion(
+    userId: string,
+    challengeId: string
+  ): Promise<ChallengeCompletion | null>;
   createChallengeCompletion(data: {
     userId: string;
     challengeId: string;
     xpAwarded: number;
     completedAt: string;
   }): Promise<void>;
-  getChallengeProgress(userId: string, challengeId: string): Promise<ChallengeProgress | null>;
-  updateChallengeProgress(userId: string, challengeId: string, progressValue: number): Promise<void>;
+  getChallengeProgress(
+    userId: string,
+    challengeId: string
+  ): Promise<ChallengeProgress | null>;
+  updateChallengeProgress(
+    userId: string,
+    challengeId: string,
+    progressValue: number
+  ): Promise<void>;
 
   // ML prediction operations
-  getMLPrediction(userId: string, habitId: number, predictionDate: string): Promise<any>;
+  getMLPrediction(
+    userId: string,
+    habitId: number,
+    predictionDate: string
+  ): Promise<any>;
   createMLPrediction(data: {
     userId: string;
     habitId: number;
@@ -103,10 +152,19 @@ export interface IStorage {
     confidenceLevel: string;
     predictionDate: string;
   }): Promise<void>;
-  updateMLPrediction(userId: string, habitId: number, predictionDate: string, updates: {
-    predictionPercentage: number;
-    confidenceLevel: string;
-  }): Promise<void>;
+  updateMLPrediction(
+    userId: string,
+    habitId: number,
+    predictionDate: string,
+    updates: {
+      predictionPercentage: number;
+      confidenceLevel: string;
+    }
+  ): Promise<void>;
+
+  // Questionnaire operations
+  saveQuestionnaire(userId: string, questionnaireData: any): Promise<void>;
+  saveRecommendations(userId: string, recommendations: any[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -120,15 +178,18 @@ export class DatabaseStorage implements IStorage {
 
       return {
         ...user,
-        role: user.role || 'user',
-        difficulty: user.difficulty || 'medium',
+        role: user.role || "user",
+        difficulty: user.difficulty || "medium",
         passwordHash: user.passwordHash || null,
       };
     } catch (error) {
-      console.error('Error getting user:', error);
+      console.error("Error getting user:", error);
       // ✅ Enhanced error handling for connection issues
-      if (error instanceof Error && error.message?.includes('Connection terminated')) {
-        console.warn('⚠️ Database connection issue - retrying...');
+      if (
+        error instanceof Error &&
+        error.message?.includes("Connection terminated")
+      ) {
+        console.warn("⚠️ Database connection issue - retrying...");
         // Return undefined to allow fallback behavior
         return undefined;
       }
@@ -138,17 +199,20 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      const [user] = await this.db.select().from(users).where(eq(users.email, email));
+      const [user] = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.email, email));
       if (!user) return undefined;
-      
+
       return {
         ...user,
-        role: user.role || 'user',
-        difficulty: user.difficulty || 'medium',
+        role: user.role || "user",
+        difficulty: user.difficulty || "medium",
         passwordHash: user.passwordHash || null,
       };
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      console.error("Error getting user by email:", error);
       return undefined;
     }
   }
@@ -156,15 +220,15 @@ export class DatabaseStorage implements IStorage {
   async getAllUsers(): Promise<User[]> {
     try {
       const allUsers = await this.db.select().from(users);
-      
-      return allUsers.map(user => ({
+
+      return allUsers.map((user) => ({
         ...user,
-        role: user.role || 'user',
-        difficulty: user.difficulty || 'medium',
+        role: user.role || "user",
+        difficulty: user.difficulty || "medium",
         passwordHash: user.passwordHash || null,
       }));
     } catch (error) {
-      console.error('Error getting all users:', error);
+      console.error("Error getting all users:", error);
       return [];
     }
   }
@@ -175,8 +239,8 @@ export class DatabaseStorage implements IStorage {
         .insert(users)
         .values({
           ...userData,
-          role: userData.role || 'user',
-          difficulty: userData.difficulty || 'medium',
+          role: userData.role || "user",
+          difficulty: userData.difficulty || "medium",
         })
         .onConflictDoUpdate({
           target: users.id,
@@ -188,11 +252,16 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return user;
     } catch (error) {
-      console.error('Error upserting user:', error);
+      console.error("Error upserting user:", error);
       // ✅ Enhanced error handling for connection issues
-      if (error instanceof Error && error.message?.includes('Connection terminated')) {
-        console.warn('⚠️ Database connection issue during user upsert - retrying...');
-        throw new Error('Database connection issue - please try again');
+      if (
+        error instanceof Error &&
+        error.message?.includes("Connection terminated")
+      ) {
+        console.warn(
+          "⚠️ Database connection issue during user upsert - retrying..."
+        );
+        throw new Error("Database connection issue - please try again");
       }
       throw error;
     }
@@ -203,8 +272,8 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values({
         ...userData,
-        role: userData.role || 'user',
-        difficulty: userData.difficulty || 'medium',
+        role: userData.role || "user",
+        difficulty: userData.difficulty || "medium",
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -240,17 +309,17 @@ export class DatabaseStorage implements IStorage {
       const roleBasedPermissions = await this.db
         .select({ permission: rolePermissions.permission })
         .from(rolePermissions)
-        .where(eq(rolePermissions.role, user.role || 'user'));
+        .where(eq(rolePermissions.role, user.role || "user"));
 
       // Combine and deduplicate permissions
       const allPermissions = [
-        ...directPermissions.map(p => p.permission),
-        ...roleBasedPermissions.map(p => p.permission),
+        ...directPermissions.map((p) => p.permission),
+        ...roleBasedPermissions.map((p) => p.permission),
       ];
 
       return [...new Set(allPermissions)];
     } catch (error) {
-      console.error('Error getting user permissions:', error);
+      console.error("Error getting user permissions:", error);
       return [];
     }
   }
@@ -260,7 +329,11 @@ export class DatabaseStorage implements IStorage {
     return permissions.includes(permission);
   }
 
-  async grantPermission(userId: string, permission: string, grantedBy?: string): Promise<void> {
+  async grantPermission(
+    userId: string,
+    permission: string,
+    grantedBy?: string
+  ): Promise<void> {
     await this.db
       .insert(userPermissions)
       .values({
@@ -287,7 +360,7 @@ export class DatabaseStorage implements IStorage {
       .select({ permission: rolePermissions.permission })
       .from(rolePermissions)
       .where(eq(rolePermissions.role, role));
-    return permissions.map(p => p.permission);
+    return permissions.map((p) => p.permission);
   }
 
   // Habit operations
@@ -299,10 +372,15 @@ export class DatabaseStorage implements IStorage {
         .where(and(eq(habits.userId, userId), eq(habits.isActive, true)))
         .orderBy(desc(habits.createdAt));
     } catch (error) {
-      console.error('Error getting user habits:', error);
+      console.error("Error getting user habits:", error);
       // ✅ Enhanced error handling for connection issues
-      if (error instanceof Error && error.message?.includes('Connection terminated')) {
-        console.warn('⚠️ Database connection issue during habit fetch - returning empty array');
+      if (
+        error instanceof Error &&
+        error.message?.includes("Connection terminated")
+      ) {
+        console.warn(
+          "⚠️ Database connection issue during habit fetch - returning empty array"
+        );
         return [];
       }
       throw error;
@@ -318,8 +396,11 @@ export class DatabaseStorage implements IStorage {
       updatedAt: now,
     };
 
-    const [newHabit] = await this.db.insert(habits).values(timezoneAwareHabit).returning();
-    
+    const [newHabit] = await this.db
+      .insert(habits)
+      .values(timezoneAwareHabit)
+      .returning();
+
     // Initialize streak for new habit
     await this.db.insert(streaks).values({
       habitId: newHabit.id,
@@ -334,25 +415,25 @@ export class DatabaseStorage implements IStorage {
   async upsertHabit(habit: InsertHabit & { id?: string }): Promise<Habit> {
     // Use timezone-aware timestamps
     const now = TimezoneUtils.getCurrentSriLankaTimestamp();
-    
+
     if (habit.id) {
       // Try to update existing habit
       try {
         const { id: _id, ...habitData } = habit; // Remove id from the update data
         const [updatedHabit] = await this.db
           .update(habits)
-          .set({ 
+          .set({
             ...habitData,
             updatedAt: now,
           })
           .where(eq(habits.id, parseInt(habit.id)))
           .returning();
-        
+
         if (updatedHabit) {
           return updatedHabit;
         }
       } catch (error) {
-        console.warn('Failed to update habit, will create new one:', error);
+        console.warn("Failed to update habit, will create new one:", error);
       }
     }
 
@@ -363,26 +444,37 @@ export class DatabaseStorage implements IStorage {
   async updateHabit(id: number, updates: Partial<InsertHabit>): Promise<Habit> {
     const [updatedHabit] = await this.db
       .update(habits)
-      .set({ ...updates, updatedAt: TimezoneUtils.getCurrentSriLankaTimestamp() })
+      .set({
+        ...updates,
+        updatedAt: TimezoneUtils.getCurrentSriLankaTimestamp(),
+      })
       .where(eq(habits.id, id))
       .returning();
     return updatedHabit;
   }
 
   async deleteHabit(id: number): Promise<void> {
-    await this.db.update(habits).set({ isActive: false }).where(eq(habits.id, id));
+    await this.db
+      .update(habits)
+      .set({ isActive: false })
+      .where(eq(habits.id, id));
   }
 
   // Habit completion operations
-  async getHabitCompletions(userId: string, date?: string): Promise<HabitCompletion[]> {
+  async getHabitCompletions(
+    userId: string,
+    date?: string
+  ): Promise<HabitCompletion[]> {
     if (date) {
       return await this.db
         .select()
         .from(habitCompletions)
-        .where(and(
-          eq(habitCompletions.userId, userId),
-          eq(habitCompletions.completedAt, date)
-        ))
+        .where(
+          and(
+            eq(habitCompletions.userId, userId),
+            eq(habitCompletions.completedAt, date)
+          )
+        )
         .orderBy(desc(habitCompletions.createdAt));
     }
 
@@ -393,7 +485,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(habitCompletions.createdAt));
   }
 
-  async createHabitCompletion(completion: InsertHabitCompletion): Promise<HabitCompletion> {
+  async createHabitCompletion(
+    completion: InsertHabitCompletion
+  ): Promise<HabitCompletion> {
     // Use timezone-aware timestamps
     const now = TimezoneUtils.getCurrentSriLankaTimestamp();
     const timezoneAwareCompletion = {
@@ -407,7 +501,11 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     // Update streak
-    await this.updateStreakOnCompletion(completion.habitId, completion.userId, completion.completedAt);
+    await this.updateStreakOnCompletion(
+      completion.habitId,
+      completion.userId,
+      completion.completedAt
+    );
 
     // Award XP for habit completion
     const baseXP = 10; // Base XP for completing any habit
@@ -420,28 +518,33 @@ export class DatabaseStorage implements IStorage {
     return newCompletion;
   }
 
-  async upsertCompletion(completion: InsertHabitCompletion & { id?: string }): Promise<HabitCompletion> {
+  async upsertCompletion(
+    completion: InsertHabitCompletion & { id?: string }
+  ): Promise<HabitCompletion> {
     // Use timezone-aware timestamps
     const now = TimezoneUtils.getCurrentSriLankaTimestamp();
-    
+
     if (completion.id) {
       // Try to update existing completion
       try {
         const { id: _id, ...completionData } = completion; // Remove id from the update data
         const [updatedCompletion] = await this.db
           .update(habitCompletions)
-          .set({ 
+          .set({
             ...completionData,
             createdAt: now,
           })
           .where(eq(habitCompletions.id, parseInt(completion.id)))
           .returning();
-        
+
         if (updatedCompletion) {
           return updatedCompletion;
         }
       } catch (error) {
-        console.warn('Failed to update completion, will create new one:', error);
+        console.warn(
+          "Failed to update completion, will create new one:",
+          error
+        );
       }
     }
 
@@ -449,7 +552,11 @@ export class DatabaseStorage implements IStorage {
     return this.createHabitCompletion(completion);
   }
 
-  async deleteHabitCompletion(habitId: number, userId: string, date: string): Promise<void> {
+  async deleteHabitCompletion(
+    habitId: number,
+    userId: string,
+    date: string
+  ): Promise<void> {
     await this.db
       .delete(habitCompletions)
       .where(
@@ -462,7 +569,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Streak operations
-  async getStreak(habitId: number, userId: string): Promise<Streak | undefined> {
+  async getStreak(
+    habitId: number,
+    userId: string
+  ): Promise<Streak | undefined> {
     const [streak] = await this.db
       .select()
       .from(streaks)
@@ -495,17 +605,23 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(streaks.habitId, habitId), eq(streaks.userId, userId)));
   }
 
-  private async updateStreakOnCompletion(habitId: number, userId: string, completedAt: string): Promise<void> {
+  private async updateStreakOnCompletion(
+    habitId: number,
+    userId: string,
+    completedAt: string
+  ): Promise<void> {
     const streak = await this.getStreak(habitId, userId);
     if (!streak) return;
 
     const completedDate = new Date(completedAt);
-    const lastCompletedDate = streak.lastCompletedAt ? new Date(streak.lastCompletedAt) : null;
+    const lastCompletedDate = streak.lastCompletedAt
+      ? new Date(streak.lastCompletedAt)
+      : null;
 
     let newCurrentStreak = 1;
     if (lastCompletedDate) {
       const daysDiff = getDaysDifference(lastCompletedDate, completedDate);
-      
+
       if (daysDiff === 1) {
         newCurrentStreak = (streak.currentStreak || 0) + 1;
       } else if (daysDiff === 0) {
@@ -516,8 +632,17 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    const newLongestStreak = Math.max(streak.longestStreak || 0, newCurrentStreak);
-    await this.updateStreak(habitId, userId, newCurrentStreak, newLongestStreak, completedAt);
+    const newLongestStreak = Math.max(
+      streak.longestStreak || 0,
+      newCurrentStreak
+    );
+    await this.updateStreak(
+      habitId,
+      userId,
+      newCurrentStreak,
+      newLongestStreak,
+      completedAt
+    );
   }
 
   // AI insights operations
@@ -530,7 +655,12 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async createAIInsight(userId: string, type: string, title: string, content: string): Promise<AIInsight> {
+  async createAIInsight(
+    userId: string,
+    type: string,
+    title: string,
+    content: string
+  ): Promise<AIInsight> {
     const [insight] = await this.db
       .insert(aiInsights)
       .values({ userId, type, title, content })
@@ -539,11 +669,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markInsightAsRead(id: number): Promise<void> {
-    await this.db.update(aiInsights).set({ isRead: true }).where(eq(aiInsights.id, id));
+    await this.db
+      .update(aiInsights)
+      .set({ isRead: true })
+      .where(eq(aiInsights.id, id));
   }
 
   // Coaching messages operations
-  async getCoachingMessages(userId: string, limit: number = 10): Promise<CoachingMessage[]> {
+  async getCoachingMessages(
+    userId: string,
+    limit: number = 10
+  ): Promise<CoachingMessage[]> {
     return await this.db
       .select()
       .from(coachingMessages)
@@ -552,7 +688,9 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async createCoachingMessage(message: InsertCoachingMessage): Promise<CoachingMessage> {
+  async createCoachingMessage(
+    message: InsertCoachingMessage
+  ): Promise<CoachingMessage> {
     const [newMessage] = await this.db
       .insert(coachingMessages)
       .values(message)
@@ -569,25 +707,30 @@ export class DatabaseStorage implements IStorage {
 
   // Guest user operations
   async createGuestUser(): Promise<User> {
-    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const guestId = `guest_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
     return await this.upsertUser({
       id: guestId,
       isGuest: true,
       level: 1,
       xp: 0,
-      role: 'user',
-      difficulty: 'medium',
+      role: "user",
+      difficulty: "medium",
     });
   }
 
-  async convertGuestToUser(guestId: string, userData: Partial<User>): Promise<User> {
+  async convertGuestToUser(
+    guestId: string,
+    userData: Partial<User>
+  ): Promise<User> {
     const [user] = await this.db
       .update(users)
       .set({
         ...userData,
         isGuest: false,
-        role: userData.role || 'user',
-        difficulty: userData.difficulty || 'medium',
+        role: userData.role || "user",
+        difficulty: userData.difficulty || "medium",
         updatedAt: new Date(),
       })
       .where(eq(users.id, guestId))
@@ -601,7 +744,7 @@ export class DatabaseStorage implements IStorage {
   //     await this.db.transaction(async (tx) => {
   //       // Update users table
   //       await tx.update(users).set({ id: newId }).where(eq(users.id, oldId));
-        
+
   //       // Update related tables
   //       await tx.update(habits).set({ userId: newId }).where(eq(habits.userId, oldId));
   //       await tx.update(habitCompletions).set({ userId: newId }).where(eq(habitCompletions.userId, oldId));
@@ -610,7 +753,7 @@ export class DatabaseStorage implements IStorage {
   //       await tx.update(coachingMessages).set({ userId: newId }).where(eq(coachingMessages.userId, oldId));
   //       await tx.update(userPermissions).set({ userId: newId }).where(eq(userPermissions.userId, oldId));
   //     });
-      
+
   //     console.log(`✅ Updated user ID from ${oldId} to ${newId} across all tables`);
   //   } catch (error) {
   //     console.error('Failed to update user ID:', error);
@@ -623,20 +766,37 @@ export class DatabaseStorage implements IStorage {
       await this.db.transaction(async (tx) => {
         // Update users table
         await tx.update(users).set({ id: newId }).where(eq(users.id, oldId));
-        
+
         // Update core habit-related tables
-        await tx.update(habits).set({ userId: newId }).where(eq(habits.userId, oldId));
-        await tx.update(habitCompletions).set({ userId: newId }).where(eq(habitCompletions.userId, oldId));
-        await tx.update(streaks).set({ userId: newId }).where(eq(streaks.userId, oldId));
-        
+        await tx
+          .update(habits)
+          .set({ userId: newId })
+          .where(eq(habits.userId, oldId));
+        await tx
+          .update(habitCompletions)
+          .set({ userId: newId })
+          .where(eq(habitCompletions.userId, oldId));
+        await tx
+          .update(streaks)
+          .set({ userId: newId })
+          .where(eq(streaks.userId, oldId));
+
         // Update AI/coaching tables
-        await tx.update(aiInsights).set({ userId: newId }).where(eq(aiInsights.userId, oldId));
-        await tx.update(coachingMessages).set({ userId: newId }).where(eq(coachingMessages.userId, oldId));
+        await tx
+          .update(aiInsights)
+          .set({ userId: newId })
+          .where(eq(aiInsights.userId, oldId));
+        await tx
+          .update(coachingMessages)
+          .set({ userId: newId })
+          .where(eq(coachingMessages.userId, oldId));
       });
-      
-      console.log(`✅ Updated user ID from ${oldId} to ${newId} across core tables`);
+
+      console.log(
+        `✅ Updated user ID from ${oldId} to ${newId} across core tables`
+      );
     } catch (error) {
-      console.error('Failed to update user ID:', error);
+      console.error("Failed to update user ID:", error);
       throw error;
     }
   }
@@ -657,19 +817,23 @@ export class DatabaseStorage implements IStorage {
       newLevel,
       levelChange: newLevel - (user.level || 1),
       timestamp: new Date().toISOString(),
-      stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n') // Get call stack for debugging
+      stackTrace: new Error().stack?.split("\n").slice(1, 4).join("\n"), // Get call stack for debugging
     });
 
     // Validate XP change is reasonable (prevent massive jumps)
     const xpChange = Math.abs(xpGained);
     if (xpChange > 1000) {
-      console.warn(`⚠️ Large XP change detected: ${xpGained} XP for user ${userId}. This might indicate an error.`);
+      console.warn(
+        `⚠️ Large XP change detected: ${xpGained} XP for user ${userId}. This might indicate an error.`
+      );
     }
 
     // Validate level change is reasonable (prevent massive jumps)
     const levelChange = Math.abs(newLevel - (user.level || 1));
     if (levelChange > 5) {
-      console.warn(`⚠️ Large level change detected: ${levelChange} levels for user ${userId}. This might indicate an error.`);
+      console.warn(
+        `⚠️ Large level change detected: ${levelChange} levels for user ${userId}. This might indicate an error.`
+      );
     }
 
     const [updatedUser] = await this.db
@@ -686,9 +850,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Challenge XP awarding system
-  async awardChallengeXP(userId: string, challengeId: string, xpAmount: number, challengeType: string): Promise<User> {
-    console.log(`🏆 Awarding challenge XP: ${xpAmount} XP for challenge ${challengeId} (${challengeType}) to user ${userId}`);
-    
+  async awardChallengeXP(
+    userId: string,
+    challengeId: string,
+    xpAmount: number,
+    challengeType: string
+  ): Promise<User> {
+    console.log(
+      `🏆 Awarding challenge XP: ${xpAmount} XP for challenge ${challengeId} (${challengeType}) to user ${userId}`
+    );
+
     // Check if challenge was already completed this week/month
     const existingCompletion = await this.db
       .select()
@@ -701,15 +872,17 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .limit(1);
-    
+
     if (existingCompletion.length > 0) {
-      console.log(`⚠️ Challenge ${challengeId} already completed for user ${userId}`);
-      return await this.getUser(userId) as User;
+      console.log(
+        `⚠️ Challenge ${challengeId} already completed for user ${userId}`
+      );
+      return (await this.getUser(userId)) as User;
     }
-    
+
     // Award XP
     const user = await this.updateUserXP(userId, xpAmount);
-    
+
     // Record challenge completion
     try {
       await this.db.insert(challengeCompletions).values({
@@ -719,18 +892,18 @@ export class DatabaseStorage implements IStorage {
         completedAt: getCurrentDateString(),
         resetAt: this.calculateResetDate(challengeId, getCurrentDateString()),
       });
-      
+
       // Create AI insight for challenge completion
       await this.createAIInsight(
         userId,
-        'challenge_completed',
+        "challenge_completed",
         `Challenge Completed: ${challengeType}`,
         `Congratulations! You earned ${xpAmount} XP for completing the "${challengeType}" challenge.`
       );
     } catch (error) {
-      console.warn('Failed to record challenge completion:', error);
+      console.warn("Failed to record challenge completion:", error);
     }
-    
+
     return user;
   }
 
@@ -741,83 +914,115 @@ export class DatabaseStorage implements IStorage {
 
     const habits = await this.getUserHabits(userId);
     const completions = await this.getHabitCompletions(userId);
-    
+
     // Get current date info using timezone utilities
     const now = new Date();
     const currentWeek = getWeekNumber(now);
     const currentMonth = getMonthNumber(now);
-    
+
     // Check 7-Day Streak Master (weekly)
-    await this.checkStreakMasterChallenge(userId, habits, completions, currentWeek);
-    
+    await this.checkStreakMasterChallenge(
+      userId,
+      habits,
+      completions,
+      currentWeek
+    );
+
     // Check Early Bird (weekly)
-    await this.checkEarlyBirdChallenge(userId, habits, completions, currentWeek);
-    
+    await this.checkEarlyBirdChallenge(
+      userId,
+      habits,
+      completions,
+      currentWeek
+    );
+
     // Check Habit Explorer (monthly)
     await this.checkHabitExplorerChallenge(userId, habits, currentMonth);
-    
+
     // Check Consistency Champion (monthly)
-    await this.checkConsistencyChampionChallenge(userId, habits, completions, currentMonth);
+    await this.checkConsistencyChampionChallenge(
+      userId,
+      habits,
+      completions,
+      currentMonth
+    );
   }
 
-  private async checkStreakMasterChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], weekNumber: number): Promise<void> {
+  private async checkStreakMasterChallenge(
+    userId: string,
+    habits: Habit[],
+    completions: HabitCompletion[],
+    weekNumber: number
+  ): Promise<void> {
     // Check if user has completed all habits for 7 consecutive days
-    const last7Days = Array.from({length: 7}, (_, i) => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - i);
       return getCurrentDateString(); // Use timezone utility
     }).reverse();
 
-    const hasCompletedAllDays = last7Days.every(date => {
-      const dayCompletions = completions.filter(c => c.completedAt && c.completedAt === date);
-      return dayCompletions.length >= habits.filter(h => h.isActive).length;
+    const hasCompletedAllDays = last7Days.every((date) => {
+      const dayCompletions = completions.filter(
+        (c) => c.completedAt && c.completedAt === date
+      );
+      return dayCompletions.length >= habits.filter((h) => h.isActive).length;
     });
 
     if (hasCompletedAllDays) {
-      await this.awardChallengeXP(userId, `streak-master-${weekNumber}`, 50, '7-Day Streak Master');
+      await this.awardChallengeXP(
+        userId,
+        `streak-master-${weekNumber}`,
+        50,
+        "7-Day Streak Master"
+      );
     }
   }
 
-  private async checkEarlyBirdChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], weekNumber: number): Promise<void> {
+  private async checkEarlyBirdChallenge(
+    userId: string,
+    habits: Habit[],
+    completions: HabitCompletion[],
+    weekNumber: number
+  ): Promise<void> {
     // Check if user completed morning habits before 9 AM for 5 days
-    const morningHabits = habits.filter(h => {
+    const morningHabits = habits.filter((h) => {
       if (!h.reminderTime) return false;
-      
+
       // Check for text-based morning reminder
-      if (h.reminderTime.includes('morning')) return true;
-      
+      if (h.reminderTime.includes("morning")) return true;
+
       // Check for time-based morning reminder (before 12:00)
       const timeMatch = h.reminderTime.match(/^(\d{1,2}):(\d{2})$/);
       if (timeMatch) {
         const hour = parseInt(timeMatch[1]);
         return hour < 12; // Morning hours (before noon)
       }
-      
+
       return false;
     });
-    
+
     if (morningHabits.length === 0) return; // No morning habits to check
-    
+
     // Check last 7 days for early completions
-    const last7Days = Array.from({length: 7}, (_, i) => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - i);
       return getCurrentDateString();
     });
-    
+
     let earlyBirdDays = 0;
-    
+
     for (const date of last7Days) {
       // Get completions for this specific date
-      const dayCompletions = completions.filter(c => c.completedAt === date);
-      
+      const dayCompletions = completions.filter((c) => c.completedAt === date);
+
       // Check if any completion was before 9 AM
-      const earlyCompletions = dayCompletions.filter(completion => {
+      const earlyCompletions = dayCompletions.filter((completion) => {
         if (!completion.completedAt) return false;
         const completionTime = new Date(completion.completedAt);
         return completionTime.getHours() < 9;
       });
-      
+
       // If we have early completions, count this day
       if (earlyCompletions.length > 0) {
         earlyBirdDays++;
@@ -825,38 +1030,69 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (earlyBirdDays >= 5) {
-      await this.awardChallengeXP(userId, `early-bird-${weekNumber}`, 25, 'Early Bird');
+      await this.awardChallengeXP(
+        userId,
+        `early-bird-${weekNumber}`,
+        25,
+        "Early Bird"
+      );
     }
   }
 
-  private async checkHabitExplorerChallenge(userId: string, habits: Habit[], month: number): Promise<void> {
+  private async checkHabitExplorerChallenge(
+    userId: string,
+    habits: Habit[],
+    month: number
+  ): Promise<void> {
     // Check if user created 3 new habits this month
-    const newHabitsThisMonth = habits.filter(h => {
+    const newHabitsThisMonth = habits.filter((h) => {
       if (!h.createdAt) return false;
       const habitMonth = new Date(h.createdAt).getMonth();
       return habitMonth === month;
     });
 
     if (newHabitsThisMonth.length >= 3) {
-      await this.awardChallengeXP(userId, `habit-explorer-${month}`, 100, 'Habit Explorer');
+      await this.awardChallengeXP(
+        userId,
+        `habit-explorer-${month}`,
+        100,
+        "Habit Explorer"
+      );
     }
   }
 
-  private async checkConsistencyChampionChallenge(userId: string, habits: Habit[], completions: HabitCompletion[], month: number): Promise<void> {
+  private async checkConsistencyChampionChallenge(
+    userId: string,
+    habits: Habit[],
+    completions: HabitCompletion[],
+    month: number
+  ): Promise<void> {
     // Check if user achieved 90% completion rate this month
-    const activeHabits = habits.filter(h => h.isActive);
-    const monthCompletions = completions.filter(c => {
+    const activeHabits = habits.filter((h) => h.isActive);
+    const monthCompletions = completions.filter((c) => {
       if (!c.completedAt) return false;
       const completionMonth = new Date(c.completedAt).getMonth();
       return completionMonth === month;
     });
 
-    const daysInMonth = new Date(new Date().getFullYear(), month + 1, 0).getDate();
+    const daysInMonth = new Date(
+      new Date().getFullYear(),
+      month + 1,
+      0
+    ).getDate();
     const expectedCompletions = activeHabits.length * daysInMonth;
-    const completionRate = expectedCompletions > 0 ? monthCompletions.length / expectedCompletions : 0;
+    const completionRate =
+      expectedCompletions > 0
+        ? monthCompletions.length / expectedCompletions
+        : 0;
 
     if (completionRate >= 0.9) {
-      await this.awardChallengeXP(userId, `consistency-champion-${month}`, 200, 'Consistency Champion');
+      await this.awardChallengeXP(
+        userId,
+        `consistency-champion-${month}`,
+        200,
+        "Consistency Champion"
+      );
     }
   }
 
@@ -882,14 +1118,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Audit and fix XP inconsistencies
-  async auditAndFixUserXP(userId: string): Promise<{ fixed: boolean; oldXP: number; newXP: number; oldLevel: number; newLevel: number }> {
+  async auditAndFixUserXP(
+    userId: string
+  ): Promise<{
+    fixed: boolean;
+    oldXP: number;
+    newXP: number;
+    oldLevel: number;
+    newLevel: number;
+  }> {
     const user = await this.getUser(userId);
     if (!user) throw new Error("User not found");
 
     // Calculate expected XP from completions
     const completions = await this.getHabitCompletions(userId);
     // const habits = await this.getUserHabits(userId); // Not used in current calculation
-    
+
     let calculatedXP = 0;
     const completionCounts = new Map<number, number>();
 
@@ -920,14 +1164,16 @@ export class DatabaseStorage implements IStorage {
       currentLevel,
       expectedLevel,
       difference: calculatedXP - (user.xp || 0),
-      levelDifference: expectedLevel - currentLevel
+      levelDifference: expectedLevel - currentLevel,
     });
 
     // If there's a significant discrepancy, fix it
     const xpDifference = Math.abs(calculatedXP - (user.xp || 0));
     if (xpDifference > 100) {
-      console.warn(`⚠️ XP inconsistency detected for user ${userId}. Fixing...`);
-      
+      console.warn(
+        `⚠️ XP inconsistency detected for user ${userId}. Fixing...`
+      );
+
       await this.db
         .update(users)
         .set({
@@ -942,7 +1188,7 @@ export class DatabaseStorage implements IStorage {
         oldXP: user.xp || 0,
         newXP: calculatedXP,
         oldLevel: currentLevel,
-        newLevel: expectedLevel
+        newLevel: expectedLevel,
       };
     }
 
@@ -951,12 +1197,15 @@ export class DatabaseStorage implements IStorage {
       oldXP: user.xp || 0,
       newXP: user.xp || 0,
       oldLevel: currentLevel,
-      newLevel: currentLevel
+      newLevel: currentLevel,
     };
   }
 
   // Challenge completion methods - Using database tables
-  async getChallengeCompletion(userId: string, challengeId: string): Promise<any> {
+  async getChallengeCompletion(
+    userId: string,
+    challengeId: string
+  ): Promise<any> {
     try {
       const result = await db
         .select()
@@ -968,10 +1217,10 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .limit(1);
-      
+
       return result[0] || null;
     } catch (error) {
-      console.error('Error getting challenge completion:', error);
+      console.error("Error getting challenge completion:", error);
       return null;
     }
   }
@@ -991,40 +1240,43 @@ export class DatabaseStorage implements IStorage {
         resetAt: this.calculateResetDate(data.challengeId, data.completedAt),
         createdAt: new Date(),
       });
-      console.log('Challenge completion recorded in database:', data);
+      console.log("Challenge completion recorded in database:", data);
     } catch (error) {
-      console.error('Error creating challenge completion:', error);
+      console.error("Error creating challenge completion:", error);
       throw error;
     }
   }
 
   calculateResetDate(challengeId: string, completedAt: string): string {
     const completedDate = new Date(completedAt);
-    
-    if (challengeId.startsWith('daily_')) {
+
+    if (challengeId.startsWith("daily_")) {
       // Daily challenges reset the next day
       const resetDate = new Date(completedDate);
       resetDate.setDate(resetDate.getDate() + 1);
-      return resetDate.toISOString().split('T')[0];
-    } else if (challengeId.startsWith('weekly_')) {
+      return resetDate.toISOString().split("T")[0];
+    } else if (challengeId.startsWith("weekly_")) {
       // Weekly challenges reset next week
       const resetDate = new Date(completedDate);
       resetDate.setDate(resetDate.getDate() + 7);
-      return resetDate.toISOString().split('T')[0];
-    } else if (challengeId.startsWith('monthly_')) {
+      return resetDate.toISOString().split("T")[0];
+    } else if (challengeId.startsWith("monthly_")) {
       // Monthly challenges reset next month
       const resetDate = new Date(completedDate);
       resetDate.setMonth(resetDate.getMonth() + 1);
-      return resetDate.toISOString().split('T')[0];
+      return resetDate.toISOString().split("T")[0];
     }
-    
+
     // Default to next day
     const resetDate = new Date(completedDate);
     resetDate.setDate(resetDate.getDate() + 1);
-    return resetDate.toISOString().split('T')[0];
+    return resetDate.toISOString().split("T")[0];
   }
 
-  async getChallengeProgress(userId: string, challengeId: string): Promise<ChallengeProgress | null> {
+  async getChallengeProgress(
+    userId: string,
+    challengeId: string
+  ): Promise<ChallengeProgress | null> {
     try {
       const result = await db
         .select()
@@ -1036,19 +1288,26 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .limit(1);
-      
+
       return result[0] || null;
     } catch (error) {
-      console.error('Error getting challenge progress:', error);
+      console.error("Error getting challenge progress:", error);
       return null;
     }
   }
 
-  async updateChallengeProgress(userId: string, challengeId: string, progressValue: number): Promise<void> {
+  async updateChallengeProgress(
+    userId: string,
+    challengeId: string,
+    progressValue: number
+  ): Promise<void> {
     try {
-      const existingProgress = await this.getChallengeProgress(userId, challengeId);
-      const currentDate = new Date().toISOString().split('T')[0];
-      
+      const existingProgress = await this.getChallengeProgress(
+        userId,
+        challengeId
+      );
+      const currentDate = new Date().toISOString().split("T")[0];
+
       if (existingProgress) {
         // Update existing progress
         await db
@@ -1074,13 +1333,17 @@ export class DatabaseStorage implements IStorage {
         });
       }
     } catch (error) {
-      console.error('Error updating challenge progress:', error);
+      console.error("Error updating challenge progress:", error);
       throw error;
     }
   }
 
   // ML prediction operations
-  async getMLPrediction(userId: string, habitId: number, predictionDate: string): Promise<MLPrediction | null> {
+  async getMLPrediction(
+    userId: string,
+    habitId: number,
+    predictionDate: string
+  ): Promise<MLPrediction | null> {
     try {
       const result = await db
         .select()
@@ -1093,10 +1356,10 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .limit(1);
-      
+
       return result[0] || null;
     } catch (error) {
-      console.error('Error getting ML prediction:', error);
+      console.error("Error getting ML prediction:", error);
       return null;
     }
   }
@@ -1118,17 +1381,22 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      console.log('ML prediction recorded in database:', data);
+      console.log("ML prediction recorded in database:", data);
     } catch (error) {
-      console.error('Error creating ML prediction:', error);
+      console.error("Error creating ML prediction:", error);
       throw error;
     }
   }
 
-  async updateMLPrediction(userId: string, habitId: number, predictionDate: string, updates: {
-    predictionPercentage: number;
-    confidenceLevel: string;
-  }): Promise<void> {
+  async updateMLPrediction(
+    userId: string,
+    habitId: number,
+    predictionDate: string,
+    updates: {
+      predictionPercentage: number;
+      confidenceLevel: string;
+    }
+  ): Promise<void> {
     try {
       await db
         .update(mlPredictions)
@@ -1144,10 +1412,73 @@ export class DatabaseStorage implements IStorage {
             eq(mlPredictions.predictionDate, predictionDate)
           )
         );
-      console.log('ML prediction updated in database:', { userId, habitId, predictionDate, updates });
+      console.log("ML prediction updated in database:", {
+        userId,
+        habitId,
+        predictionDate,
+        updates,
+      });
     } catch (error) {
-      console.error('Error updating ML prediction:', error);
+      console.error("Error updating ML prediction:", error);
       throw error;
+    }
+  }
+
+  // Save questionnaire data to database
+  async saveQuestionnaire(
+    userId: string,
+    questionnaireData: any
+  ): Promise<void> {
+    try {
+      // Store questionnaire data in the user's questionnaire field
+      await this.updateUser(userId, {
+        questionnaire: questionnaireData,
+      });
+      console.log("Questionnaire data saved for user:", userId);
+    } catch (error) {
+      console.error("Error saving questionnaire data:", error);
+      throw error;
+    }
+  }
+
+  // Save recommendations to database
+  async saveRecommendations(
+    userId: string,
+    recommendations: any[]
+  ): Promise<void> {
+    try {
+      // Store recommendations in the user's aiRecommendations field
+      await this.updateUser(userId, {
+        aiRecommendations: recommendations,
+      });
+      console.log("Recommendations saved for user:", userId);
+    } catch (error) {
+      console.error("Error saving recommendations:", error);
+      throw error;
+    }
+  }
+
+  // Save user settings to database
+  async saveUserSettings(userId: string, settings: any): Promise<void> {
+    try {
+      await this.updateUser(userId, {
+        userSettings: settings,
+      });
+      console.log("User settings saved for user:", userId);
+    } catch (error) {
+      console.error("Error saving user settings:", error);
+      throw error;
+    }
+  }
+
+  // Get user settings from database
+  async getUserSettings(userId: string): Promise<any> {
+    try {
+      const user = await this.getUser(userId);
+      return user?.userSettings || null;
+    } catch (error) {
+      console.error("Error getting user settings:", error);
+      return null;
     }
   }
 }
@@ -1179,5 +1510,5 @@ export {
   Questionnaire,
   ChallengeCompletion,
   ChallengeProgress,
-  MLPrediction
+  MLPrediction,
 };
