@@ -6,7 +6,6 @@
   },
   "deploy": {
     "startCommand": "cd server && npm start",
-    "preDeployCommand": "npm run migrate",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
