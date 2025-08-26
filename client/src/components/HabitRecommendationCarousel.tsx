@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Plus, Sparkles, Target, Clock, Star } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HabitRecommendation {
   id: string;
@@ -38,6 +39,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user, clearUserSpecificData, refreshQuestionnaireData } = useAuth();
 
   // Clear stored recommendations when component mounts if they exist
   useEffect(() => {
@@ -47,8 +49,53 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
     }
   }, []);
 
+  // Clear user-specific data when user changes
+  useEffect(() => {
+    if (user?.id) {
+      const storedUserId = localStorage.getItem('currentUserId');
+      if (storedUserId && storedUserId !== user.id) {
+        console.log('User changed, clearing previous user data');
+        clearUserSpecificData();
+        // Store current user ID to track changes
+        localStorage.setItem('currentUserId', user.id);
+      } else if (!storedUserId) {
+        // First time user, store their ID
+        localStorage.setItem('currentUserId', user.id);
+        // Refresh questionnaire data for new user
+        refreshQuestionnaireData();
+      }
+    }
+  }, [user?.id, clearUserSpecificData, refreshQuestionnaireData]);
+
+  // Fetch user's existing habits to filter out already added ones
+  const { data: existingHabitsResponse } = useQuery({
+    queryKey: ['/api/habits'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('habits', 'GET');
+        const data = await response.json();
+        console.log('Habits API response:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching existing habits:', error);
+        return { success: true, habits: [], count: 0 };
+      }
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Ensure existingHabits is always an array
+  const existingHabits = Array.isArray(existingHabitsResponse?.habits) 
+    ? existingHabitsResponse.habits 
+    : [];
+
+  // Debug logging
+  console.log('Existing habits response:', existingHabitsResponse);
+  console.log('Existing habits array:', existingHabits);
+  console.log('Is array?', Array.isArray(existingHabits));
+
   // Fetch AI-powered recommendations
-  const { data: recommendations = [], isLoading } = useQuery<HabitRecommendation[]>({
+  const { data: allRecommendations = [], isLoading } = useQuery<HabitRecommendation[]>({
     queryKey: ['/api/ai/recommendations'],
     queryFn: async () => {
       // First try to get recommendations from localStorage (from questionnaire)
@@ -56,8 +103,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       if (storedRecommendations) {
         try {
           const parsed = JSON.parse(storedRecommendations);
-          console.log('Using stored recommendations:', parsed);
-          console.log('First recommendation structure:', parsed[0]);
+          console.log('Using stored recommendations from localStorage:', parsed);
           
           // Map the stored recommendations to the expected structure
           const mappedRecommendations = parsed.map((rec: any) => ({
@@ -78,19 +124,117 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
             tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
           }));
           
-          console.log('Mapped recommendations:', mappedRecommendations[0]);
+          console.log('Mapped recommendations from localStorage:', mappedRecommendations[0]);
           return mappedRecommendations;
         } catch (error) {
-          console.error('Error parsing stored recommendations:', error);
+          console.error('Error parsing stored recommendations from localStorage:', error);
         }
       }
       
-      // Fall back to API if no stored recommendations
-      const response = await apiRequest('/api/ai/recommendations', 'GET');
-      return await response.json();
+      // Try to get recommendations from user's database profile
+      try {
+        const userResponse = await apiRequest('user', 'GET');
+        const userData = await userResponse.json();
+        
+        if (userData.user?.aiRecommendations && userData.user.aiRecommendations.length > 0) {
+          console.log('Using AI recommendations from user profile:', userData.user.aiRecommendations);
+          
+          const dbRecommendations = userData.user.aiRecommendations.map((rec: any) => ({
+            id: rec.id || Math.random().toString(),
+            title: rec.title,
+            description: rec.description,
+            category: rec.category,
+            targetValue: rec.targetValue || 1,
+            unit: rec.unit || 'times',
+            reminderTime: rec.reminderTime || null,
+            frequency: rec.frequency || 'daily',
+            color: rec.color || '#6366F1',
+            icon: rec.icon || 'fas fa-check',
+            difficulty: rec.difficulty || 'medium',
+            successRate: rec.successRate || 75,
+            aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
+            benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
+            tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
+          }));
+          
+          console.log('Mapped AI recommendations from database:', dbRecommendations[0]);
+          return dbRecommendations;
+        }
+        
+        // Also check for questionnaire recommendations (legacy format)
+        if (userData.user?.questionnaire?.recommendations) {
+          console.log('Using legacy questionnaire recommendations from user profile:', userData.user.questionnaire.recommendations);
+          
+          const dbRecommendations = userData.user.questionnaire.recommendations.map((rec: any) => ({
+            id: rec.id || Math.random().toString(),
+            title: rec.title,
+            description: rec.description,
+            category: rec.category,
+            targetValue: rec.targetValue || 1,
+            unit: rec.unit || 'times',
+            reminderTime: rec.reminderTime || null,
+            frequency: rec.frequency || 'daily',
+            color: rec.color || '#6366F1',
+            icon: rec.icon || 'fas fa-check',
+            difficulty: rec.difficulty || 'medium',
+            successRate: rec.successRate || 75,
+            aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
+            benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
+            tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
+          }));
+          
+          console.log('Mapped legacy recommendations from database:', dbRecommendations[0]);
+          return dbRecommendations;
+        }
+      } catch (error) {
+        console.error('Error fetching recommendations from user profile:', error);
+      }
+      
+      // Don't fall back to generic API - only show AI-generated recommendations
+      console.log('No AI recommendations found, showing empty state');
+      return [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  // Filter out recommendations that already exist as habits
+  const recommendations = allRecommendations.filter(recommendation => {
+    // Safety check: ensure existingHabits is an array and has valid items
+    if (!Array.isArray(existingHabits) || existingHabits.length === 0) {
+      return true; // Show all recommendations if no existing habits
+    }
+
+    // Check if a habit with the same title or very similar description already exists
+    const alreadyExists = existingHabits.some((habit: any) => {
+      // Safety check: ensure habit has required properties
+      if (!habit || typeof habit !== 'object') {
+        return false;
+      }
+
+      const titleMatch = habit.title && recommendation.title ? 
+        habit.title.toLowerCase().trim() === recommendation.title.toLowerCase().trim() 
+        : false;
+      
+      // Also check for similar descriptions (to catch cases where titles might be slightly different)
+      const descriptionSimilarity = habit.description && recommendation.description ? 
+        habit.description.toLowerCase().includes(recommendation.description.toLowerCase().split(' ').slice(0, 3).join(' ')) ||
+        recommendation.description.toLowerCase().includes(habit.description.toLowerCase().split(' ').slice(0, 3).join(' '))
+        : false;
+      
+      return titleMatch || descriptionSimilarity;
+    });
+    
+    if (alreadyExists) {
+      console.log(`Filtering out already added habit: ${recommendation.title}`);
+    }
+    
+    return !alreadyExists;
+  });
+
+  // Log filtering results for debugging
+  if (allRecommendations.length > 0) {
+    console.log(`Carousel filtering: ${allRecommendations.length} total recommendations, ${recommendations.length} available after filtering`);
+  }
 
   // Add habit mutation
   const addHabitMutation = useMutation({
@@ -115,7 +259,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       };
       
       console.log('Adding habit with data:', habitData);
-      return await apiRequest('/api/habits', 'POST', habitData);
+      return await apiRequest('habits', 'POST', habitData);
     },
     onSuccess: (_habitData, variables) => {
       // Success haptic feedback
@@ -152,11 +296,11 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
         }
       }
       
-      // Invalidate habits query to refresh the habit list
-      queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
-      
-      // Invalidate recommendations to refresh carousel
-      queryClient.invalidateQueries({ queryKey: ['/api/ai/recommendations'] });
+             // Invalidate habits query to refresh the habit list and update filtering
+       queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
+       
+       // Invalidate recommendations to refresh carousel
+       queryClient.invalidateQueries({ queryKey: ['/api/ai/recommendations'] });
       
       // Move to next recommendation with delay for user to see success
       setTimeout(() => {
@@ -267,10 +411,36 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
         <CardContent className="flex flex-col items-center justify-center h-full space-y-4">
           <Sparkles className="w-12 h-12 text-gray-400" />
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900">No Recommendations Available</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {allRecommendations.length > 0 ? 'All Recommendations Added!' : 'Complete AI Questionnaire'}
+            </h3>
             <p className="text-sm text-gray-600 mt-1">
-              Complete your profile questionnaire to get personalized habit suggestions.
+              {allRecommendations.length > 0 
+                ? 'You\'ve added all the recommended habits. Great job! 🎉'
+                : 'Take the AI questionnaire to get personalized habit recommendations tailored to your preferences and goals.'
+              }
             </p>
+            {allRecommendations.length > 0 ? (
+              <div className="mt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.href = '/habits'}
+                  className="text-sm"
+                >
+                  View My Habits
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.href = '/'}
+                  className="text-sm"
+                >
+                  Go to Home
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

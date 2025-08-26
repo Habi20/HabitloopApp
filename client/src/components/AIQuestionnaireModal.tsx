@@ -63,15 +63,21 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
   const generateRecommendationsMutation = useMutation({
     mutationFn: async () => {
       console.log("Sending questionnaire data:", JSON.stringify(questionnaire, null, 2));
-      const response = await apiRequest("/api/ai/questionnaire", "POST", questionnaire);
+      const response = await apiRequest("ai/questionnaire", "POST", questionnaire);
       return response.json();
     },
     onSuccess: (data) => {
       console.log("Received recommendations:", data);
+      
       // Store recommendations for later use
       localStorage.setItem("habitRecommendations", JSON.stringify(data.recommendations));
+      
+      // Mark questionnaire as completed
+      localStorage.setItem("questionnaireCompleted", "true");
+      localStorage.setItem("questionnaireData", JSON.stringify(questionnaire));
+      
       toast({
-        title: "Recommendations Generated!",
+        title: "Questionnaire Completed!",
         description: "Your personalized habits are ready. Let's set them up!",
       });
       onClose();
@@ -116,7 +122,16 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
-      generateRecommendationsMutation.mutate();
+      // Only generate recommendations if all questions are answered
+      if (canProceed()) {
+        generateRecommendationsMutation.mutate();
+      } else {
+        toast({
+          title: "Incomplete Questionnaire",
+          description: "Please answer all questions before generating recommendations.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -445,7 +460,7 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
                     Generating...
                   </>
                 ) : (
-                  "Get Recommendations"
+                  "Done"
                 )
               ) : (
                 "Next"

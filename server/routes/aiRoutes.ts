@@ -20,18 +20,63 @@ const getUserId = (req: express.Request) => {
   return 'guest-demo-user'; // Fallback to guest
 };
 
-// Public questionnaire endpoint
-router.post('/questionnaire', async (req, res) => {
+// Questionnaire endpoint - requires authentication
+router.post('/questionnaire', requireAuth, async (req, res) => {
   try {
     console.log("Received questionnaire data:", JSON.stringify(req.body, null, 2));
     
     const questionnaire = questionnaireSchema.parse(req.body);
     console.log("Parsed questionnaire:", JSON.stringify(questionnaire, null, 2));
     
-    const recommendations = await generateHabitRecommendations(questionnaire);
+    // Get user ID if available (for authenticated users)
+    const userId = req.user?.id || null;
+    
+    // Save questionnaire data to database if user is authenticated
+    if (userId && !req.user?.isGuest) {
+      try {
+        await storage.saveQuestionnaire(userId, questionnaire);
+        console.log(`Questionnaire saved for user: ${userId}`);
+      } catch (dbError) {
+        console.error("Error saving questionnaire to database:", dbError);
+        // Continue with recommendations even if saving fails
+      }
+    }
+    
+    // Get user context for better AI personalization
+    let userContext = null;
+    if (userId && !req.user?.isGuest) {
+      try {
+        const user = await storage.getUser(userId);
+        userContext = {
+          level: user?.level || 1,
+          xp: user?.xp || 0,
+          existingHabitsCount: (await storage.getUserHabits(userId)).length,
+          completionRate: 75 // Could be calculated from historical data
+        };
+      } catch (error) {
+        console.log("Could not get user context for AI enhancement:", error);
+      }
+    }
+
+    const recommendations = await generateHabitRecommendations(questionnaire, userContext);
     console.log("Generated recommendations:", recommendations.length);
     
-    res.json({ recommendations });
+    // Save recommendations to database if user is authenticated
+    if (userId && !req.user?.isGuest) {
+      try {
+        await storage.saveRecommendations(userId, recommendations);
+        console.log(`Recommendations saved for user: ${userId}`);
+      } catch (dbError) {
+        console.error("Error saving recommendations to database:", dbError);
+        // Continue even if saving fails
+      }
+    }
+    
+    res.json({ 
+      recommendations,
+      saved: userId ? true : false,
+      userId: userId || null
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("Validation error:", error.errors);

@@ -404,10 +404,30 @@ export function mlPredictionRoutes() {
       const daysSinceLastCompletion = recentCompletionCount > 0 ? 0 : 
         Math.floor((Date.now() - new Date(completions?.[completions.length - 1]?.completedAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24));
 
-      // Calculate base consistency score
-      const baseConsistencyScore = totalHabits > 0 
-        ? Math.min(95, Math.max(20, Math.floor((totalCompletions / (totalHabits * 7)) * 100)))
-        : 50;
+      // For users with no habits, return all zeros
+      console.log('🔍 ML Analytics: Checking if totalHabits === 0:', totalHabits);
+      if (totalHabits === 0) {
+        res.json({
+          success: true,
+          data: {
+            consistencyScore: 0,
+            motivationLevel: "Low",
+            engagementLevel: 0,
+            optimalTimes: [],
+            weeklyForecast: 0,
+            performanceCategories: [],
+            confidenceLevel: "Low",
+            userLevel,
+            userXP,
+            habitCount: totalHabits,
+            completionCount: totalCompletions
+          }
+        });
+        return;
+      }
+
+      // Calculate base consistency score for users with habits
+      const baseConsistencyScore = Math.min(95, Math.max(20, Math.floor((totalCompletions / (totalHabits * 7)) * 100)));
 
       // Apply inactivity penalty
       let inactivityPenalty = 0;
@@ -429,10 +449,8 @@ export function mlPredictionRoutes() {
         motivationLevel = "Low";
       }
 
-      // Calculate engagement level with recent activity consideration
-      const baseEngagement = Math.min(90, Math.max(30, 
-        Math.floor((totalHabits * 10) + (userXP / 10))
-      ));
+      // Calculate engagement level for users with habits
+      const baseEngagement = Math.min(90, Math.max(30, Math.floor((totalHabits * 10) + (userXP / 10))));
       
       // Apply recent activity bonus/penalty
       let engagementBonus = 0;
@@ -444,10 +462,8 @@ export function mlPredictionRoutes() {
       
       const engagementLevel = Math.max(20, Math.min(95, baseEngagement + engagementBonus));
 
-      // Calculate weekly forecast with realistic expectations
-      const baseForecast = Math.min(95, Math.max(40, 
-        Math.floor(consistencyScore * 0.8 + (userLevel * 5))
-      ));
+      // Calculate weekly forecast for users with habits
+      const baseForecast = Math.min(95, Math.max(40, Math.floor(consistencyScore * 0.8 + (userLevel * 5))));
       
       // Adjust forecast based on recent activity
       let forecastAdjustment = 0;
@@ -458,16 +474,16 @@ export function mlPredictionRoutes() {
       
       const weeklyForecast = Math.max(20, Math.min(95, baseForecast + forecastAdjustment));
 
-      // Determine optimal times based on user's habit patterns
+      // Determine optimal times - return empty array for users with no habits
       const optimalTimes = habits?.length > 0 
         ? habits.map(h => h.reminderTime || "09:00").slice(0, 3)
-        : ["07:00", "18:00", "21:00"];
+        : [];
 
-      // Determine performance categories based on habit types
+      // Determine performance categories - return empty array for users with no habits
       const categories = habits?.map(h => h.category).filter(Boolean) || [];
       const performanceCategories = categories.length > 0 
         ? [...new Set(categories)].slice(0, 3)
-        : ["Productivity", "Health", "Learning"];
+        : [];
 
       // Calculate confidence level with recent activity consideration
       let confidenceLevel = "Low";

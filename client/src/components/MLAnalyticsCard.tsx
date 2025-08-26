@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from '@tanstack/react-query';
+import { buildApiUrl } from '@/config/api';
 
 interface MLAnalyticsCardProps {
   user: any;
@@ -15,29 +16,43 @@ export default function MLAnalyticsCard({ user }: MLAnalyticsCardProps) {
   // });
 
   // Fetch real ML analytics data from backend
-  const { data: mlAnalyticsData, isLoading: mlLoading } = useQuery({
+  const { data: mlAnalyticsData, isLoading: mlLoading, error: mlError } = useQuery({
     queryKey: ["/api/ml/analytics", user?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/ml/analytics?userId=${user?.id}`);
+      console.log('🔍 Fetching ML analytics for user:', user?.id);
+      const response = await fetch(buildApiUrl(`ml/analytics?userId=${user?.id}`));
       if (!response.ok) {
         throw new Error('Failed to fetch ML analytics');
       }
-      return response.json();
+      const data = await response.json();
+      console.log('🔍 ML analytics response:', data);
+      return data;
     },
     enabled: !!user?.id,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 0, // No cache - always fetch fresh data
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
-  // Use real data if available, fallback to calculated values
+  // Use real data if available, fallback to 0 values for new users
   const mlAnalytics = mlAnalyticsData?.data || {
-    consistencyScore: user?.xp ? Math.min(85, Math.max(20, Math.floor(user.xp / 10))) : 50,
-    motivationLevel: user?.xp && user.xp > 50 ? "High" : user?.xp && user.xp > 20 ? "Medium" : "Low",
-    engagementLevel: user?.xp ? Math.min(90, Math.max(30, Math.floor(user.xp / 5))) : 50,
-    optimalTimes: ["07:00", "18:00", "21:00"], // Default times
-    weeklyForecast: user?.xp ? Math.min(95, Math.max(40, Math.floor(user.xp / 8))) : 60,
-    performanceCategories: ["Productivity", "Health", "Learning"], // Default categories
-    confidenceLevel: user?.xp && user.xp > 100 ? "High" : user?.xp && user.xp > 50 ? "Medium" : "Low"
+    consistencyScore: 0,
+    motivationLevel: "Low",
+    engagementLevel: 0,
+    optimalTimes: [],
+    weeklyForecast: 0,
+    performanceCategories: [],
+    confidenceLevel: "Low"
   };
+
+  // Debug logging
+  console.log('🔍 ML Analytics Debug:', {
+    user: user?.id,
+    mlAnalyticsData,
+    mlAnalytics,
+    mlError,
+    isLoading: mlLoading
+  });
 
   const getMotivationColor = (level: string) => {
     switch (level.toLowerCase()) {
@@ -68,6 +83,26 @@ export default function MLAnalyticsCard({ user }: MLAnalyticsCardProps) {
             <i className="fas fa-spinner fa-spin text-purple-600 text-2xl mr-3"></i>
             <span className="text-purple-700">Loading analytics...</span>
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (mlError) {
+    return (
+      <Card className="bg-gradient-to-r from-red-50 to-pink-50 border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-900">
+            <i className="fas fa-exclamation-triangle text-red-600"></i>
+            Analytics Error
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <div className="flex items-center justify-center">
+            <i className="fas fa-exclamation-circle text-red-600 text-2xl mr-3"></i>
+            <span className="text-red-700">Failed to load analytics</span>
+          </div>
+          <p className="text-xs text-red-600 mt-2">Using fallback values</p>
         </CardContent>
       </Card>
     );
@@ -129,14 +164,22 @@ export default function MLAnalyticsCard({ user }: MLAnalyticsCardProps) {
         {/* Optimal Times */}
         <div className="space-y-2">
           <span className="text-sm font-medium text-gray-700">Optimal Times</span>
-          <div className="flex flex-wrap gap-2">
-                         {mlAnalytics.optimalTimes.map((time: string, index: number) => (
-               <Badge key={index} variant="outline" className="text-xs">
-                 <i className="fas fa-clock mr-1"></i>
-                 {time}
-               </Badge>
-             ))}
-          </div>
+          {mlAnalytics.optimalTimes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {mlAnalytics.optimalTimes.map((time: string, index: number) => (
+                <Badge key={index} variant="outline" className="text-xs">
+                  <i className="fas fa-clock mr-1"></i>
+                  {time}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-xs text-gray-500">
+                No habits added yet
+              </p>
+            </div>
+          )}
           <p className="text-xs text-gray-500">
             Best times for habit completion
           </p>
@@ -145,14 +188,23 @@ export default function MLAnalyticsCard({ user }: MLAnalyticsCardProps) {
         {/* Performance Categories */}
         <div className="space-y-2">
           <span className="text-sm font-medium text-gray-700">You Excel At</span>
-          <div className="flex flex-wrap gap-2">
-                         {mlAnalytics.performanceCategories.map((category: string, index: number) => (
-               <Badge key={index} className="bg-indigo-100 text-indigo-800 border-indigo-200 text-xs">
-                 <i className="fas fa-star mr-1"></i>
-                 {category}
-               </Badge>
-             ))}
-          </div>
+          {mlAnalytics.performanceCategories.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {mlAnalytics.performanceCategories.map((category: string, index: number) => (
+                <Badge key={index} className="bg-indigo-100 text-indigo-800 border-indigo-200 text-xs">
+                  <i className="fas fa-star mr-1"></i>
+                  {category}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <i className="fas fa-plus-circle text-gray-300 text-2xl mb-2"></i>
+              <p className="text-xs text-gray-500">
+                No habits added yet. Add your first habit to see your achievements!
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Weekly Forecast */}
