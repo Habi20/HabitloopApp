@@ -3,13 +3,28 @@
 
 // Determine the API base URL based on environment
 const getApiBaseUrl = () => {
-  // In development, use relative URLs (handled by Vite proxy)
-  if (import.meta.env.DEV) {
-    return '/api';
-  }
+  // TEMPORARY: Force local backend for testing
+  // Since both local and Railway use the same Supabase database
+  return '/api';
   
-  // In production, use the Railway backend URL
-  return 'https://habitloopapp-development.up.railway.app/api';
+  // TODO: Re-enable Railway logic after local testing is complete
+  // Check for environment variable override first
+  // if (typedEnv.apiBaseUrl) {
+  //   return typedEnv.apiBaseUrl;
+  // }
+  
+  // Check for local backend flag
+  // if (typedEnv.useLocalBackend) {
+  //   return '/api';
+  // }
+  
+  // Use development vs production logic
+  // if (isDev) {
+  //   return '/api';
+  // }
+  
+  // Default: use Railway backend for production
+  // return 'https://habitloopapp-development.up.railway.app/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -24,3 +39,11 @@ export const buildApiUrl = (endpoint: string): string => {
 // Environment check helpers
 export const isDevelopment = import.meta.env.DEV;
 export const isProduction = import.meta.env.PROD;
+
+// Debug logging
+console.log('🔍 API Config Debug:', {
+  isDev: import.meta.env.DEV,
+  isProd: import.meta.env.PROD,
+  apiBaseUrl: API_BASE_URL,
+  currentUrl: window.location.href
+});

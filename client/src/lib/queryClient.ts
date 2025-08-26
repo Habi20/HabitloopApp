@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { buildApiUrl } from "@/config/api";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -61,7 +62,10 @@ export async function apiRequest(
     }
   }
 
-  const res = await fetch(url, {
+  // Use buildApiUrl to construct the proper URL
+  const fullUrl = buildApiUrl(url);
+  
+  const res = await fetch(fullUrl, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -125,7 +129,17 @@ export const getQueryFn: <T>(options: {
       }
     }
 
-    const res = await fetch(queryKey[0] as string, {
+    // Use buildApiUrl to construct the proper URL
+    // Remove /api/ prefix from queryKey if present to avoid double /api/
+    let endpoint = queryKey[0] as string;
+    if (endpoint.startsWith('/api/')) {
+      endpoint = endpoint.slice(4); // Remove '/api/' prefix
+      console.log('🔍 Removed /api/ prefix, new endpoint:', endpoint);
+    }
+    const fullUrl = buildApiUrl(endpoint);
+    console.log('🔍 Final URL:', fullUrl);
+    
+    const res = await fetch(fullUrl, {
       headers,
       credentials: "include",
     });
