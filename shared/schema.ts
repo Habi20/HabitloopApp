@@ -56,7 +56,9 @@ export const users = pgTable('users', {
   xp: integer('xp').default(0),
   isGuest: boolean('is_guest').default(false),
   questionnaire: jsonb('questionnaire'),
+  aiRecommendations: jsonb('ai_recommendations'), // ← Added for AI recommendations
   emailSettings: jsonb('email_settings'),
+  userSettings: jsonb('user_settings'), // ← Added for UI settings
   difficulty: varchar('difficulty').default('medium'), // ← Added
   supabaseAuthId: uuid('supabase_auth_id'), // ← Added for Supabase Auth integration
   createdAt: timestamp('created_at'),
