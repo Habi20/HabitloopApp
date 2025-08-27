@@ -1,7 +1,7 @@
 // server/routes/aiRoutes.ts
 import express from "express";
 import {
-  generateServiceInsight,
+  generateAdvancedServiceInsight,
   getAvailableServices,
 } from "../services/aiCoachService";
 import { requireAuth } from "./middlewareRoutes";
@@ -274,7 +274,7 @@ router.post("/coach/insight", requireAuth, async (req, res) => {
         .json({ error: "Context with habits and completions is required" });
     }
 
-    const insight = await generateServiceInsight(serviceId, {
+    const insight = await generateAdvancedServiceInsight(serviceId, {
       habits: context.habits,
       completions: context.completions,
       questionnaire: context.questionnaire || {},

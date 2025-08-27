@@ -836,6 +836,49 @@ export function authRoutes() {
     }
   });
 
+  // Update user profile
+  router.put("/users/:userId", requireAuth, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { firstName, lastName, email, profileImageUrl } = req.body;
+
+      // Verify the user is updating their own profile
+      if (req.user.id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: { message: "You can only update your own profile" },
+        });
+      }
+
+      // Update user data
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        email,
+        profileImageUrl,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          error: { message: "User not found" },
+        });
+      }
+
+      res.json({
+        success: true,
+        user: updatedUser,
+        message: "Profile updated successfully",
+      });
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({
+        success: false,
+        error: { message: "Failed to update profile" },
+      });
+    }
+  });
+
   // Get all HabitLoop users
   router.get("/habitloop/users", async (_req: any, res) => {
     try {
