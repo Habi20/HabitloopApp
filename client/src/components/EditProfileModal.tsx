@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { buildApiUrl } from '@/config/api';
+
+// Avatar styles from HabitLoopSignupModal
+const AVATAR_STYLES = [
+  { value: 'adventurer', label: 'Adventurer', description: 'Fantasy-style characters' },
+  { value: 'avataaars', label: 'Avataaars', description: 'Cartoon-style people' },
+  { value: 'bottts', label: 'Bottts', description: 'Robot characters' },
+  { value: 'fun-emoji', label: 'Fun Emoji', description: 'Expressive emoji faces' },
+  { value: 'lorelei', label: 'Lorelei', description: 'Abstract geometric patterns' },
+  { value: 'personas', label: 'Personas', description: 'Professional avatars' },
+  { value: 'notionists', label: 'Notionists', description: 'Minimalist designs' },
+];
+
+// DiceBear avatar URL generator
+const generateAvatarUrl = (style: string, seed: string, size = 128) =>
+  `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&size=${size}`;
 
 interface EditProfileModalProps {
   open: boolean;
@@ -17,13 +32,9 @@ interface ProfileFormData {
   firstName: string;
   lastName: string;
   email: string;
-  difficulty: 'easy' | 'medium' | 'hard';
   profileImageUrl: string;
-  emailSettings: {
-    dailyReminders: boolean;
-    weeklyReports: boolean;
-    achievementNotifications: boolean;
-  };
+  avatarStyle: string;
+  avatarSeed: string;
 }
 
 export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
@@ -34,13 +45,9 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     firstName: '',
     lastName: '',
     email: '',
-    difficulty: 'medium',
     profileImageUrl: '',
-    emailSettings: {
-      dailyReminders: true,
-      weeklyReports: true,
-      achievementNotifications: true,
-    },
+    avatarStyle: 'avataaars',
+    avatarSeed: 'HabitLoop',
   });
 
   // Initialize form data when user data is available
@@ -50,14 +57,9 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email || '',
-                 difficulty: (user.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
         profileImageUrl: user.profileImageUrl || '',
-        emailSettings: {
-          dailyReminders: true,
-          weeklyReports: true,
-          achievementNotifications: true,
-          ...user.emailSettings,
-        },
+        avatarStyle: 'avataaars',
+        avatarSeed: (user.firstName || 'HabitLoop') + (user.lastName ? ' ' + user.lastName : ''),
       });
     }
   }, [user]);
@@ -66,12 +68,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleEmailSettingChange = (setting: keyof ProfileFormData['emailSettings'], value: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      emailSettings: { ...prev.emailSettings, [setting]: value }
-    }));
-  };
+
 
   const getUserType = () => {
     if (!user) return 'unknown';
@@ -84,22 +81,20 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-             const response = await fetch(buildApiUrl(`user/${user?.id}`), {
-         method: 'PUT',
-         headers: {
-           'Content-Type': 'application/json',
-           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-         },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          difficulty: formData.difficulty,
-          profileImageUrl: formData.profileImageUrl,
-          emailSettings: formData.emailSettings,
-        }),
-      });
+                       try {
+               const response = await fetch(buildApiUrl(`users/${user?.id}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('verified_token') || localStorage.getItem('guest_token')}`,
+          },
+                  body: JSON.stringify({
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            profileImageUrl: generateAvatarUrl(formData.avatarStyle, formData.avatarSeed),
+          }),
+        });
 
       if (response.ok) {
         await refreshUserData();
@@ -130,12 +125,10 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             Edit Profile
-            {userType !== 'unknown' && (
-              <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                ({userType.charAt(0).toUpperCase() + userType.slice(1)} User)
-              </span>
-            )}
           </DialogTitle>
+          <DialogDescription className="text-gray-600">
+            Update your personal information and avatar
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -219,96 +212,90 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
               </div>
             )}
 
-            <div>
-              <Label htmlFor="profileImageUrl">Profile Image URL</Label>
-              <Input
-                id="profileImageUrl"
-                value={formData.profileImageUrl}
-                onChange={(e) => handleInputChange('profileImageUrl', e.target.value)}
-                placeholder="https://example.com/avatar.jpg"
-                className="mt-1"
-              />
+            {/* Avatar Generator */}
+            <div className="space-y-4">
+              <Label>Update Your Avatar</Label>
+              <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                {/* Avatar Preview */}
+                <div className="flex-shrink-0">
+                  <img
+                    src={generateAvatarUrl(formData.avatarStyle, formData.avatarSeed)}
+                    alt="Avatar Preview"
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white dark:border-gray-700 shadow-lg"
+                  />
+                </div>
+                {/* Avatar Controls */}
+                <div className="flex-1 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="avatarStyle" className="text-xs font-medium">Style</Label>
+                      <Select 
+                        value={formData.avatarStyle} 
+                        onValueChange={(value) => handleInputChange('avatarStyle', value)}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AVATAR_STYLES.map(style => (
+                            <SelectItem key={style.value} value={style.value}>
+                              <div className="font-medium">{style.label}</div>
+                              <div className="text-xs text-gray-500">{style.description}</div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="avatarSeed" className="text-xs">Seed (Name/Text)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="avatarSeed"
+                          value={formData.avatarSeed}
+                          onChange={(e) => handleInputChange('avatarSeed', e.target.value)}
+                          placeholder="Enter your name"
+                          className="h-9 text-xs flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const randomSeed = Math.random().toString(36).substring(7);
+                            handleInputChange('avatarSeed', randomSeed);
+                          }}
+                          className="h-9 px-3 text-xs"
+                          title="Generate random avatar"
+                        >
+                          🎲
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Avatar URL (auto-generated)
+                    </Label>
+                    <Input
+                      value={generateAvatarUrl(formData.avatarStyle, formData.avatarSeed)}
+                      readOnly
+                      className="h-8 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  💡 <strong>Tip:</strong> Change the seed text or click dice to generate different avatars.
+                  The same seed always creates the same avatar.
+                </p>
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="difficulty">Preferred Difficulty</Label>
-              <Select
-                value={formData.difficulty}
-                onValueChange={(value: 'easy' | 'medium' | 'hard') => 
-                  handleInputChange('difficulty', value)
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">Easy - Beginner friendly</SelectItem>
-                  <SelectItem value="medium">Medium - Balanced challenge</SelectItem>
-                  <SelectItem value="hard">Hard - Advanced user</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
           </div>
 
-          {/* Email Settings */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              Email Preferences
-            </h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-medium">Daily Reminders</Label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Receive daily habit reminders
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={formData.emailSettings.dailyReminders ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleEmailSettingChange('dailyReminders', !formData.emailSettings.dailyReminders)}
-                >
-                  {formData.emailSettings.dailyReminders ? 'On' : 'Off'}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-medium">Weekly Reports</Label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Get weekly progress summaries
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={formData.emailSettings.weeklyReports ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleEmailSettingChange('weeklyReports', !formData.emailSettings.weeklyReports)}
-                >
-                  {formData.emailSettings.weeklyReports ? 'On' : 'Off'}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-medium">Achievement Notifications</Label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Celebrate your milestones
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={formData.emailSettings.achievementNotifications ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleEmailSettingChange('achievementNotifications', !formData.emailSettings.achievementNotifications)}
-                >
-                  {formData.emailSettings.achievementNotifications ? 'On' : 'Off'}
-                </Button>
-              </div>
-            </div>
-          </div>
+          
 
           {/* User Type Specific Information */}
           {userType === 'guest' && (

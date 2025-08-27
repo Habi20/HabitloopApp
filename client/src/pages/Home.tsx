@@ -6,15 +6,16 @@ import { useUISettings } from "@/hooks/useUISettings";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { getCurrentDateString, getTimezoneWarning } from "@/lib/timezone";
-import { Sidebar } from "@/components/Sidebar";
+// import { Sidebar } from "@/components/Sidebar";
+import { Layout } from "@/components/Layout";
 import { HabitCard } from "@/components/HabitCard";
 import { AddHabitModal } from "@/components/AddHabitModal";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
 import { HabitRecommendationCarousel } from "@/components/HabitRecommendationCarousel";
 import { MLPredictionCard } from "@/components/MLPredictionCard";
-import { CoachingDashboard } from "@/components/CoachingDashboard";
+import { CoachingMessages } from "@/components/CoachingMessages";
 import { AIInsightCard } from "@/components/AIInsightCard";
-import NotificationPanel from "@/components/NotificationPanel";
+// import NotificationPanel from "@/components/NotificationPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -34,12 +35,49 @@ export default function Home() {
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false);
-
+  
+  // Coaching insight generation mutation
+  const generateInsightMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("coaching/generate-insight", "POST");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaching/messages"] });
+      toast({
+        title: "New Insight Generated",
+        description: "Your AI coach has provided new personalized guidance.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate coaching insight. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+// sidebarOpen
   // Check if questionnaire is completed
   useEffect(() => {
     const completed = localStorage.getItem("questionnaireCompleted") === "true";
     setQuestionnaireCompleted(completed);
   }, []);
+
+  // Sidebar state management
+  useEffect(() => {
+    // Auto-close sidebar on mobile when route changes
+    const handleRouteChange = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      }
+    };
+    
+    window.addEventListener('resize', handleRouteChange);
+    return () => window.removeEventListener('resize', handleRouteChange);
+  }, [setSidebarOpen]);
+
   const [debugSectionMinimized, setDebugSectionMinimized] = useState(false);
 
   // Get current date in Sri Lanka timezone
@@ -281,24 +319,14 @@ export default function Home() {
   const longestStreak = streaksData?.data?.summary?.totalLongestStreak || 0;
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 lg:hidden">
-          <div className="flex items-center justify-between p-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <i className="fas fa-bars text-xl"></i>
-            </button>
-            <h1 className="text-lg font-semibold text-gray-900">Today</h1>
-            <NotificationPanel />
-          </div>
-        </header>
-
+    <Layout 
+      showSidebar={true}
+      sidebarOpen={sidebarOpen}
+      onSidebarToggle={setSidebarOpen}
+      onSidebarOpen={() => setSidebarOpen(true)}
+      pageTitle="Today"
+    >
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           {/* Welcome Section */}
           <div className="bg-gradient-to-r from-primary to-purple-600 text-white p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
@@ -320,10 +348,10 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
-            {showTimezoneWarning}
-            
-            {/* Stats Cards - Moved to top */}
+                  <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
+          {showTimezoneWarning}
+          
+          {/* Stats Cards - Moved to top */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-10 lg:mb-12">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -502,7 +530,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className={`space-y-4 ${uiSettings.allNotifications ? 'max-h-96 overflow-y-auto pr-2' : ''}`}>
                 {habits.map((habit: any) => (
                   <HabitCard
                     key={habit.id}
@@ -537,18 +565,63 @@ export default function Home() {
               </div>
             </div>
 
-            {/* AI Habit Recommendations - Moved after Today's Habits */}
-            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-              <HabitRecommendationCarousel />
-            </div>
+            {/* AI Habit Recommendations - Only show if user has completed questionnaire */}
+            {questionnaireCompleted && (
+              <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+                <HabitRecommendationCarousel />
+              </div>
+            )}
 
-            {/* Notifications and User Insights - Renamed from AI Coach */}
-            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4 md:mb-6">
-                Notifications and User Insights
-              </h2>
-              <CoachingDashboard />
-            </div>
+            {/* Notifications and User Insights - Only show when notifications are enabled */}
+            {uiSettings.allNotifications && (
+              <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Sticky AI Coach Section */}
+                  <div className="lg:col-span-1">
+                    <div className="sticky top-4">
+                                             <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                         Personalized Habit Insights
+                       </h3>
+                       <p className="text-sm text-gray-600 mb-4">
+                         AI-powered insights and recommendations for your habit journey
+                       </p>
+                      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
+                        <div className="text-center">
+                          <i className="fas fa-lightbulb text-2xl text-blue-600 mb-2"></i>
+                          <p className="text-sm text-gray-700 mb-3">
+                            Ready to help you succeed!
+                          </p>
+                          <button 
+                            onClick={() => generateInsightMutation.mutate()}
+                            disabled={generateInsightMutation.isPending}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {generateInsightMutation.isPending ? (
+                              <>
+                                <i className="fas fa-spinner fa-spin mr-2"></i>
+                                Generating...
+                              </>
+                            ) : (
+                              'Get Insight'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Scrollable Notifications */}
+                  <div className="lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Recent Insights
+                    </h3>
+                                         <div className="max-h-96 overflow-y-auto pr-2 space-y-3">
+                       <CoachingMessages />
+                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* AI Insight Card */}
             {insights && insights.length > 0 && (
@@ -566,12 +639,13 @@ export default function Home() {
             )}
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Floating Action Button */}
       <button
         onClick={() => setShowAddHabit(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors lg:hidden flex items-center justify-center"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors lg:hidden flex items-center justify-center z-50"
+        aria-label="Add new habit"
       >
         <i className="fas fa-plus text-xl"></i>
       </button>
@@ -585,6 +659,6 @@ export default function Home() {
         open={showQuestionnaire}
         onClose={() => setShowQuestionnaire(false)}
       />
-    </div>
+    </Layout>
   );
 }

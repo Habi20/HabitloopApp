@@ -426,16 +426,16 @@ export function mlPredictionRoutes() {
         return;
       }
 
-      // Calculate base consistency score for users with habits
-      const baseConsistencyScore = Math.min(95, Math.max(20, Math.floor((totalCompletions / (totalHabits * 7)) * 100)));
+      // Calculate base consistency score for users with habits - more realistic calculation
+      const baseConsistencyScore = Math.min(85, Math.max(15, Math.floor((totalCompletions / (totalHabits * 7)) * 100)));
 
       // Apply inactivity penalty
       let inactivityPenalty = 0;
-      if (daysSinceLastCompletion > 7) inactivityPenalty = 30;
-      else if (daysSinceLastCompletion > 3) inactivityPenalty = 20;
-      else if (daysSinceLastCompletion > 1) inactivityPenalty = 10;
+      if (daysSinceLastCompletion > 7) inactivityPenalty = 40;
+      else if (daysSinceLastCompletion > 3) inactivityPenalty = 25;
+      else if (daysSinceLastCompletion > 1) inactivityPenalty = 15;
       
-      const consistencyScore = Math.max(20, baseConsistencyScore - inactivityPenalty);
+      const consistencyScore = Math.max(15, baseConsistencyScore - inactivityPenalty);
 
       // Calculate motivation level with inactivity consideration
       let motivationLevel = "Low";
@@ -462,17 +462,17 @@ export function mlPredictionRoutes() {
       
       const engagementLevel = Math.max(20, Math.min(95, baseEngagement + engagementBonus));
 
-      // Calculate weekly forecast for users with habits
-      const baseForecast = Math.min(95, Math.max(40, Math.floor(consistencyScore * 0.8 + (userLevel * 5))));
+      // Calculate weekly forecast for users with habits - more realistic calculation
+      const baseForecast = Math.min(85, Math.max(30, Math.floor(consistencyScore * 0.7 + (userLevel * 3))));
       
       // Adjust forecast based on recent activity
       let forecastAdjustment = 0;
-      if (recentCompletionCount >= 3) forecastAdjustment = 10;
-      else if (recentCompletionCount >= 1) forecastAdjustment = 5;
-      else if (daysSinceLastCompletion > 7) forecastAdjustment = -25;
-      else if (daysSinceLastCompletion > 3) forecastAdjustment = -15;
+      if (recentCompletionCount >= 3) forecastAdjustment = 8;
+      else if (recentCompletionCount >= 1) forecastAdjustment = 4;
+      else if (daysSinceLastCompletion > 7) forecastAdjustment = -30;
+      else if (daysSinceLastCompletion > 3) forecastAdjustment = -20;
       
-      const weeklyForecast = Math.max(20, Math.min(95, baseForecast + forecastAdjustment));
+      const weeklyForecast = Math.max(15, Math.min(85, baseForecast + forecastAdjustment));
 
       // Determine optimal times - return empty array for users with no habits
       const optimalTimes = habits?.length > 0 

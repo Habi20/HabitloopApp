@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Sidebar } from "@/components/Sidebar";
+import { Layout } from "@/components/Layout";
 import { AddHabitModal } from "@/components/AddHabitModal";
 import { EditHabitModal } from "@/components/EditHabitModal";
 import { HabitRecommendationCarousel } from "@/components/HabitRecommendationCarousel";
@@ -18,6 +18,7 @@ export default function Habits() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [showEditHabit, setShowEditHabit] = useState(false);
   const [showAICoach, setShowAICoach] = useState(false);
@@ -162,17 +163,20 @@ export default function Habits() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
-      <Sidebar />
-
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
+    <Layout 
+      showSidebar={true}
+      sidebarOpen={sidebarOpen}
+      onSidebarToggle={setSidebarOpen}
+      onSidebarOpen={() => setSidebarOpen(true)}
+      pageTitle="All Habits"
+    >
+      <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">All Habits</h1>
+            {/* Removed duplicate page title - now shown in header */}
             <div className="flex space-x-3">
-              <Button variant="outline" onClick={() => setShowAICoach(true)}>
-                <i className="fas fa-brain mr-2"></i>
-                AI Coach
+              <Button variant="outline" onClick={() => setShowAICoach(true)} title="AI Coach">
+                <i className="fas fa-lightbulb"></i>
+                <span className="hidden sm:inline ml-2">AI Coach</span>
               </Button>
               <Button
                 variant="outline"
@@ -290,40 +294,39 @@ export default function Habits() {
             </div>
           )}
         </div>
-      </main>
 
-      <AddHabitModal
-        open={showAddHabit}
-        onClose={() => {
-          setShowAddHabit(false);
-          setSelectedRecommendation(null);
-        }}
-        selectedRecommendation={selectedRecommendation}
-      />
-
-      {editingHabit && (
-        <EditHabitModal
-          open={showEditHabit}
+        <AddHabitModal
+          open={showAddHabit}
           onClose={() => {
-            setShowEditHabit(false);
-            setEditingHabit(null);
+            setShowAddHabit(false);
+            setSelectedRecommendation(null);
           }}
-          habit={editingHabit}
+          selectedRecommendation={selectedRecommendation}
         />
-      )}
 
-      <AICoachAssistant
-        open={showAICoach}
-        onClose={() => setShowAICoach(false)}
-      />
+        {editingHabit && (
+          <EditHabitModal
+            open={showEditHabit}
+            onClose={() => {
+              setShowEditHabit(false);
+              setEditingHabit(null);
+            }}
+            habit={editingHabit}
+          />
+        )}
 
-      <EmailIntegrationModal
-        open={showEmailIntegration}
-        onClose={() => setShowEmailIntegration(false)}
-      />
-    </div>
-  );
-}
+        <AICoachAssistant
+          open={showAICoach}
+          onClose={() => setShowAICoach(false)}
+        />
+
+        <EmailIntegrationModal
+          open={showEmailIntegration}
+          onClose={() => setShowEmailIntegration(false)}
+        />
+      </Layout>
+    );
+  }
 
 function getCategoryIcon(category: string): string {
   const icons: Record<string, string> = {

@@ -116,7 +116,7 @@ export function CoachingDashboard() {
 
   const generateInsightMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/coaching/generate-insight", "POST");
+      const response = await apiRequest("coaching/generate-insight", "POST");
       return response.json();
     },
     onSuccess: () => {
@@ -219,10 +219,11 @@ export function CoachingDashboard() {
         <Button 
           onClick={() => generateInsightMutation.mutate()}
           disabled={generateInsightMutation.isPending}
-          className="flex items-center space-x-2"
+          className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
+          title="Get AI Insight"
         >
-          <i className="fas fa-brain"></i>
-          <span>Get Insight</span>
+          <i className="fas fa-lightbulb"></i>
+          <span className="hidden sm:inline">Get Insight</span>
           {generateInsightMutation.isPending && (
             <i className="fas fa-spinner fa-spin ml-2"></i>
           )}

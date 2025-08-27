@@ -106,7 +106,7 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-3 sm:p-4 md:p-5 lg:p-6">
+      <CardContent className="p-3 sm:p-4">
         <div className="flex items-start space-x-3 sm:space-x-4 md:space-x-5 lg:space-x-6">
           <button 
             onClick={handleToggle}
@@ -153,40 +153,26 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
               )}
             </div>
             
-            {/* ML Performance Score */}
+            {/* Consistency Score */}
             {performanceScore && (
-              <div className="mt-2 p-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
-                  <div className="flex items-center space-x-2 flex-wrap">
-                    <i className="fas fa-chart-line text-blue-600"></i>
-                    <span className="text-xs font-medium text-gray-700">ML Score:</span>
-                    <span className={cn(
-                      "text-xs sm:text-sm font-bold",
-                      performanceScore.performance_score >= 80 ? "text-green-600" :
-                      performanceScore.performance_score >= 50 ? "text-yellow-600" : "text-red-600"
-                    )}>
-                      {performanceScore.performance_score}%
-                    </span>
-                    <Badge variant="outline" className={cn(
-                      "text-xs",
-                      performanceScore.confidence_level === 'high' ? "border-green-300 text-green-700" :
-                      performanceScore.confidence_level === 'medium' ? "border-yellow-300 text-yellow-700" : "border-red-300 text-red-700"
-                    )}>
-                      {performanceScore.confidence_level}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {performanceScore.metrics.current_streak > 0 ? 
-                      `${performanceScore.metrics.current_streak} day streak` : 
-                      'No streak yet'
-                    }
-                  </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <i className="fas fa-chart-line text-blue-600"></i>
+                  <span className="text-gray-600">Consistency:</span>
+                  <span className={cn(
+                    "font-semibold",
+                    performanceScore.performance_score >= 80 ? "text-green-600" :
+                    performanceScore.performance_score >= 50 ? "text-yellow-600" : "text-red-600"
+                  )}>
+                    {performanceScore.performance_score}%
+                  </span>
                 </div>
-                {performanceScore.performance_score < 50 && performanceScore.recommendations.length > 0 && (
-                  <div className="mt-1 text-xs text-gray-600">
-                    💡 {performanceScore.recommendations[0]}
-                  </div>
-                )}
+                <div className="text-gray-500">
+                  {performanceScore.metrics.current_streak > 0 ? 
+                    `${performanceScore.metrics.current_streak}d streak` : 
+                    'No streak'
+                  }
+                </div>
               </div>
             )}
             {loadingScore && (
