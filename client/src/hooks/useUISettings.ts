@@ -14,6 +14,9 @@ interface UISettings {
   showDataConsistencyCheck: boolean;
   showMLSuccessPredictor: boolean;
   showAIQuestionnaire: boolean;
+  advancedFeatures: boolean;
+  showHabitCarousel: boolean;
+  allNotifications: boolean;
 }
 
 const defaultSettings: UISettings = {
@@ -28,6 +31,9 @@ const defaultSettings: UISettings = {
   showDataConsistencyCheck: false,
   showMLSuccessPredictor: false,
   showAIQuestionnaire: true,
+  advancedFeatures: false,
+  showHabitCarousel: true,
+  allNotifications: true,
 };
 
 export function useUISettings() {

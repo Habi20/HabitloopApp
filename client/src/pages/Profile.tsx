@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { buildApiUrl } from "@/config/api";
-import { Sidebar } from "@/components/Sidebar";
+import { useToast } from "@/hooks/use-toast";
+import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import SimpleXPDisplay from "@/components/SimpleXPDisplay";
 import MLAnalyticsCard from "@/components/MLAnalyticsCard";
+import { EditProfileModal } from "@/components/EditProfileModal";
 
 export default function Profile() {
   const {
@@ -16,12 +17,13 @@ export default function Profile() {
     getUserDisplayName,
     getUserEmail,
     getUserInitials,
-    logout,
   } = useAuth();
   const { toast } = useToast();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, setHabits] = useState([]);
   const [, setCompletions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -41,40 +43,47 @@ export default function Profile() {
       const fetchUserData = async () => {
         try {
           // Get JWT tokens for authentication (guest or verified)
-          const guestToken = localStorage.getItem('guest_token');
-          const verifiedToken = localStorage.getItem('verified_token');
+          const guestToken = localStorage.getItem("guest_token");
+          const verifiedToken = localStorage.getItem("verified_token");
           const headers: Record<string, string> = {};
-          
+
           if (guestToken) {
-            headers['Authorization'] = `Bearer ${guestToken}`;
+            headers["Authorization"] = `Bearer ${guestToken}`;
           } else if (verifiedToken) {
-            headers['Authorization'] = `Bearer ${verifiedToken}`;
+            headers["Authorization"] = `Bearer ${verifiedToken}`;
           }
 
           const [habitsRes, completionsRes] = await Promise.all([
-            fetch(buildApiUrl('habits'), { headers }),
-            fetch(buildApiUrl('completions'), { headers })
+            fetch(buildApiUrl("habits"), { headers }),
+            fetch(buildApiUrl("completions"), { headers }),
           ]);
-          
+
           if (habitsRes.ok) {
             const habitsData = await habitsRes.json();
             setHabits(habitsData.habits || []);
           }
-          
+
           if (completionsRes.ok) {
             const completionsData = await completionsRes.json();
             setCompletions(completionsData.completions || []);
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          console.error("Error fetching user data:", error);
         } finally {
           setLoading(false);
         }
       };
-      
+
       fetchUserData();
     }
   }, [user, authLoading, toast]);
+
+  // Force re-render when user data changes (for profile picture updates)
+  useEffect(() => {
+    if (user) {
+      setLoading(false);
+    }
+  }, [user?.profileImageUrl, user?.firstName, user?.lastName, user?.email]);
 
   if (authLoading) {
     return (
@@ -91,107 +100,100 @@ export default function Profile() {
   const userInitials = getUserInitials(user);
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
-      <Sidebar />
-
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile</h1>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <Layout
+      showSidebar={true}
+      sidebarOpen={sidebarOpen}
+      onSidebarToggle={setSidebarOpen}
+      onSidebarOpen={() => setSidebarOpen(true)}
+      pageTitle="Profile"
+    >
+      <div className="max-w-7xl mx-auto p-4">
+        {/* Desktop Optimized Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-8rem)]">
+          {/* Left Column - Personal Info & Bottom Cards */}
+          <div className="lg:col-span-5 space-y-6">
             {/* Profile Info */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Personal Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center space-x-6">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage 
-                        src={user.profileImageUrl && user.profileImageUrl !== "👤" ? user.profileImageUrl : ""} 
-                        alt={`${getUserDisplayName(user)}'s profile`}
-                      />
-                      <AvatarFallback className="text-lg font-semibold bg-primary text-white">
-                        {userInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h2 className="text-xl font-semibold text-gray-900">
-                        {getUserDisplayName(user)}
-                      </h2>
-                                              <p className="text-gray-600">{getUserEmail(user)}</p>
-                      <Button variant="outline" className="mt-2">
-                        <i className="fas fa-camera mr-2"></i>
-                        Change Photo
-                      </Button>
+            <Card className="h-fit">
+              <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center space-x-6">
+                  <Avatar className="h-20 w-20" key={user.profileImageUrl}>
+                    <AvatarImage
+                      src={
+                        user.profileImageUrl && user.profileImageUrl !== "👤"
+                          ? user.profileImageUrl
+                          : ""
+                      }
+                      alt={`${getUserDisplayName(user)}'s profile`}
+                    />
+                    <AvatarFallback className="text-lg font-semibold bg-primary text-white">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {getUserDisplayName(user)}
+                    </h2>
+                    <p className="text-gray-600">{getUserEmail(user)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name
+                    </label>
+                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      {user.firstName || "Not set"}
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name
-                      </label>
-                      <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        {user.firstName || "Not set"}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name
-                      </label>
-                      <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        {user.lastName || "Not set"}
-                      </div>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
-                        {getUserEmail(user) || "Not set"}
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name
+                    </label>
+                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      {user.lastName || "Not set"}
                     </div>
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
+                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      {getUserEmail(user) || "Not set"}
+                    </div>
+                  </div>
+                </div>
 
-                  <Button className="w-full md:w-auto">
-                    <i className="fas fa-edit mr-2"></i>
-                    Edit Profile
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+                <Button
+                  className="w-full md:w-auto"
+                  onClick={() => setShowEditProfile(true)}
+                >
+                  <i className="fas fa-edit mr-2"></i>
+                  Edit Profile
+                </Button>
+              </CardContent>
+            </Card>
 
-            {/* Stats Sidebar */}
-            <div className="space-y-6">
-
-              {/* XP Breakdown Card */}
-              {!loading && (
-                <SimpleXPDisplay user={user} />
-              )}
-
-              {/* ML Analytics Card */}
-              {!loading && (
-                <MLAnalyticsCard user={user} />
-              )}
-
-              {/* Quick Challenge Claims */}
+            {/* Quick Challenge Claims - Desktop: Beside Achievements */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-center flex items-center justify-center">
+                  <CardTitle className="text-center flex items-center justify-center text-sm">
                     <i className="fas fa-trophy mr-2 text-yellow-500"></i>
                     Quick Challenge Claims
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600 text-center mb-4">
+                    <p className="text-xs text-gray-600 text-center mb-3">
                       Claim your completed challenge rewards here
                     </p>
-                    <Button 
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                      onClick={() => window.location.href = '/challenges'}
+                    <Button
+                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-sm"
+                      onClick={() => (window.location.href = "/challenges")}
                     >
                       <i className="fas fa-gift mr-2"></i>
                       View All Challenges
@@ -200,16 +202,19 @@ export default function Profile() {
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* Achievements - Aligned horizontally with ML Analytics */}
+              <Card className="lg:h-fit">
                 <CardHeader>
-                  <CardTitle className="text-center">Achievements</CardTitle>
+                  <CardTitle className="text-center text-sm">
+                    Achievements
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg">
-                      <i className="fas fa-trophy text-yellow-500"></i>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    <div className="flex items-center space-x-2 p-2 bg-yellow-50 rounded-lg">
+                      <i className="fas fa-trophy text-yellow-500 text-sm"></i>
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-gray-900 text-xs">
                           First Habit
                         </div>
                         <div className="text-xs text-gray-600">
@@ -218,10 +223,10 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
-                      <i className="fas fa-fire text-green-500"></i>
+                    <div className="flex items-center space-x-2 p-2 bg-green-50 rounded-lg">
+                      <i className="fas fa-fire text-green-500 text-sm"></i>
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-gray-900 text-xs">
                           Streak Master
                         </div>
                         <div className="text-xs text-gray-600">
@@ -230,42 +235,48 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    <div className="text-center py-4">
-                      <i className="fas fa-medal text-4xl text-gray-300 mb-2"></i>
-                      <p className="text-sm text-gray-500">
+                    <div className="text-center py-2">
+                      <i className="fas fa-medal text-2xl text-gray-300 mb-1"></i>
+                      <p className="text-xs text-gray-500">
                         Keep building habits to unlock more achievements!
                       </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-center">Account</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={logout}
-                  >
-                    <i className="fas fa-sign-out-alt mr-2"></i>
-                    Sign Out
-                  </Button>
-
-                  {user.isGuest && (
-                    <Button className="w-full">
-                      <i className="fas fa-user-plus mr-2"></i>
-                      Create Account
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           </div>
+
+          {/* Center Column - XP Display (Desktop only, stacked on mobile) */}
+          <div className="lg:col-span-3 lg:block hidden">
+            {!loading && (
+              <div className="sticky top-4">
+                <SimpleXPDisplay user={user} />
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - ML Analytics */}
+          <div className="lg:col-span-4">
+            {!loading && (
+              <div className="sticky top-4">
+                <MLAnalyticsCard user={user} />
+              </div>
+            )}
+          </div>
+
+          {/* Mobile: XP Display below personal info */}
+          <div className="lg:hidden col-span-1">
+            {!loading && <SimpleXPDisplay user={user} />}
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        open={showEditProfile}
+        onClose={() => setShowEditProfile(false)}
+      />
+    </Layout>
   );
 }
