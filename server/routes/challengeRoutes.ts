@@ -315,20 +315,22 @@ async function claimChallengeReward(userId: string, challengeId: string) {
     return { success: false, xpEarned: 0, message: "Challenge not found" };
   }
 
+  // Check if challenge is completed first
+  const completion = await definition.checkCompletion(userId);
+  if (!completion.isCompleted) {
+    return { success: false, xpEarned: 0, message: "Challenge not completed yet" };
+  }
+
   // Check if challenge was already claimed and hasn't reset yet
   const today = new Date().toISOString().split('T')[0];
   const existingClaim = await storage.getChallengeCompletion(userId, challengeId);
   
-  if (existingClaim) {
-    // Check if the challenge has reset
-    if (existingClaim.resetAt && existingClaim.resetAt > today) {
-      return { success: false, xpEarned: 0, message: "Challenge already claimed and hasn't reset yet" };
-    }
-  }
-
-  const completion = await definition.checkCompletion(userId);
-  if (!completion.isCompleted) {
-    return { success: false, xpEarned: 0, message: "Challenge not completed yet" };
+  if (existingClaim && existingClaim.resetAt && existingClaim.resetAt > today) {
+    return { 
+      success: false, 
+      xpEarned: 0, 
+      message: `Challenge already claimed. Resets on ${existingClaim.resetAt}` 
+    };
   }
 
   // Use the awardChallengeXP method which handles double-claiming prevention

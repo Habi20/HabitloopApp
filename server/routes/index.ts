@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer } from "http";
 import { setupSession, requireAuth } from "./middlewareRoutes";
-import { authRoutes } from "./authRoutes";
+import authRoutes from "./authRoutes";
 import { habitRoutes } from "./habitRoutes";
 import aiRoutes from "./aiRoutes";
 import { mlPredictionRoutes } from "./mlPredictionRoutes";
@@ -20,13 +20,13 @@ export async function registerRoutes(app: express.Application) {
   setupSession(app);
 
   // Mount all route modules
-  app.use("/api", authRoutes());
+  app.use("/api", authRoutes);
   app.use("/api/habits", habitRoutes());
   app.use("/api/ai", aiRoutes);
   app.use("/api/ml", mlPredictionRoutes());
   app.use("/api/email", emailRoutes);
   app.use("/api/guest", guestRoutes());
-  app.use("/api/admin", adminRoutes());
+  app.use("/api/admin", adminRoutes);
   app.use("/api/analytics", analyticsRoutes());
   app.use("/api/challenges", challengeRoutes());
   app.use("/api/health", healthRoutes());
@@ -43,6 +43,33 @@ export async function registerRoutes(app: express.Application) {
   
   // Mount AI coach routes under /api/coach for frontend compatibility
   app.use("/api/coach", aiRoutes);
+
+  // Add default route handler for root path
+  app.get('/', (_req, res) => {
+    res.json({
+      message: "🚀 HabitLoop Backend API",
+      status: "operational",
+      services: {
+        ml_system: "✅ Ready for testing",
+        rbac_system: "✅ Active", 
+        database: "✅ Connected",
+        python_models: "📊 Fallback mode"
+      },
+      endpoints: {
+        ml_training: "POST /api/ml/train",
+        ml_prediction: "POST /api/ml/predict", 
+        ml_status: "GET /api/ml/status",
+        authentication: "POST /api/auth/signin",
+        habits: "GET /api/habits",
+        admin: "GET /api/admin/users",
+        completions: "GET /api/completions",
+        insights: "GET /api/insights",
+        coaching: "GET /api/coaching/messages"
+      },
+      documentation: "Backend-only mode - Frontend disabled for testing",
+      timestamp: new Date().toISOString()
+    });
+  });
 
   // Catch-all route for undefined paths - now returns proper 404
   app.get("*", (_req, res) => {

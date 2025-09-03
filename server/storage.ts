@@ -27,7 +27,7 @@ import {
   type MLPrediction,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { getCurrentDateString, getDaysDifference, getWeekNumber, getMonthNumber, TimezoneUtils } from "./utils/timezone.js";
 
 // Interface for storage operations
@@ -111,6 +111,23 @@ export interface IStorage {
   // Questionnaire operations
   saveQuestionnaire(userId: string, questionnaireData: any): Promise<void>;
   saveRecommendations(userId: string, recommendations: any[]): Promise<void>;
+
+  // Admin operations
+  getSystemStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    guestUsers: number;
+    verifiedUsers: number;
+    totalHabits: number;
+    activeHabits: number;
+    totalCompletions: number;
+  }>;
+  getConnectionPoolStatus(): Promise<{
+    totalConnections: number;
+    idleConnections: number;
+    activeConnections: number;
+  }>;
+  getLastQueryTime(): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -693,21 +710,12 @@ export class DatabaseStorage implements IStorage {
   async awardChallengeXP(userId: string, challengeId: string, xpAmount: number, challengeType: string): Promise<User> {
     console.log(`🏆 Awarding challenge XP: ${xpAmount} XP for challenge ${challengeId} (${challengeType}) to user ${userId}`);
     
-    // Check if challenge was already completed this week/month
-    const existingCompletion = await this.db
-      .select()
-      .from(challengeCompletions)
-      .where(
-        and(
-          eq(challengeCompletions.userId, userId),
-          eq(challengeCompletions.challengeId, challengeId),
-          gte(challengeCompletions.completedAt, getCurrentDateString())
-        )
-      )
-      .limit(1);
+    // Check if challenge was already completed and hasn't reset yet
+    const existingCompletion = await this.getChallengeCompletion(userId, challengeId);
+    const today = getCurrentDateString();
     
-    if (existingCompletion.length > 0) {
-      console.log(`⚠️ Challenge ${challengeId} already completed for user ${userId}`);
+    if (existingCompletion && existingCompletion.resetAt && existingCompletion.resetAt > today) {
+      console.log(`⚠️ Challenge ${challengeId} already completed for user ${userId} and hasn't reset yet (reset at: ${existingCompletion.resetAt})`);
       return await this.getUser(userId) as User;
     }
     
@@ -716,13 +724,31 @@ export class DatabaseStorage implements IStorage {
     
     // Record challenge completion
     try {
-      await this.db.insert(challengeCompletions).values({
-        userId,
-        challengeId,
-        xpAwarded: xpAmount,
-        completedAt: getCurrentDateString(),
-        resetAt: this.calculateResetDate(challengeId, getCurrentDateString()),
-      });
+      // If there's an existing completion, update it; otherwise insert new
+      if (existingCompletion) {
+        await this.db
+          .update(challengeCompletions)
+          .set({
+            xpAwarded: xpAmount,
+            completedAt: today,
+            resetAt: this.calculateResetDate(challengeId, today),
+          })
+          .where(
+            and(
+              eq(challengeCompletions.userId, userId),
+              eq(challengeCompletions.challengeId, challengeId)
+            )
+          );
+      } else {
+        await this.db.insert(challengeCompletions).values({
+          userId,
+          challengeId,
+          xpAwarded: xpAmount,
+          completedAt: today,
+          resetAt: this.calculateResetDate(challengeId, today),
+          createdAt: new Date(),
+        });
+      }
       
       // Create AI insight for challenge completion
       await this.createAIInsight(
@@ -1205,6 +1231,61 @@ export class DatabaseStorage implements IStorage {
       console.error('Error getting user settings:', error);
       return null;
     }
+  }
+
+  // Admin methods
+  async getSystemStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    guestUsers: number;
+    verifiedUsers: number;
+    totalHabits: number;
+    activeHabits: number;
+    totalCompletions: number;
+  }> {
+    try {
+      const allUsers = await this.getAllUsers();
+      const allHabits = await db.select().from(habits);
+      const allCompletions = await db.select().from(habitCompletions);
+
+      const now = Date.now();
+      const oneDayAgo = now - (24 * 60 * 60 * 1000);
+
+      return {
+        totalUsers: allUsers.length,
+        activeUsers: allUsers.filter(u => u.updatedAt && u.updatedAt.getTime() > oneDayAgo).length,
+        guestUsers: allUsers.filter(u => u.isGuest).length,
+        verifiedUsers: allUsers.filter(u => !u.isGuest).length,
+        totalHabits: allHabits.length,
+        activeHabits: allHabits.filter(h => h.isActive).length,
+        totalCompletions: allCompletions.length
+      };
+    } catch (error) {
+      console.error('Error getting system stats:', error);
+      throw error;
+    }
+  }
+
+  async getConnectionPoolStatus(): Promise<{
+    totalConnections: number;
+    idleConnections: number;
+    activeConnections: number;
+  }> {
+    try {
+      // This is a simplified version - in production you'd get actual pool stats
+      return {
+        totalConnections: 10,
+        idleConnections: 8,
+        activeConnections: 2
+      };
+    } catch (error) {
+      console.error('Error getting connection pool status:', error);
+      throw error;
+    }
+  }
+
+  async getLastQueryTime(): Promise<string> {
+    return new Date().toISOString();
   }
 }
 

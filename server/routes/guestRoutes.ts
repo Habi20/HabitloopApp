@@ -11,50 +11,151 @@ import { typedEnv } from "../env";
 export function guestRoutes() {
   const router = Router();
 
-  // Guest token verification endpoint
-  router.get('/verify', async (req, res) => {
+  // Guest authentication endpoint (POST - for login) - SIMPLIFIED VERSION
+  router.post('/auth', async (req, res) => {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'No token provided' });
-      }
+      const { identifier, password } = req.body;
 
-      const token = authHeader.substring(7);
-      const jwtSecret = typedEnv.jwtSecret;
+      // If no identifier provided, auto-generate a guest user
+      if (!identifier) {
+        const guestId = `guest-${Date.now()}`;
+        const guestUser = await storage.createUser({
+          id: guestId,
+          email: `${guestId}@guest.local`,
+          firstName: 'Guest',
+          lastName: 'User',
+          level: 1,
+          xp: 0,
+          isGuest: true,
+          role: 'guest',
+          difficulty: 'medium',
+          profileImageUrl: null,
+          passwordHash: null,
+          questionnaire: null,
+          emailSettings: null,
+          supabaseAuthId: null,
+        });
 
-      try {
-        const decoded = jwt.verify(token, jwtSecret) as any;
-        const user = await storage.getUser(decoded.userId);
+        // Generate JWT token
+        const jwtSecret = typedEnv.jwtSecret;
+        const token = jwt.sign(
+          {
+            userId: guestUser.id,
+            email: guestUser.email,
+            isGuest: true,
+            role: guestUser.role
+          },
+          jwtSecret,
+          { expiresIn: '24h' }
+        );
 
-        if (!user) {
-          return res.status(401).json({ error: 'User not found' });
-        }
-
-        // Determine if this is actually a guest user
-        const isActuallyGuest = user.isGuest || 
-                               user.role === 'guest' || 
-                               user.email?.includes('@guest.local');
-
-        res.json({
+        return res.json({
           success: true,
           user: {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            level: user.level,
-            xp: user.xp,
-            role: user.role,
-            isGuest: isActuallyGuest,
-            difficulty: user.difficulty
-          }
+            id: guestUser.id,
+            email: guestUser.email,
+            firstName: guestUser.firstName,
+            lastName: guestUser.lastName,
+            level: guestUser.level,
+            xp: guestUser.xp,
+            role: guestUser.role,
+            isGuest: true,
+            difficulty: guestUser.difficulty
+          },
+          token: token,
+          message: "Auto-generated guest account created"
         });
-      } catch (jwtError) {
-        return res.status(401).json({ error: 'Invalid token' });
+      }
+
+      // If identifier provided, try to find existing user
+      let guestUser = await storage.getUser(identifier);
+      if (!guestUser) {
+        guestUser = await storage.getUserByEmail(identifier);
+      }
+
+      if (!guestUser) {
+        return res.status(404).json({ error: "Guest account not found. Try: user-001, guest-001, or leave empty for auto-generation" });
+      }
+
+      // Determine if this is actually a guest user
+      const isActuallyGuest = guestUser.isGuest || 
+                             guestUser.role === 'guest' || 
+                             identifier.startsWith('guest-') ||
+                             guestUser.email?.includes('@guest.local');
+
+      // Simple password logic - if no password set, allow login
+      if (!guestUser.passwordHash) {
+        // No password set - allow login
+        const jwtSecret = typedEnv.jwtSecret;
+        const token = jwt.sign(
+          {
+            userId: guestUser.id,
+            email: guestUser.email,
+            isGuest: isActuallyGuest,
+            role: guestUser.role
+          },
+          jwtSecret,
+          { expiresIn: '24h' }
+        );
+
+        return res.json({
+          success: true,
+          user: {
+            id: guestUser.id,
+            email: guestUser.email,
+            firstName: guestUser.firstName,
+            lastName: guestUser.lastName,
+            level: guestUser.level,
+            xp: guestUser.xp,
+            role: guestUser.role,
+            isGuest: isActuallyGuest,
+            difficulty: guestUser.difficulty
+          },
+          token: token,
+          message: "Login successful (no password required)"
+        });
+      } else {
+        // Password exists - verify it (optional for now)
+        if (password) {
+          const passwordMatch = await bcrypt.compare(password, guestUser.passwordHash);
+          if (!passwordMatch) {
+            return res.status(401).json({ error: "Incorrect password" });
+          }
+        }
+
+        // Generate JWT token
+        const jwtSecret = typedEnv.jwtSecret;
+        const token = jwt.sign(
+          {
+            userId: guestUser.id,
+            email: guestUser.email,
+            isGuest: isActuallyGuest,
+            role: guestUser.role
+          },
+          jwtSecret,
+          { expiresIn: '24h' }
+        );
+
+        return res.json({
+          success: true,
+          user: {
+            id: guestUser.id,
+            email: guestUser.email,
+            firstName: guestUser.firstName,
+            lastName: guestUser.lastName,
+            level: guestUser.level,
+            xp: guestUser.xp,
+            role: guestUser.role,
+            isGuest: isActuallyGuest,
+            difficulty: guestUser.difficulty
+          },
+          token: token,
+          message: "Login successful"
+        });
       }
     } catch (error) {
-      console.error('Guest verify error:', error);
-      res.status(500).json({ error: 'Verification failed' });
+      console.error("Guest auth error:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -105,131 +206,7 @@ export function guestRoutes() {
     }
   });
 
-  // Guest authentication endpoint (POST - for login)
-  router.post('/auth', async (req, res) => {
-    try {
-      const { identifier, password } = req.body;
-
-      if (!identifier) {
-        return res.status(400).json({ error: "Username or email is required" });
-      }
-
-      // Find guest user by ID or email
-      let guestUser = await storage.getUser(identifier);
-      if (!guestUser) {
-        guestUser = await storage.getUserByEmail(identifier);
-      }
-
-      if (!guestUser) {
-        return res.status(404).json({ error: "Guest account not found. Try: user-001, guest-001, or john.doe@example.com" });
-      }
-
-      // Determine if this is actually a guest user or an authenticated user
-      const isActuallyGuest = guestUser.isGuest || 
-                             guestUser.role === 'guest' || 
-                             identifier.startsWith('guest-') ||
-                             guestUser.email?.includes('@guest.local');
-      
-      // Allow all users to login through this endpoint, but treat them differently
-      // Guest users: isGuest = true, use guest_token
-      // Authenticated users: isGuest = false, use verified_token
-
-      // Handle password logic
-      if (!guestUser.passwordHash) {
-        // No password set - first time login
-        if (!password) {
-          return res.json({ 
-            needsPassword: true, 
-            message: "Please set a password for future logins" 
-          });
-        }
-
-        if (password.length < 6) {
-          return res.status(400).json({ error: "Password must be at least 6 characters" });
-        }
-
-        // Set new password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await storage.updateUser(guestUser.id, { passwordHash: hashedPassword });
-        guestUser.passwordHash = hashedPassword;
-
-        // Generate JWT token based on user type
-        const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'fallback-secret';
-        const token = jwt.sign(
-          {
-            userId: guestUser.id,
-            email: guestUser.email,
-            isGuest: isActuallyGuest,
-            role: guestUser.role
-          },
-          jwtSecret,
-          { expiresIn: '24h' }
-        );
-
-        return res.json({
-          success: true,
-          user: {
-            id: guestUser.id,
-            email: guestUser.email,
-            firstName: guestUser.firstName,
-            lastName: guestUser.lastName,
-            level: guestUser.level,
-            xp: guestUser.xp,
-            role: guestUser.role,
-            isGuest: isActuallyGuest,
-            difficulty: guestUser.difficulty
-          },
-          token: token,
-          message: "Password set successfully"
-        });
-      } else {
-        // Password exists - verify it
-        if (!password) {
-          return res.status(400).json({ error: "Password is required" });
-        }
-
-        const passwordMatch = await bcrypt.compare(password, guestUser.passwordHash);
-        if (!passwordMatch) {
-          return res.status(401).json({ error: "Incorrect password" });
-        }
-
-        // Generate JWT token based on user type
-        const jwtSecret = typedEnv.jwtSecret;
-        const token = jwt.sign(
-          {
-            userId: guestUser.id,
-            email: guestUser.email,
-            isGuest: isActuallyGuest,
-            role: guestUser.role
-          },
-          jwtSecret,
-          { expiresIn: '24h' }
-        );
-
-        return res.json({
-          success: true,
-          user: {
-            id: guestUser.id,
-            email: guestUser.email,
-            firstName: guestUser.firstName,
-            lastName: guestUser.lastName,
-            level: guestUser.level,
-            xp: guestUser.xp,
-            role: guestUser.role,
-            isGuest: isActuallyGuest,
-            difficulty: guestUser.difficulty
-          },
-          token: token,
-          message: "Login successful"
-        });
-      }
-    } catch (error) {
-      console.error("Guest auth error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Create new temporary guest user (for quick mode)
+  // Create new temporary guest user (for quick mode) - MUST BE BEFORE PARAMETERIZED ROUTES
   router.post('/create', async (_req, res) => {
     try {
       const guestUser = await storage.createUser({
@@ -282,6 +259,58 @@ export function guestRoutes() {
       res.status(500).json({ error: "Failed to create guest user" });
     }
   });
+
+  // Guest token verification endpoint
+  router.get('/verify', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+
+      const token = authHeader.substring(7);
+      const jwtSecret = typedEnv.jwtSecret;
+
+      try {
+        const decoded = jwt.verify(token, jwtSecret) as any;
+        const user = await storage.getUser(decoded.userId);
+
+        if (!user) {
+          return res.status(401).json({ error: 'User not found' });
+        }
+
+        // Determine if this is actually a guest user
+        const isActuallyGuest = user.isGuest || 
+                               user.role === 'guest' || 
+                               user.email?.includes('@guest.local');
+
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            level: user.level,
+            xp: user.xp,
+            role: user.role,
+            isGuest: isActuallyGuest,
+            difficulty: user.difficulty
+          }
+        });
+      } catch (jwtError) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    } catch (error) {
+      console.error('Guest verify error:', error);
+      res.status(500).json({ error: 'Verification failed' });
+    }
+  });
+
+
+
+
+
 
   // Get guest habits
   router.get('/habits/:guestId', async (req, res) => {

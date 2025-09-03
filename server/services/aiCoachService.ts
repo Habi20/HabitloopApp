@@ -394,14 +394,14 @@ function calculateAdvancedStreaks(habits: Habit[], completions: HabitCompletion[
     let currentStreak = 0;
     let currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
-
+    
     while (true) {
       const hasCompletion = habitCompletions.some(c => {
         const completionDate = new Date(c.completedAt);
         completionDate.setHours(0, 0, 0, 0);
         return completionDate.getTime() === currentDate.getTime();
       });
-
+      
       if (hasCompletion) {
         currentStreak++;
         currentDate.setDate(currentDate.getDate() - 1);
@@ -409,7 +409,7 @@ function calculateAdvancedStreaks(habits: Habit[], completions: HabitCompletion[
         break;
       }
     }
-
+    
     // Calculate longest streak and breaks
     let longestStreak = 0;
     let tempStreak = 0;
@@ -444,7 +444,7 @@ function calculateAdvancedStreaks(habits: Habit[], completions: HabitCompletion[
 
   const averageStreak = Object.values(currentStreaks).reduce((a, b) => a + b, 0) / habits.length || 0;
   const consistencyScore = habits.length > 0 ? (Object.values(currentStreaks).filter(s => s > 0).length / habits.length) * 100 : 0;
-
+  
   return {
     currentStreaks,
     longestStreaks,
@@ -579,7 +579,7 @@ function calculateCompletionTrends(habits: Habit[], completions: HabitCompletion
 
 // Enhanced AI Coach service with better error handling and caching
 export async function generateAdvancedServiceInsight(
-  serviceId: keyof typeof coachServices,
+  serviceId: keyof typeof coachServices, 
   context: {
     habits: Habit[];
     completions: HabitCompletion[];
@@ -594,13 +594,13 @@ export async function generateAdvancedServiceInsight(
   }
 
   const enhancedContext = buildAdvancedContext(
-    context.habits,
-    context.completions,
+    context.habits, 
+    context.completions, 
     context.questionnaire,
     context.userLevel,
     context.totalXP
   );
-
+  
   const prompt = service.promptTemplate(enhancedContext);
 
   try {
@@ -610,12 +610,12 @@ export async function generateAdvancedServiceInsight(
     const openai = new OpenAI({
       apiKey: env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
     });
-
+    
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
+        { 
+          role: "system", 
           content: `You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Always respond with valid JSON as requested, ensuring depth and practical value in every recommendation.`
         },
         {
@@ -627,12 +627,12 @@ export async function generateAdvancedServiceInsight(
       temperature: 0.7,
       max_tokens: 1500, // Increased for more detailed responses
     });
-
+    
     const content = res.choices[0].message.content;
     if (!content) {
       throw new Error('No response from OpenAI');
     }
-
+    
     const parsedResponse = JSON.parse(content);
 
     // Add metadata
@@ -653,7 +653,7 @@ export async function generateAdvancedServiceInsight(
     };
   } catch (e: any) {
     console.error(`AI insight failed for ${serviceId}`, e);
-
+    
     // Enhanced fallback responses based on service type
     const fallbackResponses: Record<keyof typeof coachServices, any> = {
       progress_analysis: {

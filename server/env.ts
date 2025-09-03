@@ -25,8 +25,10 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().optional(),
   FRONTEND_URL: z.string().default("http://localhost:5173"),
   SENDGRID_API_KEY: z.string().optional(),
-  SENDGRID_FROM_EMAIL: z.string().default("noreply@habitloop.com"),
-  GMAIL_TEST_EMAIL: z.string().default("akeel.lithan@gmail.com"),
+     // SENDGRID_FROM_EMAIL: z.string().default("noreply@habitloop.com"),
+   SENDGRID_FROM_EMAIL: z.string().default("habitloop-report@em6056.techversehublk.site"), // Domain authenticated
+   // GMAIL_TEST_EMAIL: z.string().default("habitloop-report@em6056.techversehublk.site"),
+   GMAIL_TEST_EMAIL: z.string().default("habitloop-report@em6056.techversehublk.site"), // Domain authenticated
   GMAIL_TEST_PASSWORD: z.string().default("password123"),
 });
 
@@ -61,9 +63,9 @@ export const typedEnv = {
   // Frontend URL
   frontendUrl: env.FRONTEND_URL,
   
-  // SendGrid Email
-  sendgridApiKey: env.SENDGRID_API_KEY || "",
-  sendgridFromEmail: env.SENDGRID_FROM_EMAIL,
+     // SendGrid Email
+   sendgridApiKey: env.SENDGRID_API_KEY || "",
+   sendgridFromEmail: env.SENDGRID_FROM_EMAIL, // Now uses domain authenticated email
   
   // Test Email (for development)
   gmailTestEmail: env.GMAIL_TEST_EMAIL,

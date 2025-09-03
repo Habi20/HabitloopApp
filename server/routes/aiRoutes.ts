@@ -20,8 +20,8 @@ const getUserId = (req: express.Request) => {
   return 'guest-demo-user'; // Fallback to guest
 };
 
-// Questionnaire endpoint - requires authentication
-router.post('/questionnaire', requireAuth, async (req, res) => {
+// Questionnaire endpoint - public for new users during signup
+router.post('/questionnaire', async (req, res) => {
   try {
     console.log("Received questionnaire data:", JSON.stringify(req.body, null, 2));
     
@@ -32,7 +32,7 @@ router.post('/questionnaire', requireAuth, async (req, res) => {
     const userId = req.user?.id || null;
     
     // Save questionnaire data to database if user is authenticated
-    if (userId && !req.user?.isGuest) {
+    if (userId && req.user && !req.user?.isGuest) {
       try {
         await storage.saveQuestionnaire(userId, questionnaire);
         console.log(`Questionnaire saved for user: ${userId}`);
@@ -44,7 +44,8 @@ router.post('/questionnaire', requireAuth, async (req, res) => {
     
     // Get user context for better AI personalization
     let userContext = null;
-    if (userId && !req.user?.isGuest) {
+    if (userId && req.user && !req.user?.isGuest) {
+      
       try {
         const user = await storage.getUser(userId);
         userContext = {
@@ -62,7 +63,7 @@ router.post('/questionnaire', requireAuth, async (req, res) => {
     console.log("Generated recommendations:", recommendations.length);
     
     // Save recommendations to database if user is authenticated
-    if (userId && !req.user?.isGuest) {
+    if (userId && req.user && !req.user?.isGuest) {
       try {
         await storage.saveRecommendations(userId, recommendations);
         console.log(`Recommendations saved for user: ${userId}`);

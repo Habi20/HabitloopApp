@@ -1,5 +1,6 @@
 // server/index.ts
 import './env';
+import './utils/adminLogger'; // Initialize admin logging control
 
 import express, { type Express } from "express";
 import cors from "cors";
@@ -97,6 +98,7 @@ app.use((req, res, next) => {
     console.log(`🚀 Backend API running on http://localhost:${PORT}`);
     console.log(`📊 ML System: Ready for testing`);
     console.log(`🔐 RBAC System: Active`);
+    console.log(`🔧 Admin Log Control: Initialized`);
   });
 
   // Error handling middleware
