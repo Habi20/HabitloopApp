@@ -17,6 +17,9 @@ interface UISettings {
   advancedFeatures: boolean;
   showHabitCarousel: boolean;
   allNotifications: boolean;
+  dailyEmailReports: boolean;
+  weeklyEmailReports: boolean;
+  monthlyEmailReports: boolean;
 }
 
 const defaultSettings: UISettings = {
@@ -34,6 +37,9 @@ const defaultSettings: UISettings = {
   advancedFeatures: false,
   showHabitCarousel: true,
   allNotifications: true,
+  dailyEmailReports: false,
+  weeklyEmailReports: false,
+  monthlyEmailReports: false,
 };
 
 export function useUISettings() {
@@ -41,19 +47,36 @@ export function useUISettings() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { user } = useAuth();
 
-  // Load settings from localStorage on mount
+  // Load settings from localStorage and user data on mount
   useEffect(() => {
+    let loadedSettings = { ...defaultSettings };
+    
+    // First, try to load from user data (database settings)
+    if (user?.userSettings?.settings) {
+      try {
+        const userSettings = user.userSettings.settings;
+        loadedSettings = { ...loadedSettings, ...userSettings };
+        console.log('✅ Loaded settings from user data:', userSettings);
+      } catch (error) {
+        console.error('Error loading settings from user data:', error);
+      }
+    }
+    
+    // Then, try to load from localStorage (local overrides)
     const savedSettings = localStorage.getItem('habitloop_ui_settings');
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
-        setSettings(prev => ({ ...prev, ...parsedSettings }));
+        loadedSettings = { ...loadedSettings, ...parsedSettings };
+        console.log('✅ Loaded settings from localStorage:', parsedSettings);
       } catch (error) {
         console.error('Error loading UI settings from localStorage:', error);
       }
     }
+    
+    setSettings(loadedSettings);
     setIsLoaded(true);
-  }, []);
+  }, [user]);
 
   // Sync settings to database when user is authenticated
   const syncSettingsToDatabase = async (newSettings: UISettings) => {

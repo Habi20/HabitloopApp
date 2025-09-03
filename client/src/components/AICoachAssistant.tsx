@@ -37,11 +37,19 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
 
   const { data: habitsResponse } = useQuery({
     queryKey: ["/api/habits"],
+    queryFn: async () => {
+      const response = await apiRequest("habits", 'GET');
+      return await response.json();
+    },
     enabled: open,
   });
 
   const { data: completionsResponse } = useQuery({
     queryKey: ["/api/completions"],
+    queryFn: async () => {
+      const response = await apiRequest("completions", 'GET');
+      return await response.json();
+    },
     enabled: open,
   });
 
@@ -176,7 +184,7 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto mx-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center">
             <Brain className="w-6 h-6 mr-2 text-purple-600" />

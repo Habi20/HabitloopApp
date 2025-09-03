@@ -106,6 +106,10 @@ export default function Home() {
   // Query for habits data
   const { data: habitsResponse, isLoading: habitsLoading } = useQuery<any>({
     queryKey: ["/api/habits"],
+    queryFn: async () => {
+      const response = await apiRequest("habits", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
@@ -124,12 +128,20 @@ export default function Home() {
   // Query for insights
   const { data: insights } = useQuery<any>({
     queryKey: ["/api/insights"],
+    queryFn: async () => {
+      const response = await apiRequest("insights", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
   // Query for streaks data
   const { data: streaksData } = useQuery<any>({
     queryKey: ["/api/analytics/streaks"],
+    queryFn: async () => {
+      const response = await apiRequest("analytics/streaks", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
@@ -269,6 +281,7 @@ export default function Home() {
     onSettled: () => {
       // Force refetch to ensure cache consistency
       queryClient.invalidateQueries({ queryKey: ["/api/completions", today] });
+      queryClient.invalidateQueries({ queryKey: ["/api/completions"] }); // Invalidate general completions query
       
       // Invalidate related queries with proper timing
       setTimeout(() => {
@@ -348,10 +361,10 @@ export default function Home() {
             </div>
           </div>
 
-                  <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
-          {showTimezoneWarning}
-          
-          {/* Stats Cards - Moved to top */}
+          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
+            {showTimezoneWarning}
+            
+            {/* Stats Cards - Moved to top */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-10 lg:mb-12">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

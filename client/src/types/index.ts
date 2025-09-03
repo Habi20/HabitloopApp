@@ -68,6 +68,7 @@ export interface User {
   profileImageUrl?: string;
   questionnaire?: any;
   emailSettings?: any;
+  userSettings?: any;
 }
 
 export interface AuthContextType {

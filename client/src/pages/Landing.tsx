@@ -1,17 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
 import { GuestModeModal } from "@/components/GuestModeModal";
 import { LoginModal } from "@/components/LoginModal";
 import { HabitLoopUserModal } from "@/components/HabitLoopUserModal";
-// import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Landing() {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showHabitLoopUserModal, setShowHabitLoopUserModal] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // Redirect to home page if user is authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation('/home');
+    }
+  }, [isAuthenticated, setLocation]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500">
@@ -105,8 +115,8 @@ export default function Landing() {
         open={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onSuccess={() => {
-          // Auth state will be automatically updated by AuthProvider
           setShowLoginModal(false);
+          // Redirect will be handled by useEffect when isAuthenticated changes
         }}
       />
 
@@ -115,6 +125,7 @@ export default function Landing() {
         onClose={() => setShowHabitLoopUserModal(false)}
         onSuccess={() => {
           setShowHabitLoopUserModal(false);
+          // Redirect will be handled by useEffect when isAuthenticated changes
         }}
       />
     </div>

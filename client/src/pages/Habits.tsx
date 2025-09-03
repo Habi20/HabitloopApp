@@ -58,6 +58,10 @@ export default function Habits() {
 
   const { data: habits, isLoading: habitsLoading } = useQuery({
     queryKey: ["/api/habits"],
+    queryFn: async () => {
+      const response = await apiRequest("habits", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
@@ -65,7 +69,7 @@ export default function Habits() {
 
   const deleteHabitMutation = useMutation({
     mutationFn: async (habitId: number) => {
-      await apiRequest(`/api/habits/${habitId}`, "DELETE");
+              await apiRequest(`habits/${habitId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
@@ -135,8 +139,12 @@ export default function Habits() {
   });
 
   const handleAddHabitFromCarousel = (recommendation: any) => {
-    setSelectedRecommendation(recommendation);
-    setShowAddHabit(true);
+    // The carousel already handles adding the habit directly
+    // This callback is just for any additional UI updates if needed
+    console.log('Habit added from carousel:', recommendation.title);
+    
+    // Refresh the habits list to show the newly added habit
+    queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
   };
 
   // const handleDismissRecommendation = (index: number) => {

@@ -13,15 +13,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 // import { GoogleCalendarIntegrationSimple } from "@/components/GoogleCalendarIntegrationSimple";
 import { apiRequest } from "@/lib/queryClient";
-import {  Lightbulb } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 // AlertTriangle, Trophy,
 export default function Settings() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const { settings, updateSetting, isLoaded: uiSettingsLoaded } = useUISettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'json' | 'csv' | 'excel'>('csv');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -53,6 +69,97 @@ export default function Settings() {
       title: "Settings saved",
       description: "Your preferences have been updated.",
     });
+  };
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const response = await apiRequest(`export-data?format=${exportFormat}`, 'GET');
+      
+      if (response.ok) {
+        let data: any;
+        let blob: Blob;
+        let filename: string;
+        
+        if (exportFormat === 'json') {
+          data = await response.json();
+          blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          filename = `habitloop-data-${user?.id}-${new Date().toISOString().split('T')[0]}.json`;
+        } else {
+          data = await response.text();
+          blob = new Blob([data], { type: 'text/csv' });
+          filename = `habitloop-data-${user?.id}-${new Date().toISOString().split('T')[0]}.${exportFormat === 'excel' ? 'xlsx' : 'csv'}`;
+        }
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast({
+          title: "Data exported successfully! 📁",
+          description: `Your habit data has been downloaded as ${exportFormat.toUpperCase()}.`,
+        });
+        
+        setShowExportDialog(false);
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export your data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      toast({
+        title: "Invalid confirmation",
+        description: "Please enter 'DELETE' to confirm account deletion.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await apiRequest('delete-account', 'DELETE', { confirmation: deleteConfirmation });
+      
+      if (response.ok) {
+        toast({
+          title: "Account deleted",
+          description: "Your account has been permanently deleted.",
+        });
+        
+        // Logout and redirect
+        setTimeout(() => {
+          logout();
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Delete failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Failed to delete account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setDeleteConfirmation('');
+    }
   };
 
   const sendTestNotification = async (type: 'inactivity' | 'achievement' | 'insight') => {
@@ -101,7 +208,7 @@ export default function Settings() {
       onSidebarOpen={() => setSidebarOpen(true)}
       pageTitle="Settings"
     >
-      <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Removed duplicate page title - now shown in header */}
 
           <div className="space-y-6">
@@ -110,36 +217,36 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle>Notifications</CardTitle>
               </CardHeader>
-                             <CardContent className="space-y-4">
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <h4 className="font-medium text-gray-900">
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
                        All Notifications
-                     </h4>
-                     <p className="text-sm text-gray-600">
+                    </h4>
+                    <p className="text-sm text-gray-600">
                        Enable or disable all notifications and insights
-                     </p>
-                   </div>
-                   <Switch
+                    </p>
+                  </div>
+                  <Switch
                      checked={settings.allNotifications}
-                     onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                        handleSettingChange("allNotifications", checked)
-                     }
-                   />
-                 </div>
+                    }
+                  />
+                </div>
 
                  {settings.allNotifications && (
                    <>
-                     <div className="flex items-center justify-between">
-                       <div>
-                         <h4 className="font-medium text-gray-900">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
                            AI Insights
-                         </h4>
-                         <p className="text-sm text-gray-600">
+                    </h4>
+                    <p className="text-sm text-gray-600">
                            Receive personalized AI-powered insights
-                         </p>
-                       </div>
-                       <Switch
+                    </p>
+                  </div>
+                  <Switch
                          checked={settings.insightAlerts}
                          onCheckedChange={(checked) =>
                            handleSettingChange("insightAlerts", checked)
@@ -147,35 +254,59 @@ export default function Settings() {
                        />
                      </div>
 
-                     <div className="flex items-center justify-between">
-                       <div>
-                         <h4 className="font-medium text-gray-900">
-                           Default Reminder Time
-                         </h4>
-                         <p className="text-sm text-gray-600">
-                           Time for new habit reminders (Your timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
+                     {/* Email Notifications */}
+                     <div className="pt-4 border-t border-gray-200">
+                       <h4 className="font-medium text-gray-900 mb-3">Email Notifications</h4>
+                       <p className="text-sm text-gray-600 mb-4">
+                         Receive email reports about your habit progress
+                       </p>
+                       
+                       <div className="space-y-3">
+                         <div className="flex items-center justify-between">
+                           <div>
+                             <h5 className="font-medium text-gray-800">Daily Reports</h5>
+                             <p className="text-sm text-gray-600">Get daily summaries of your habit progress</p>
+                           </div>
+                           <Switch
+                             checked={settings.dailyEmailReports || false}
+                    onCheckedChange={(checked) =>
+                               handleSettingChange("dailyEmailReports", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                             <h5 className="font-medium text-gray-800">Weekly Reports</h5>
+                             <p className="text-sm text-gray-600">Get weekly summaries and insights</p>
+                  </div>
+                  <Switch
+                             checked={settings.weeklyEmailReports || false}
+                    onCheckedChange={(checked) =>
+                               handleSettingChange("weeklyEmailReports", checked)
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                             <h5 className="font-medium text-gray-800">Monthly Reports</h5>
+                             <p className="text-sm text-gray-600">Get comprehensive monthly progress reports</p>
+                           </div>
+                           <Switch
+                             checked={settings.monthlyEmailReports || false}
+                             onCheckedChange={(checked) =>
+                               handleSettingChange("monthlyEmailReports", checked)
+                             }
+                           />
+                         </div>
+                       </div>
+                       
+                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                         <p className="text-sm text-blue-700">
+                           <strong>Note:</strong> Email reports will only be sent if you have habits added to your profile.
                          </p>
                        </div>
-                       <Select
-                         value={settings.defaultReminderTime}
-                         onValueChange={(value) =>
-                           handleSettingChange("defaultReminderTime", value)
-                         }
-                       >
-                         <SelectTrigger className="w-32">
-                           <SelectValue />
-                         </SelectTrigger>
-                         <SelectContent>
-                           <SelectItem value="07:00">7:00 AM</SelectItem>
-                           <SelectItem value="08:00">8:00 AM</SelectItem>
-                           <SelectItem value="09:00">9:00 AM</SelectItem>
-                           <SelectItem value="10:00">10:00 AM</SelectItem>
-                           <SelectItem value="18:00">6:00 PM</SelectItem>
-                           <SelectItem value="19:00">7:00 PM</SelectItem>
-                           <SelectItem value="20:00">8:00 PM</SelectItem>
-                           <SelectItem value="21:00">9:00 PM</SelectItem>
-                         </SelectContent>
-                       </Select>
                      </div>
                    </>
                  )}
@@ -197,116 +328,16 @@ export default function Settings() {
                         <Lightbulb className="w-4 h-4 text-blue-500" />
                         Test AI Insight
                       </Button>
-                    </div>
+                </div>
                     <p className="text-xs text-gray-500 mt-2">
                       💡 Click the notification bell in the header to see your test notifications
                     </p>
                   </div>
                 )}
               </CardContent>
-                         </Card>
-
-             {/* Advanced Features Toggle */}
-             <Card>
-               <CardHeader>
-                 <CardTitle>Advanced Features</CardTitle>
-               </CardHeader>
-               <CardContent>
-                 <div className="flex items-center justify-between">
-                   <div>
-                     <h4 className="font-medium text-gray-900">Enable Advanced Features</h4>
-                     <p className="text-sm text-gray-600">
-                       Unlock additional features like Google Calendar Integration and more
-                     </p>
-                   </div>
-                   <Switch
-                     checked={settings.advancedFeatures || false}
-                     onCheckedChange={(checked) =>
-                       handleSettingChange("advancedFeatures", checked)
-                     }
-                   />
-                 </div>
-                 <p className="text-xs text-gray-500 mt-2">
-                   💡 Advanced features are disabled by default to keep the interface simple. Enable to access additional customization options.
-                 </p>
-               </CardContent>
-             </Card>
-
-             {/* UI Components */}
-            <Card>
-              <CardHeader>
-                <CardTitle>UI Components</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      Data Consistency Check
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Show data consistency monitoring panel on the dashboard
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.showDataConsistencyCheck}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("showDataConsistencyCheck", checked)
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      ML Habit Success Predictor
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Show AI-powered habit success prediction on the dashboard
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.showMLSuccessPredictor}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("showMLSuccessPredictor", checked)
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      AI Questionnaire Setup
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Show AI setup button on the dashboard (hidden if already completed)
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.showAIQuestionnaire}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("showAIQuestionnaire", checked)
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      Habit Carousel
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Show AI-generated habit recommendations carousel on dashboard
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.showHabitCarousel || true}
-                    onCheckedChange={(checked) =>
-                      handleSettingChange("showHabitCarousel", checked)
-                    }
-                  />
-                </div>
-              </CardContent>
             </Card>
+
+             
 
             {/* Data & Privacy */}
             <Card>
@@ -321,7 +352,11 @@ export default function Settings() {
                       Download your habit data
                     </p>
                   </div>
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowExportDialog(true)}
+                    disabled={isExporting}
+                  >
                     <i className="fas fa-download mr-2"></i>
                     Export
                   </Button>
@@ -336,7 +371,10 @@ export default function Settings() {
                       Permanently delete your account and data
                     </p>
                   </div>
-                  <Button variant="destructive">
+                  <Button 
+                    variant="destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
                     <i className="fas fa-trash mr-2"></i>
                     Delete
                   </Button>
@@ -356,6 +394,156 @@ export default function Settings() {
             </div>
           </div>
         </div>
+
+        {/* Export Data Dialog */}
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export Data</DialogTitle>
+              <DialogDescription>
+                Choose the format for your data export. CSV format is recommended for analysis in spreadsheet applications like Excel or Google Sheets.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="export-format" className="text-sm font-medium">
+                  Export Format
+                </Label>
+                <Select
+                  value={exportFormat}
+                  onValueChange={(value: 'json' | 'csv' | 'excel') => setExportFormat(value)}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">
+                      <div className="flex items-center">
+                        <i className="fas fa-file-csv mr-2 text-green-600"></i>
+                        CSV (Recommended)
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="json">
+                      <div className="flex items-center">
+                        <i className="fas fa-file-code mr-2 text-blue-600"></i>
+                        JSON (Raw Data)
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                 <p className="text-sm text-blue-700">
+                   <strong>What you'll get:</strong>
+                 </p>
+                 <ul className="text-sm text-blue-600 mt-1 list-disc list-inside">
+                   <li>Your profile (name, level, XP, difficulty)</li>
+                   <li>All your habits with categories and frequencies</li>
+                   <li>Your habit completion history</li>
+                   <li>Your current and longest streaks</li>
+                 </ul>
+                 <p className="text-xs text-blue-600 mt-2">
+                   💡 CSV format works great in Excel, Google Sheets, and other spreadsheet applications
+                 </p>
+               </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowExportDialog(false)}
+                disabled={isExporting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleExportData}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-download mr-2"></i>
+                    Export Data
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Account Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Delete Account</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. This will permanently delete your account and all associated data.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="delete-confirmation" className="text-sm font-medium">
+                  Type "DELETE" to confirm
+                </Label>
+                <Input
+                  id="delete-confirmation"
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder="DELETE"
+                  className="mt-1"
+                />
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700">
+                  <strong>Warning:</strong> This will permanently delete:
+                </p>
+                <ul className="text-sm text-red-600 mt-1 list-disc list-inside">
+                  <li>Your account and profile</li>
+                  <li>All your habits and progress</li>
+                  <li>All your completion data</li>
+                  <li>All your streaks and achievements</li>
+                  <li>All your ML predictions and insights</li>
+                </ul>
+              </div>
+    </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setDeleteConfirmation('');
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || deleteConfirmation !== 'DELETE'}
+              >
+                {isDeleting ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-trash mr-2"></i>
+                    Delete Account
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Layout>
-    );
-  }
+  );
+}

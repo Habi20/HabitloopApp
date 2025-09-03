@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 interface AIQuestionnaireModalProps {
   open: boolean;
   onClose: () => void;
+  onComplete?: () => void;
 }
 
-export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProps) {
+export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionnaireModalProps) {
   const { toast } = useToast();
 
   const [, setLocation] = useLocation();
@@ -80,6 +81,10 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
         title: "Questionnaire Completed!",
         description: "Your personalized habits are ready. Let's set them up!",
       });
+      
+      // Call onComplete callback if provided
+      onComplete?.();
+      
       onClose();
       setLocation("/habits");
     },
@@ -137,16 +142,11 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto mx-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-bold text-gray-900">
-              Let's personalize your experience
-            </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <i className="fas fa-times"></i>
-            </Button>
-          </div>
+          <DialogTitle className="text-xl font-bold text-gray-900">
+            Let's personalize your experience
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">
@@ -441,13 +441,7 @@ export function AIQuestionnaireModal({ open, onClose }: AIQuestionnaireModalProp
                 Back
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              onClick={onClose}
-              className="flex-1"
-            >
-              Skip for now
-            </Button>
+
             <Button 
               onClick={nextStep}
               disabled={!canProceed() || generateRecommendationsMutation.isPending}

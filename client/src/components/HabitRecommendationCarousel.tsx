@@ -239,6 +239,16 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   // Add habit mutation
   const addHabitMutation = useMutation({
     mutationFn: async (recommendation: HabitRecommendation) => {
+      // Check if habit already exists to prevent duplicates
+      const habitExists = existingHabits.some((habit: any) => 
+        habit.title.toLowerCase() === recommendation.title.toLowerCase() ||
+        habit.description.toLowerCase() === recommendation.description.toLowerCase()
+      );
+      
+      if (habitExists) {
+        throw new Error('Habit already exists');
+      }
+      
       // Simulate haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate(50);
@@ -297,27 +307,44 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       }
       
              // Invalidate habits query to refresh the habit list and update filtering
-       queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
-       
-       // Invalidate recommendations to refresh carousel
-       queryClient.invalidateQueries({ queryKey: ['/api/ai/recommendations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
+      
+      // Update recommendations cache to remove the added recommendation
+      queryClient.setQueryData(['/api/ai/recommendations'], (oldData: HabitRecommendation[] | undefined) => {
+        if (!oldData) return oldData;
+        
+        const updatedRecommendations = oldData.filter(rec => 
+          rec.title !== variables.title || rec.description !== variables.description
+        );
+        
+        console.log(`Removed ${variables.title} from recommendations cache. ${updatedRecommendations.length} recommendations remaining.`);
+        return updatedRecommendations;
+      });
       
       // Move to next recommendation with delay for user to see success
       setTimeout(() => {
         handleNext();
       }, 1000);
     },
-    onError: () => {
+    onError: (error) => {
       // Error haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
       }
       
-      toast({
-        title: "Error",
-        description: "Failed to add habit. Please try again.",
-        variant: "destructive",
-      });
+      if (error instanceof Error && error.message === 'Habit already exists') {
+        toast({
+          title: "Habit Already Exists",
+          description: "This habit is already in your list.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add habit. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   });
 

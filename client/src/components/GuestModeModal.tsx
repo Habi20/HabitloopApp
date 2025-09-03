@@ -23,7 +23,6 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
   const [showForm, setShowForm] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [isNewPassword, setIsNewPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,77 +41,28 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
   };
 
   const handleGuestLogin = async () => {
-    if (!identifier.trim()) {
-      setError("Please enter a username or email");
-      return;
-    }
-
-    // If no password provided, try to check if password is needed
-    if (!password.trim()) {
-      try {
-        setLoading(true);
-        setError('');
-
-        const response = await fetch(buildApiUrl('guest/auth'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            identifier: identifier.trim()
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.needsPassword) {
-          setIsNewPassword(true);
-          setError('');
-          return;
-        } else if (response.status === 400 && data.error === "Password is required") {
-          // Password is required, but don't show error - just return to let user enter password
-          setError('');
-          return;
-        } else if (response.ok) {
-                  // Login successful (no password needed)
-        await loginAsGuest(data);
-        onClose();
-        onStartQuestionnaire();
-          return;
-        } else {
-          setError(data.error || 'Login failed');
-          return;
-        }
-      } catch (error) {
-        console.error("Guest login failed:", error);
-        setError("Network error. Please try again.");
-        return;
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    // Password provided - attempt login
     try {
       setLoading(true);
       setError('');
 
+      // Send identifier if provided, otherwise auto-generate
+      const requestBody: any = {};
+      if (identifier.trim()) {
+        requestBody.identifier = identifier.trim();
+      }
+      if (password.trim()) {
+        requestBody.password = password.trim();
+      }
+
       const response = await fetch(buildApiUrl('guest/auth'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          identifier: identifier.trim(),
-          password: password.trim()
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        if (data.needsPassword) {
-          setIsNewPassword(true);
-          setError('');
-          return;
-        }
-
         // Login successful
         await loginAsGuest(data);
         onClose();
@@ -128,53 +78,18 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
     }
   };
 
-  const handleSetPassword = async () => {
-    if (!password.trim() || password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
 
-    try {
-      setLoading(true);
-      setError('');
-
-      const response = await fetch(buildApiUrl('guest/auth'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          identifier: identifier.trim(),
-          password: password.trim()
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        await loginAsGuest(data);
-        onClose();
-        onStartQuestionnaire();
-      } else {
-        setError(data.error || 'Failed to set password');
-      }
-    } catch (error) {
-      console.error("Set password failed:", error);
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const resetForm = () => {
     setShowForm(false);
     setIdentifier('');
     setPassword('');
-    setIsNewPassword(false);
     setError('');
   };
 
   return (
     <Dialog open={open} onOpenChange={() => { onClose(); resetForm(); }}>
-      <DialogContent className="max-w-md">
+              <DialogContent className="w-[95vw] max-w-md mx-auto">
         <DialogHeader>
           <div className="text-center">
             <div className="w-16 h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -185,9 +100,7 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
             </DialogTitle>
             <DialogDescription className="text-gray-600 mb-6">
               {showForm 
-                ? isNewPassword 
-                  ? "Set a password for future logins" 
-                  : "Login with existing guest account"
+                ? "Login with existing account or leave empty for auto-generation"
                 : "Choose how to start tracking your habits"
               }
             </DialogDescription>
@@ -222,39 +135,35 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
             </Button>
             
             <div className="text-xs text-gray-500 text-center mt-3">
-              <p><strong>Guest Accounts:</strong> user-001, guest-001, john.doe@example.com</p>
-              <p><strong>Quick Mode:</strong> Temporary session, data not saved</p>
+              <p><strong>Quick Mode:</strong> Auto-generates guest account instantly</p>
+              <p><strong>Login Mode:</strong> Use existing accounts (user-001, guest-001) or leave empty for auto-generation</p>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="identifier">Username or Email</Label>
+              <Label htmlFor="identifier">Username or Email (Optional)</Label>
               <Input
                 id="identifier"
                 type="text"
-                placeholder="e.g., user-001 or john.doe@example.com"
+                placeholder="e.g., user-001 or leave empty for auto-generation"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                disabled={loading || isNewPassword}
+                disabled={loading}
               />
             </div>
 
-            {(isNewPassword || identifier.trim()) && (
-              <div>
-                <Label htmlFor="password">
-                  {isNewPassword ? "Set New Password" : "Password"}
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder={isNewPassword ? "Enter new password (min 6 chars)" : "Enter password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-            )}
+            <div>
+              <Label htmlFor="password">Password (Optional)</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter password if account has one"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
 
             <div className="flex space-x-2">
               <Button 
@@ -266,16 +175,16 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire }: GuestMod
                 Back
               </Button>
               <Button 
-                onClick={isNewPassword ? handleSetPassword : handleGuestLogin}
-                disabled={loading || !identifier.trim() || (!isNewPassword && !password.trim())}
+                onClick={handleGuestLogin}
+                disabled={loading}
                 className="flex-1"
               >
                 {loading ? (
                   <i className="fas fa-spinner fa-spin mr-2"></i>
                 ) : (
-                  <i className={`fas ${isNewPassword ? 'fa-save' : 'fa-sign-in-alt'} mr-2`}></i>
+                  <i className="fas fa-sign-in-alt mr-2"></i>
                 )}
-                {isNewPassword ? 'Set Password' : 'Login'}
+                Login
               </Button>
             </div>
           </div>

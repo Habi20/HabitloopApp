@@ -34,11 +34,19 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   const { data: emailStatus } = useQuery({
     queryKey: ["/api/email/status"],
+    queryFn: async () => {
+      const response = await apiRequest("email/status", 'GET');
+      return await response.json();
+    },
     enabled: open,
   });
 
   const { data: currentSettings } = useQuery({
     queryKey: ["/api/email/settings"],
+    queryFn: async () => {
+      const response = await apiRequest("email/settings", 'GET');
+      return await response.json();
+    },
     enabled: open,
   });
 
@@ -170,15 +178,15 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center">
-            <Mail className="w-6 h-6 mr-2 text-blue-600" />
-            Email Integration
-          </DialogTitle>
-          <p className="text-gray-600">
-            Connect your Gmail account to receive personalized habit notifications and insights
-          </p>
+                      <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center">
+              <Mail className="w-6 h-6 mr-2 text-blue-600" />
+              Email Integration
+            </DialogTitle>
+            <p className="text-gray-600">
+              Connect your Email account to receive personalized habit notifications and insights
+            </p>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -187,9 +195,9 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Gmail Connection Status
-                  </h3>
+                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                     Email Connection Status
+                   </h3>
                   <div className="flex items-center space-x-2">
                     {emailStatusData?.connected ? (
                       <>
@@ -216,12 +224,12 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
                       {sendTestEmailMutation.isPending ? "Sending..." : "Send Test Email"}
                     </Button>
                   ) : (
-                    <Button 
-                      onClick={() => connectEmailMutation.mutate()}
-                      disabled={connectEmailMutation.isPending}
-                    >
-                      {connectEmailMutation.isPending ? "Connecting..." : "Connect Gmail"}
-                    </Button>
+                                         <Button 
+                       onClick={() => connectEmailMutation.mutate()}
+                       disabled={connectEmailMutation.isPending}
+                     >
+                       {connectEmailMutation.isPending ? "Connecting..." : "Connect Email"}
+                     </Button>
                   )}
                 </div>
               </div>

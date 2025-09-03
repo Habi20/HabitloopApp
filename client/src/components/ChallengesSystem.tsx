@@ -37,6 +37,10 @@ export function ChallengesSystem() {
   // Fetch challenges data
   const { data: challengesData, isLoading, error } = useQuery({
     queryKey: ["/api/challenges"],
+    queryFn: async () => {
+      const response = await apiRequest("challenges", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
@@ -44,7 +48,7 @@ export function ChallengesSystem() {
   // Claim challenge reward mutation
   const claimRewardMutation = useMutation({
     mutationFn: async (challengeId: string) => {
-      const response = await apiRequest(`/api/challenges/${challengeId}/claim`, "POST");
+      const response = await apiRequest(`challenges/${challengeId}/claim`, "POST");
       return response.json();
     },
     onSuccess: (data) => {

@@ -1,65 +1,99 @@
-import { Switch, Route } from "wouter";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { queryClient } from "./lib/queryClient";
-import { ConnectionErrorBoundary } from "@/components/ConnectionErrorBoundary";
-import Landing from "@/pages/Landing";
-import Home from "@/pages/Home";
-import Stats from "@/pages/Stats";
-import Habits from "@/pages/Habits";
-import Challenges from "@/pages/Challenges";
-import Profile from "@/pages/Profile";
-import Settings from "@/pages/Settings";
-import { LoginPage } from "@/pages/LoginPage";
-import NotFound from "@/pages/not-found";
 
-function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+import { Route, Switch } from 'wouter';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from './components/ui/toaster';
+import { useAuth } from './contexts/AuthContext';
+import { useEnhancedSessionMonitor } from './hooks/useEnhancedSessionMonitor';
+import { SessionTimeoutModal } from './components/SessionTimeoutModal';
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-2">Loading...</span>
-      </div>
-    );
-  }
+// Pages
+import Landing from './pages/Landing';
+import Home from './pages/Home';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
+import Admin from './pages/Admin';
+import Stats from './pages/Stats';
+import Habits from './pages/Habits';
+import Challenges from './pages/Challenges';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function App() {
+  const { isAuthenticated } = useAuth();
+  
+  // Session monitoring
+  const {
+    showTimeoutModal,
+    showMultiDeviceModal,
+    showExpiredModal,
+    modalType,
+    timeRemaining,
+    extendSession,
+    handleLogout,
+    handleModalClose,
+  } = useEnhancedSessionMonitor();
+
+  // Determine which modal to show
+  const isModalOpen = showTimeoutModal || showMultiDeviceModal || showExpiredModal;
 
   return (
-    <Switch>
-      {!isAuthenticated ? (
-        <>
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-background">
+        <Switch>
+          {/* Public routes */}
           <Route path="/" component={Landing} />
-          <Route path="/login" component={LoginPage} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/stats" component={Stats} />
-          <Route path="/habits" component={Habits} />
-          <Route path="/challenges" component={Challenges} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/settings" component={Settings} />
-        </>
-      )}
-      <Route component={NotFound} />
-    </Switch>
+          
+          {/* Admin routes - always accessible */}
+          <Route path="/admin" component={Admin} />
+          
+          {/* Protected routes */}
+          {isAuthenticated ? (
+            <>
+              <Route path="/home" component={Home} />
+              <Route path="/stats" component={Stats} />
+              <Route path="/habits" component={Habits} />
+              <Route path="/challenges" component={Challenges} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/settings" component={Settings} />
+            </>
+          ) : (
+            // Fallback routes for unauthenticated users
+            <>
+              <Route path="/home" component={Landing} />
+              <Route path="/stats" component={Landing} />
+              <Route path="/habits" component={Landing} />
+              <Route path="/challenges" component={Landing} />
+              <Route path="/profile" component={Landing} />
+              <Route path="/settings" component={Landing} />
+            </>
+          )}
+          
+          {/* Catch-all route */}
+          <Route component={Landing} />
+        </Switch>
+
+        {/* Session timeout modal */}
+        <SessionTimeoutModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onExtend={extendSession}
+          onLogout={handleLogout}
+          type={modalType}
+          timeRemaining={timeRemaining}
+        />
+
+        <Toaster />
+      </div>
+    </QueryClientProvider>
   );
 }
 
-export default function App() {
-  return (
-    <ConnectionErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </ConnectionErrorBoundary>
-  );
-}
+export default App;

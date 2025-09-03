@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Stats() {
   const { user, isLoading: authLoading } = useAuth();
@@ -27,11 +28,19 @@ export default function Stats() {
 
   const { data: habitsResponse } = useQuery({
     queryKey: ["/api/habits"],
+    queryFn: async () => {
+      const response = await apiRequest("habits", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
   const { data: completionsResponse } = useQuery({
     queryKey: ["/api/completions"],
+    queryFn: async () => {
+      const response = await apiRequest("completions", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 

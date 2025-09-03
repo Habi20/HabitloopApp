@@ -94,7 +94,7 @@ export function AddHabitModal({
 
   const createHabitMutation = useMutation({
     mutationFn: async (data: HabitFormData) => {
-      await apiRequest("/api/habits", "POST", data);
+              await apiRequest("habits", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
@@ -265,7 +265,7 @@ export function AddHabitModal({
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto mx-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-900">
               AI Habit Recommendations
@@ -327,7 +327,7 @@ export function AddHabitModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto mx-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-gray-900">
             Add New Habit

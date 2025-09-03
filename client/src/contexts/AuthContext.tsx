@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthContextType, User } from '@/types';
 import { apiRequest } from '../lib/queryClient';
+import { buildApiUrl } from '../config/api';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -372,25 +373,74 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         console.warn('🔐 AuthContext: user.id:', !!user.id);
       }
     } else {
-      // Create temporary guest user (quick mode)
-      user = {
-        id: `temp-guest-${Date.now()}`,
-        email: '',
-        firstName: 'Guest',
-        lastName: 'User',
-        level: 1,
-        xp: 0,
-        role: 'guest',
-        isGuest: true,
-        difficulty: 'medium'
-      };
-      
-      // Store temporary guest data (always as guest, never as verified)
-      localStorage.setItem('guestUser', JSON.stringify(user));
-      localStorage.removeItem('verified_token');
-      localStorage.removeItem('verifiedUser');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('authUser');
+      // Create temporary guest user (quick mode) - call backend to create proper guest user
+      try {
+        console.log('🔐 AuthContext: Creating new guest user via API...');
+        const response = await fetch(buildApiUrl('guest/create'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create guest user: ${response.status}`);
+        }
+
+        const guestData = await response.json();
+        console.log('🔐 AuthContext: Guest user created:', guestData);
+
+        if (guestData.success && guestData.user && guestData.token) {
+          user = {
+            id: guestData.user.id,
+            email: guestData.user.email || '',
+            firstName: guestData.user.firstName || 'Guest',
+            lastName: guestData.user.lastName || 'User',
+            level: guestData.user.level || 1,
+            xp: guestData.user.xp || 0,
+            role: guestData.user.role || 'guest',
+            isGuest: true,
+            difficulty: guestData.user.difficulty || 'medium',
+            profileImageUrl: guestData.user.profileImageUrl
+          };
+
+          // Store guest token and user data
+          localStorage.setItem('guest_token', guestData.token);
+          localStorage.setItem('guestUser', JSON.stringify(user));
+          localStorage.removeItem('verified_token');
+          localStorage.removeItem('verifiedUser');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('authUser');
+          
+          console.log('🔐 AuthContext: Guest user created and stored successfully');
+        } else {
+          throw new Error('Invalid response from guest creation API');
+        }
+      } catch (error) {
+        console.error('🔐 AuthContext: Failed to create guest user:', error);
+        
+        // Fallback to local-only guest user (no backend persistence)
+        user = {
+          id: `temp-guest-${Date.now()}`,
+          email: '',
+          firstName: 'Guest',
+          lastName: 'User',
+          level: 1,
+          xp: 0,
+          role: 'guest',
+          isGuest: true,
+          difficulty: 'medium'
+        };
+        
+        // Store temporary guest data (always as guest, never as verified)
+        localStorage.setItem('guestUser', JSON.stringify(user));
+        localStorage.removeItem('verified_token');
+        localStorage.removeItem('verifiedUser');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('authUser');
+        
+        console.log('🔐 AuthContext: Using fallback local guest user');
+      }
     }
     
     setUser(user);
@@ -409,7 +459,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', userData.id);
       
       // Send both userId and password if provided
-      const requestBody: any = { userId: userData.id };
+      const requestBody: any = { userId: userData.userId || userData.id };
       if (userData.password) {
         requestBody.password = userData.password;
       }
@@ -434,7 +484,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
           role: userDataResponse.user.role,
           isGuest: false,
           difficulty: userDataResponse.user.difficulty,
-          profileImageUrl: userDataResponse.user.profileImageUrl
+          profileImageUrl: userDataResponse.user.profileImageUrl,
+          userSettings: userDataResponse.user.userSettings
         };
 
         // Clear any previous user's data before setting new user data
@@ -461,12 +512,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         setUser(user);
         setIsAuthenticated(true);
         
-        // Fetch and restore user's questionnaire data and settings from database
-        await refreshQuestionnaireData();
-        
         console.log('🔐 AuthContext: HabitLoop user logged in successfully:', user.firstName);
         console.log('🔐 AuthContext: Stored as verifiedUser only (no guestUser)');
         console.log('🔐 AuthContext: Cleared previous user data from localStorage');
+        
+        // Fetch and restore user's questionnaire data and settings from database
+        // Use setTimeout to ensure user state is properly set
+        setTimeout(async () => {
+          await refreshQuestionnaireData();
+        }, 100);
       } else {
         console.error('🔐 AuthContext: HabitLoop login failed - invalid response');
         throw new Error('Invalid response from server');
@@ -478,10 +532,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   const logout = async () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    
-    // Clear all authentication data
+    // First, clear all authentication data
     localStorage.removeItem('verifiedUser');
     localStorage.removeItem('guestUser');
     localStorage.removeItem('authUser');
@@ -503,7 +554,26 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     localStorage.removeItem('lastSyncTime');
     localStorage.removeItem('currentUserId');
     
-    window.location.href = '/';
+    // Clear admin token if exists
+    localStorage.removeItem('admin_token');
+    
+    // Update state after clearing data (this triggers re-render)
+    setUser(null);
+    setIsAuthenticated(false);
+    
+    // Dispatch logout event to show loading state
+    window.dispatchEvent(new CustomEvent('logout'));
+    
+    // Use history.pushState for smooth transition instead of window.location.href
+    // This prevents the 404 error during logout transition
+    if (window.history && window.history.pushState) {
+      window.history.pushState({}, '', '/');
+      // Trigger a custom event to notify the router
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } else {
+      // Fallback for older browsers
+      window.location.href = '/';
+    }
   };
 
   // Function to refresh user data from backend - VIVA-SAFE VERSION

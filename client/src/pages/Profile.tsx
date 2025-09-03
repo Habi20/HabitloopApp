@@ -99,6 +99,20 @@ export default function Profile() {
 
   const userInitials = getUserInitials(user);
 
+  // Difficulty color coding
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "easy":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "hard":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
   return (
     <Layout 
       showSidebar={true}
@@ -160,6 +174,16 @@ export default function Profile() {
                     </label>
                     <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
                       {getUserEmail(user) || "Not set"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Difficulty Level
+                    </label>
+                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(user.difficulty || 'medium')}`}>
+                        {user.difficulty || 'medium'}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -80,9 +80,9 @@ export function CoachingDashboard() {
           ? messageId.replace('notification-', '') 
           : messageId;
         
-        await apiRequest(`/api/notifications/${numericId}/read`, "POST");
+        await apiRequest(`notifications/${numericId}/read`, "POST");
       } else {
-        await apiRequest(`/api/coaching/messages/${messageId}/read`, "PUT");
+        await apiRequest(`coaching/messages/${messageId}/read`, "PUT");
       }
     },
     onSuccess: () => {
@@ -100,7 +100,7 @@ export function CoachingDashboard() {
           : messageId;
         
         // Remove notification via API
-        const response = await apiRequest(`/api/notifications/${numericId}`, "DELETE");
+        const response = await apiRequest(`notifications/${numericId}`, "DELETE");
         return response.json();
       } else {
         // For coaching messages, we could implement a "dismiss" endpoint
