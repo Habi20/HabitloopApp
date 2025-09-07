@@ -104,7 +104,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+              <DialogContent className="w-[95vw] max-w-md mx-auto">
         <DialogHeader>
           <div className="text-center">
             <div className="w-16 h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/queryClient";
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiRequest } from '@/lib/queryClient';
 
 interface UISettings {
   pushNotifications: boolean;
@@ -17,6 +17,9 @@ interface UISettings {
   advancedFeatures: boolean;
   showHabitCarousel: boolean;
   allNotifications: boolean;
+  dailyEmailReports: boolean;
+  weeklyEmailReports: boolean;
+  monthlyEmailReports: boolean;
 }
 
 const defaultSettings: UISettings = {
@@ -34,6 +37,9 @@ const defaultSettings: UISettings = {
   advancedFeatures: false,
   showHabitCarousel: true,
   allNotifications: true,
+  dailyEmailReports: false,
+  weeklyEmailReports: false,
+  monthlyEmailReports: false,
 };
 
 export function useUISettings() {
@@ -41,44 +47,58 @@ export function useUISettings() {
   const [isLoaded, setIsLoaded] = useState(false);
   const { user } = useAuth();
 
-  // Load settings from localStorage on mount
+  // Load settings from localStorage and user data on mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem("habitloop_ui_settings");
+    let loadedSettings = { ...defaultSettings };
+    
+    // First, try to load from user data (database settings)
+    if (user?.userSettings?.settings) {
+      try {
+        const userSettings = user.userSettings.settings;
+        loadedSettings = { ...loadedSettings, ...userSettings };
+        console.log('✅ Loaded settings from user data:', userSettings);
+      } catch (error) {
+        console.error('Error loading settings from user data:', error);
+      }
+    }
+    
+    // Then, try to load from localStorage (local overrides)
+    const savedSettings = localStorage.getItem('habitloop_ui_settings');
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
-        setSettings((prev) => ({ ...prev, ...parsedSettings }));
+        loadedSettings = { ...loadedSettings, ...parsedSettings };
+        console.log('✅ Loaded settings from localStorage:', parsedSettings);
       } catch (error) {
-        console.error("Error loading UI settings from localStorage:", error);
+        console.error('Error loading UI settings from localStorage:', error);
       }
     }
+    
+    setSettings(loadedSettings);
     setIsLoaded(true);
-  }, []);
+  }, [user]);
 
   // Sync settings to database when user is authenticated
   const syncSettingsToDatabase = async (newSettings: UISettings) => {
     if (!user?.id) {
-      console.log("No user logged in, skipping database sync");
+      console.log('No user logged in, skipping database sync');
       return;
     }
 
     try {
-      await apiRequest("user/settings", "PUT", { settings: newSettings });
-      console.log("Settings synced to database");
+      await apiRequest('user/settings', 'PUT', { settings: newSettings });
+      console.log('Settings synced to database');
     } catch (error) {
-      console.error("Error syncing settings to database:", error);
+      console.error('Error syncing settings to database:', error);
     }
   };
 
   // Update a specific setting
-  const updateSetting = async (
-    key: keyof UISettings,
-    value: boolean | string
-  ) => {
+  const updateSetting = async (key: keyof UISettings, value: boolean | string) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
-    localStorage.setItem("habitloop_ui_settings", JSON.stringify(newSettings));
-
+    localStorage.setItem('habitloop_ui_settings', JSON.stringify(newSettings));
+    
     // Sync to database if user is authenticated
     await syncSettingsToDatabase(newSettings);
   };

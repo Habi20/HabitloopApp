@@ -43,37 +43,37 @@ export default function Profile() {
       const fetchUserData = async () => {
         try {
           // Get JWT tokens for authentication (guest or verified)
-          const guestToken = localStorage.getItem("guest_token");
-          const verifiedToken = localStorage.getItem("verified_token");
+          const guestToken = localStorage.getItem('guest_token');
+          const verifiedToken = localStorage.getItem('verified_token');
           const headers: Record<string, string> = {};
-
+          
           if (guestToken) {
-            headers["Authorization"] = `Bearer ${guestToken}`;
+            headers['Authorization'] = `Bearer ${guestToken}`;
           } else if (verifiedToken) {
-            headers["Authorization"] = `Bearer ${verifiedToken}`;
+            headers['Authorization'] = `Bearer ${verifiedToken}`;
           }
 
           const [habitsRes, completionsRes] = await Promise.all([
-            fetch(buildApiUrl("habits"), { headers }),
-            fetch(buildApiUrl("completions"), { headers }),
+            fetch(buildApiUrl('habits'), { headers }),
+            fetch(buildApiUrl('completions'), { headers })
           ]);
-
+          
           if (habitsRes.ok) {
             const habitsData = await habitsRes.json();
             setHabits(habitsData.habits || []);
           }
-
+          
           if (completionsRes.ok) {
             const completionsData = await completionsRes.json();
             setCompletions(completionsData.completions || []);
           }
         } catch (error) {
-          console.error("Error fetching user data:", error);
+          console.error('Error fetching user data:', error);
         } finally {
           setLoading(false);
         }
       };
-
+      
       fetchUserData();
     }
   }, [user, authLoading, toast]);
@@ -99,8 +99,22 @@ export default function Profile() {
 
   const userInitials = getUserInitials(user);
 
+  // Difficulty color coding
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "easy":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "hard":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
   return (
-    <Layout
+    <Layout 
       showSidebar={true}
       sidebarOpen={sidebarOpen}
       onSidebarToggle={setSidebarOpen}
@@ -110,6 +124,7 @@ export default function Profile() {
       <div className="max-w-7xl mx-auto p-4">
         {/* Desktop Optimized Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-8rem)]">
+          
           {/* Left Column - Personal Info & Bottom Cards */}
           <div className="lg:col-span-5 space-y-6">
             {/* Profile Info */}
@@ -120,12 +135,8 @@ export default function Profile() {
               <CardContent className="space-y-6">
                 <div className="flex items-center space-x-6">
                   <Avatar className="h-20 w-20" key={user.profileImageUrl}>
-                    <AvatarImage
-                      src={
-                        user.profileImageUrl && user.profileImageUrl !== "👤"
-                          ? user.profileImageUrl
-                          : ""
-                      }
+                    <AvatarImage 
+                      src={user.profileImageUrl && user.profileImageUrl !== "👤" ? user.profileImageUrl : ""} 
                       alt={`${getUserDisplayName(user)}'s profile`}
                     />
                     <AvatarFallback className="text-lg font-semibold bg-primary text-white">
@@ -165,9 +176,19 @@ export default function Profile() {
                       {getUserEmail(user) || "Not set"}
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Difficulty Level
+                    </label>
+                    <div className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(user.difficulty || 'medium')}`}>
+                        {user.difficulty || 'medium'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <Button
+                <Button 
                   className="w-full md:w-auto"
                   onClick={() => setShowEditProfile(true)}
                 >
@@ -191,9 +212,9 @@ export default function Profile() {
                     <p className="text-xs text-gray-600 text-center mb-3">
                       Claim your completed challenge rewards here
                     </p>
-                    <Button
+                    <Button 
                       className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-sm"
-                      onClick={() => (window.location.href = "/challenges")}
+                      onClick={() => window.location.href = '/challenges'}
                     >
                       <i className="fas fa-gift mr-2"></i>
                       View All Challenges
@@ -205,9 +226,7 @@ export default function Profile() {
               {/* Achievements - Aligned horizontally with ML Analytics */}
               <Card className="lg:h-fit">
                 <CardHeader>
-                  <CardTitle className="text-center text-sm">
-                    Achievements
-                  </CardTitle>
+                  <CardTitle className="text-center text-sm">Achievements</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
@@ -267,7 +286,9 @@ export default function Profile() {
 
           {/* Mobile: XP Display below personal info */}
           <div className="lg:hidden col-span-1">
-            {!loading && <SimpleXPDisplay user={user} />}
+            {!loading && (
+              <SimpleXPDisplay user={user} />
+            )}
           </div>
         </div>
       </div>

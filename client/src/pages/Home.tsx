@@ -35,7 +35,7 @@ export default function Home() {
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false);
-
+  
   // Coaching insight generation mutation
   const generateInsightMutation = useMutation({
     mutationFn: async () => {
@@ -57,8 +57,8 @@ export default function Home() {
       });
     },
   });
-
-  // sidebarOpen
+  
+// sidebarOpen
   // Check if questionnaire is completed
   useEffect(() => {
     const completed = localStorage.getItem("questionnaireCompleted") === "true";
@@ -73,9 +73,9 @@ export default function Home() {
         setSidebarOpen(false);
       }
     };
-
-    window.addEventListener("resize", handleRouteChange);
-    return () => window.removeEventListener("resize", handleRouteChange);
+    
+    window.addEventListener('resize', handleRouteChange);
+    return () => window.removeEventListener('resize', handleRouteChange);
   }, [setSidebarOpen]);
 
   const [debugSectionMinimized, setDebugSectionMinimized] = useState(false);
@@ -106,31 +106,42 @@ export default function Home() {
   // Query for habits data
   const { data: habitsResponse, isLoading: habitsLoading } = useQuery<any>({
     queryKey: ["/api/habits"],
+    queryFn: async () => {
+      const response = await apiRequest("habits", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
   // Query for completions data with proper cache key
-  const { data: completionsResponse, isLoading: completionsLoading } =
-    useQuery<any>({
-      queryKey: ["/api/completions", today],
-      queryFn: async () => {
-        const response = await apiRequest(`completions?date=${today}`, "GET");
-        return await response.json();
-      },
-      enabled: !!user,
-      staleTime: 0, // Always refetch to ensure fresh data
-      refetchOnWindowFocus: true, // Refetch when window gains focus
-    });
+  const { data: completionsResponse, isLoading: completionsLoading } = useQuery<any>({
+    queryKey: ["/api/completions", today],
+    queryFn: async () => {
+      const response = await apiRequest(`completions?date=${today}`, 'GET');
+      return await response.json();
+    },
+    enabled: !!user,
+    staleTime: 0, // Always refetch to ensure fresh data
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+  });
 
   // Query for insights
   const { data: insights } = useQuery<any>({
     queryKey: ["/api/insights"],
+    queryFn: async () => {
+      const response = await apiRequest("insights", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
   // Query for streaks data
   const { data: streaksData } = useQuery<any>({
     queryKey: ["/api/analytics/streaks"],
+    queryFn: async () => {
+      const response = await apiRequest("analytics/streaks", 'GET');
+      return await response.json();
+    },
     enabled: !!user,
   });
 
@@ -138,7 +149,7 @@ export default function Home() {
   const { data: mlEvaluation } = useQuery<any>({
     queryKey: ["/api/ml/evaluate"],
     queryFn: async () => {
-      const response = await apiRequest("ml/evaluate", "GET");
+      const response = await apiRequest("ml/evaluate", 'GET');
       return await response.json();
     },
     enabled: !!user,
@@ -148,31 +159,25 @@ export default function Home() {
 
   // Habit completion mutation with improved optimistic updates
   const toggleHabitCompletion = useMutation({
-    mutationFn: async ({
-      habitId,
-      isCompleted,
-    }: {
-      habitId: number;
-      isCompleted: boolean;
-    }) => {
+    mutationFn: async ({ habitId, isCompleted }: { habitId: number; isCompleted: boolean }) => {
       // Add request deduplication
       const requestKey = `habit-${habitId}-${isCompleted}`;
       if (window.activeRequests?.has(requestKey)) {
         throw new Error("Request already in progress");
       }
-
+      
       // Track active request
       if (!window.activeRequests) window.activeRequests = new Set();
       window.activeRequests.add(requestKey);
-
+      
       try {
-        if (!isCompleted) {
-          const response = await apiRequest("completions/complete", "POST", {
-            habitId,
-            value: 1,
-          });
+                 if (!isCompleted) {
+           const response = await apiRequest("completions/complete", "POST", {
+             habitId,
+             value: 1,
+           });
           const result = await response.json();
-
+          
           if (result.success && result.data.xpEarned > 0) {
             toast({
               title: "Habit Completed! 🎉",
@@ -180,12 +185,12 @@ export default function Home() {
             });
           }
           return result;
-        } else {
-          const response = await apiRequest("completions/uncomplete", "POST", {
-            habitId,
-          });
+                 } else {
+           const response = await apiRequest("completions/uncomplete", "POST", {
+             habitId,
+           });
           const result = await response.json();
-
+          
           if (result.success && result.data.xpLost > 0) {
             toast({
               title: "Habit Uncompleted",
@@ -202,20 +207,15 @@ export default function Home() {
     },
     onMutate: async ({ habitId, isCompleted }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["/api/completions", today],
-      });
-
+      await queryClient.cancelQueries({ queryKey: ["/api/completions", today] });
+      
       // Snapshot the previous value
-      const previousCompletions = queryClient.getQueryData([
-        "/api/completions",
-        today,
-      ]);
-
+      const previousCompletions = queryClient.getQueryData(["/api/completions", today]);
+      
       // Optimistically update the completions cache with proper date format
       queryClient.setQueryData(["/api/completions", today], (old: any) => {
         if (!old) return old;
-
+        
         // FIXED: isCompleted means "is currently completed", so we want to add when !isCompleted
         if (!isCompleted) {
           // Adding completion - use exact same format as backend
@@ -227,7 +227,7 @@ export default function Home() {
             value: 1,
             createdAt: new Date().toISOString(),
           };
-
+          
           return {
             ...old,
             completions: [...(old.completions || []), newCompletion],
@@ -237,26 +237,21 @@ export default function Home() {
           // Removing completion
           return {
             ...old,
-            completions: (old.completions || []).filter(
-              (c: any) => c.habitId !== habitId
-            ),
+            completions: (old.completions || []).filter((c: any) => c.habitId !== habitId),
             count: Math.max(0, (old.count || 0) - 1),
           };
         }
       });
-
+      
       // Return context for rollback
       return { previousCompletions };
     },
     onError: (error, _variables, context) => {
       // Rollback on error
       if (context?.previousCompletions) {
-        queryClient.setQueryData(
-          ["/api/completions", today],
-          context.previousCompletions
-        );
+        queryClient.setQueryData(["/api/completions", today], context.previousCompletions);
       }
-
+      
       if (error.message === "Request already in progress") {
         toast({
           title: "Please wait",
@@ -265,7 +260,7 @@ export default function Home() {
         });
         return;
       }
-
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -286,21 +281,18 @@ export default function Home() {
     onSettled: () => {
       // Force refetch to ensure cache consistency
       queryClient.invalidateQueries({ queryKey: ["/api/completions", today] });
-
+      queryClient.invalidateQueries({ queryKey: ["/api/completions"] }); // Invalidate general completions query
+      
       // Invalidate related queries with proper timing
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/analytics/streaks"] });
-        queryClient.invalidateQueries({
-          queryKey: ["/api/analytics/xp-calculation"],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["/api/analytics/dashboard"],
-        });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/xp-calculation"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
         queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
         // Invalidate ML predictions to ensure they update with new user data
         queryClient.invalidateQueries({ queryKey: ["/api/ml/evaluate"] });
         queryClient.invalidateQueries({ queryKey: ["/api/ml/predictions"] });
-
+        
         // Refresh user data after a delay to ensure XP/level updates
         setTimeout(() => {
           refreshUserData();
@@ -325,24 +317,22 @@ export default function Home() {
   const completions = completionsResponse?.completions || [];
 
   // Improved date comparison logic - handle exact string matching
-  const completedToday =
-    completions.filter((c: any) => {
-      // Ensure both dates are in the same format for comparison
-      const completionDate =
-        typeof c.completedAt === "string"
-          ? c.completedAt
-          : c.completedAt?.toISOString?.()?.split("T")[0];
-      return completionDate === today;
-    }) || [];
-
+  const completedToday = completions.filter((c: any) => {
+    // Ensure both dates are in the same format for comparison
+    const completionDate = typeof c.completedAt === 'string' ? c.completedAt : c.completedAt?.toISOString?.()?.split('T')[0];
+    return completionDate === today;
+  }) || [];
+  
   // Create Set of completed habit IDs for efficient lookup
   const completedHabitIds = new Set(completedToday.map((c: any) => c.habitId));
+
+
 
   const currentStreak = streaksData?.data?.summary?.totalCurrentStreak || 0;
   const longestStreak = streaksData?.data?.summary?.totalLongestStreak || 0;
 
   return (
-    <Layout
+    <Layout 
       showSidebar={true}
       sidebarOpen={sidebarOpen}
       onSidebarToggle={setSidebarOpen}
@@ -364,64 +354,47 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="mt-4 sm:mt-0 bg-white/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 md:p-5 lg:p-6 text-center">
-                  <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">
-                    {currentStreak}
-                  </div>
-                  <div className="text-xs sm:text-sm md:text-base text-indigo-100">
-                    Day Streak
-                  </div>
+                  <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{currentStreak}</div>
+                  <div className="text-xs sm:text-sm md:text-base text-indigo-100">Day Streak</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
+          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
             {showTimezoneWarning}
-
+            
             {/* Stats Cards - Moved to top */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-10 lg:mb-12">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total Habits
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Habits</CardTitle>
                   <i className="fas fa-list text-muted-foreground"></i>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {habits?.length || 0}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Active habits</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Today's Progress
-                  </CardTitle>
-                  <i className="fas fa-chart-line text-muted-foreground"></i>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {completedToday.length}/{habits?.length || 0}
-                  </div>
+                  <div className="text-2xl font-bold">{habits?.length || 0}</div>
                   <p className="text-xs text-muted-foreground">
-                    {habits?.length
-                      ? Math.round(
-                          (completedToday.length / habits.length) * 100
-                        )
-                      : 0}
-                    % completed
+                    Active habits
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Current Streak
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Today's Progress</CardTitle>
+                  <i className="fas fa-chart-line text-muted-foreground"></i>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{completedToday.length}/{habits?.length || 0}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% completed
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
                   <i className="fas fa-fire text-muted-foreground"></i>
                 </CardHeader>
                 <CardContent>
@@ -434,15 +407,11 @@ export default function Home() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Level & XP
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Level & XP</CardTitle>
                   <i className="fas fa-star text-muted-foreground"></i>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    Level {user?.level || 1}
-                  </div>
+                  <div className="text-2xl font-bold">Level {user?.level || 1}</div>
                   <p className="text-xs text-muted-foreground">
                     {user?.xp || 0} XP • {100 - ((user?.xp || 0) % 100)} more XP
                   </p>
@@ -451,133 +420,101 @@ export default function Home() {
             </div>
 
             {/* Debug Section - Data Consistency Check */}
-            {mlEvaluation &&
-              uiSettingsLoaded &&
-              uiSettings.showDataConsistencyCheck && (
-                <Card className="mb-6 border-orange-200 bg-orange-50">
-                  <CardHeader>
-                    <CardTitle className="text-sm text-orange-800 flex items-center gap-2">
-                      <i className="fas fa-exclamation-triangle"></i>
-                      Data Consistency Check
-                      <div className="ml-auto flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setDebugSectionMinimized(!debugSectionMinimized)
-                          }
-                        >
-                          <i
-                            className={`fas ${
-                              debugSectionMinimized
-                                ? "fa-expand"
-                                : "fa-compress"
-                            } mr-2`}
-                          ></i>
-                          {debugSectionMinimized ? "Show" : "Minimize"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const response = await apiRequest(
-                                "analytics/audit-xp",
-                                "POST"
-                              );
-                              const result = await response.json();
-                              if (result.success) {
-                                toast({
-                                  title: "XP Audit Complete",
-                                  description: result.message,
-                                });
-                                // Refresh user data after audit
-                                setTimeout(() => refreshUserData(), 1000);
-                              } else {
-                                toast({
-                                  title: "XP Audit Failed",
-                                  description: result.error || "Unknown error",
-                                  variant: "destructive",
-                                });
-                              }
-                            } catch (error) {
-                              console.error("XP Audit error:", error);
+            {mlEvaluation && uiSettingsLoaded && uiSettings.showDataConsistencyCheck && (
+              <Card className="mb-6 border-orange-200 bg-orange-50">
+                <CardHeader>
+                  <CardTitle className="text-sm text-orange-800 flex items-center gap-2">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    Data Consistency Check
+                    <div className="ml-auto flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setDebugSectionMinimized(!debugSectionMinimized)}
+                      >
+                        <i className={`fas ${debugSectionMinimized ? 'fa-expand' : 'fa-compress'} mr-2`}></i>
+                        {debugSectionMinimized ? 'Show' : 'Minimize'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={async () => {
+                          try {
+                                                         const response = await apiRequest("analytics/audit-xp", 'POST');
+                            const result = await response.json();
+                            if (result.success) {
+                              toast({
+                                title: "XP Audit Complete",
+                                description: result.message,
+                              });
+                              // Refresh user data after audit
+                              setTimeout(() => refreshUserData(), 1000);
+                            } else {
                               toast({
                                 title: "XP Audit Failed",
-                                description: "Failed to audit XP data",
+                                description: result.error || "Unknown error",
                                 variant: "destructive",
                               });
                             }
-                          }}
-                        >
-                          <i className="fas fa-search mr-2"></i>
-                          Audit XP
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={refreshUserData}
-                        >
-                          <i className="fas fa-sync-alt mr-2"></i>
-                          Refresh User Data
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.location.reload()}
-                        >
-                          <i className="fas fa-redo mr-2"></i>
-                          Force Refresh
-                        </Button>
+                          } catch (error) {
+                            console.error('XP Audit error:', error);
+                            toast({
+                              title: "XP Audit Failed",
+                              description: "Failed to audit XP data",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <i className="fas fa-search mr-2"></i>
+                        Audit XP
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={refreshUserData}
+                      >
+                        <i className="fas fa-sync-alt mr-2"></i>
+                        Refresh User Data
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => window.location.reload()}
+                      >
+                        <i className="fas fa-redo mr-2"></i>
+                        Force Refresh
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                {!debugSectionMinimized && (
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <h4 className="font-semibold text-orange-800 mb-2">Frontend Data (Cached)</h4>
+                        <p>Level: {user?.level || 'N/A'}</p>
+                        <p>XP: {user?.xp || 'N/A'}</p>
+                        <p>Habits: {habits?.length || 'N/A'}</p>
                       </div>
-                    </CardTitle>
-                  </CardHeader>
-                  {!debugSectionMinimized && (
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <h4 className="font-semibold text-orange-800 mb-2">
-                            Frontend Data (Cached)
-                          </h4>
-                          <p>Level: {user?.level || "N/A"}</p>
-                          <p>XP: {user?.xp || "N/A"}</p>
-                          <p>Habits: {habits?.length || "N/A"}</p>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-orange-800 mb-2">
-                            ML Data (Fresh from DB)
-                          </h4>
-                          <p>
-                            Level: {mlEvaluation?.user_profile?.level || "N/A"}
-                          </p>
-                          <p>XP: {mlEvaluation?.user_profile?.xp || "N/A"}</p>
-                          <p>
-                            Habits:{" "}
-                            {mlEvaluation?.user_profile
-                              ?.existing_habits_count || "N/A"}
-                          </p>
-                          <p>
-                            Success Rate:{" "}
-                            {mlEvaluation?.prediction?.successProbability
-                              ? `${Math.round(
-                                  mlEvaluation.prediction.successProbability *
-                                    100
-                                )}%`
-                              : "N/A"}
-                          </p>
-                        </div>
+                      <div>
+                        <h4 className="font-semibold text-orange-800 mb-2">ML Data (Fresh from DB)</h4>
+                        <p>Level: {mlEvaluation?.user_profile?.level || 'N/A'}</p>
+                        <p>XP: {mlEvaluation?.user_profile?.xp || 'N/A'}</p>
+                        <p>Habits: {mlEvaluation?.user_profile?.existing_habits_count || 'N/A'}</p>
+                        <p>Success Rate: {mlEvaluation?.prediction?.successProbability ? `${Math.round(mlEvaluation.prediction.successProbability * 100)}%` : 'N/A'}</p>
                       </div>
-                      {(user?.level !== mlEvaluation?.user_profile?.level ||
-                        user?.xp !== mlEvaluation?.user_profile?.xp) && (
-                        <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-xs">
-                          ⚠️ Data mismatch detected! Frontend is using stale
-                          data. Click "Refresh User Data" to sync.
-                        </div>
-                      )}
-                    </CardContent>
-                  )}
-                </Card>
-              )}
+                    </div>
+                    {(user?.level !== mlEvaluation?.user_profile?.level || 
+                      user?.xp !== mlEvaluation?.user_profile?.xp) && (
+                      <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-xs">
+                        ⚠️ Data mismatch detected! Frontend is using stale data. Click "Refresh User Data" to sync.
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            )}
 
             {/* Today's Habits - Moved up after stats */}
             <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
@@ -586,17 +523,16 @@ export default function Home() {
                   Today's Habits
                 </h3>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                  {!questionnaireCompleted &&
-                    uiSettings.showAIQuestionnaire && (
-                      <Button
-                        onClick={() => setShowQuestionnaire(true)}
-                        variant="outline"
-                        className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
-                      >
-                        <i className="fas fa-brain"></i>
-                        <span className="hidden sm:inline">AI Setup</span>
-                      </Button>
-                    )}
+                  {!questionnaireCompleted && uiSettings.showAIQuestionnaire && (
+                    <Button
+                      onClick={() => setShowQuestionnaire(true)}
+                      variant="outline"
+                      className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
+                    >
+                      <i className="fas fa-brain"></i>
+                      <span className="hidden sm:inline">AI Setup</span>
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowAddHabit(true)}
                     className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
@@ -607,13 +543,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div
-                className={`space-y-4 ${
-                  uiSettings.allNotifications
-                    ? "max-h-96 overflow-y-auto pr-2"
-                    : ""
-                }`}
-              >
+              <div className={`space-y-4 ${uiSettings.allNotifications ? 'max-h-96 overflow-y-auto pr-2' : ''}`}>
                 {habits.map((habit: any) => (
                   <HabitCard
                     key={habit.id}
@@ -639,10 +569,7 @@ export default function Home() {
                       <p className="mb-4 text-sm sm:text-base">
                         Start building better habits today!
                       </p>
-                      <Button
-                        onClick={() => setShowAddHabit(true)}
-                        className="w-full sm:w-auto"
-                      >
+                      <Button onClick={() => setShowAddHabit(true)} className="w-full sm:w-auto">
                         Add Your First Habit
                       </Button>
                     </CardContent>
@@ -665,20 +592,19 @@ export default function Home() {
                   {/* Sticky AI Coach Section */}
                   <div className="lg:col-span-1">
                     <div className="sticky top-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                        Personalized Habit Insights
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        AI-powered insights and recommendations for your habit
-                        journey
-                      </p>
+                                             <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                         Personalized Habit Insights
+                       </h3>
+                       <p className="text-sm text-gray-600 mb-4">
+                         AI-powered insights and recommendations for your habit journey
+                       </p>
                       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
                         <div className="text-center">
                           <i className="fas fa-lightbulb text-2xl text-blue-600 mb-2"></i>
                           <p className="text-sm text-gray-700 mb-3">
                             Ready to help you succeed!
                           </p>
-                          <button
+                          <button 
                             onClick={() => generateInsightMutation.mutate()}
                             disabled={generateInsightMutation.isPending}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -689,22 +615,22 @@ export default function Home() {
                                 Generating...
                               </>
                             ) : (
-                              "Get Insight"
+                              'Get Insight'
                             )}
                           </button>
                         </div>
                       </div>
                     </div>
                   </div>
-
+                  
                   {/* Scrollable Notifications */}
                   <div className="lg:col-span-2">
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">
                       Recent Insights
                     </h3>
-                    <div className="max-h-96 overflow-y-auto pr-2 space-y-3">
-                      <CoachingMessages />
-                    </div>
+                                         <div className="max-h-96 overflow-y-auto pr-2 space-y-3">
+                       <CoachingMessages />
+                     </div>
                   </div>
                 </div>
               </div>
@@ -712,10 +638,7 @@ export default function Home() {
 
             {/* AI Insight Card */}
             {insights && insights.length > 0 && (
-              <AIInsightCard
-                insight={insights[0]}
-                className="mb-6 sm:mb-8 md:mb-10 lg:mb-12"
-              />
+              <AIInsightCard insight={insights[0]} className="mb-6 sm:mb-8 md:mb-10 lg:mb-12" />
             )}
 
             {/* ML Prediction Section */}
