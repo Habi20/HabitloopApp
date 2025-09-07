@@ -1,20 +1,13 @@
 // server/routes/aiRoutes.ts
-import express from "express";
-import {
-  generateAdvancedServiceInsight,
-  getAvailableServices,
-} from "../services/aiCoachService";
-import { requireAuth } from "./middlewareRoutes";
-import { Habit } from "@shared/schema";
-import { questionnaireSchema } from "@shared/schema";
-import { z } from "zod";
-import { fromZodError } from "zod-validation-error";
-import { storage } from "../storage";
-import {
-  generateHabitRecommendations,
-  generatePersonalizedInsight,
-  generateAIRecommendations,
-} from "../openaiService";
+import express from 'express';
+import { generateAdvancedServiceInsight, getAvailableServices } from '../services/aiCoachService';
+import { requireAuth } from './middlewareRoutes';
+import { Habit } from '@shared/schema';
+import { questionnaireSchema } from '@shared/schema';
+import { z } from 'zod';
+import { fromZodError } from 'zod-validation-error';
+import { storage } from '../storage';
+import { generateHabitRecommendations, generatePersonalizedInsight, generateAIRecommendations } from '../openaiService';
 
 const router = express.Router();
 
@@ -24,28 +17,22 @@ const getUserId = (req: express.Request) => {
     return req.user.id; // Authenticated user
   }
   // For unauthenticated requests, return guest user
-  return "guest-demo-user"; // Fallback to guest
+  return 'guest-demo-user'; // Fallback to guest
 };
 
-// Questionnaire endpoint - requires authentication
-router.post("/questionnaire", requireAuth, async (req, res) => {
+// Questionnaire endpoint - public for new users during signup
+router.post('/questionnaire', async (req, res) => {
   try {
-    console.log(
-      "Received questionnaire data:",
-      JSON.stringify(req.body, null, 2)
-    );
-
+    console.log("Received questionnaire data:", JSON.stringify(req.body, null, 2));
+    
     const questionnaire = questionnaireSchema.parse(req.body);
-    console.log(
-      "Parsed questionnaire:",
-      JSON.stringify(questionnaire, null, 2)
-    );
-
+    console.log("Parsed questionnaire:", JSON.stringify(questionnaire, null, 2));
+    
     // Get user ID if available (for authenticated users)
     const userId = req.user?.id || null;
-
+    
     // Save questionnaire data to database if user is authenticated
-    if (userId && !req.user?.isGuest) {
+    if (userId && req.user && !req.user?.isGuest) {
       try {
         await storage.saveQuestionnaire(userId, questionnaire);
         console.log(`Questionnaire saved for user: ${userId}`);
@@ -54,31 +41,29 @@ router.post("/questionnaire", requireAuth, async (req, res) => {
         // Continue with recommendations even if saving fails
       }
     }
-
+    
     // Get user context for better AI personalization
     let userContext = null;
-    if (userId && !req.user?.isGuest) {
+    if (userId && req.user && !req.user?.isGuest) {
+      
       try {
         const user = await storage.getUser(userId);
         userContext = {
           level: user?.level || 1,
           xp: user?.xp || 0,
           existingHabitsCount: (await storage.getUserHabits(userId)).length,
-          completionRate: 75, // Could be calculated from historical data
+          completionRate: 75 // Could be calculated from historical data
         };
       } catch (error) {
         console.log("Could not get user context for AI enhancement:", error);
       }
     }
 
-    const recommendations = await generateHabitRecommendations(
-      questionnaire,
-      userContext
-    );
+    const recommendations = await generateHabitRecommendations(questionnaire, userContext);
     console.log("Generated recommendations:", recommendations.length);
-
+    
     // Save recommendations to database if user is authenticated
-    if (userId && !req.user?.isGuest) {
+    if (userId && req.user && !req.user?.isGuest) {
       try {
         await storage.saveRecommendations(userId, recommendations);
         console.log(`Recommendations saved for user: ${userId}`);
@@ -87,18 +72,18 @@ router.post("/questionnaire", requireAuth, async (req, res) => {
         // Continue even if saving fails
       }
     }
-
-    res.json({
+    
+    res.json({ 
       recommendations,
       saved: userId ? true : false,
-      userId: userId || null,
+      userId: userId || null
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("Validation error:", error.errors);
-      return res.status(400).json({
+      return res.status(400).json({ 
         message: fromZodError(error).toString(),
-        errors: error.errors,
+        errors: error.errors 
       });
     }
     console.error("Error processing questionnaire:", error);
@@ -107,21 +92,19 @@ router.post("/questionnaire", requireAuth, async (req, res) => {
 });
 
 // Test endpoint for debugging
-router.get("/questionnaire/test", async (_req, res) => {
+router.get('/questionnaire/test', async (_req, res) => {
   try {
     const testQuestionnaire = {
       focusAreas: ["Health & Fitness", "Learning"],
       motivationTime: "morning",
-      consistencyRating: 3,
+      consistencyRating: 3
     };
-
-    const recommendations = await generateHabitRecommendations(
-      testQuestionnaire
-    );
-    res.json({
-      success: true,
+    
+    const recommendations = await generateHabitRecommendations(testQuestionnaire);
+    res.json({ 
+      success: true, 
       recommendations,
-      testQuestionnaire,
+      testQuestionnaire 
     });
   } catch (error) {
     console.error("Test endpoint error:", error);
@@ -130,7 +113,7 @@ router.get("/questionnaire/test", async (_req, res) => {
 });
 
 // Get AI insights (no auth required)
-router.get("/", async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const userId = getUserId(req);
     const insights = await storage.getAIInsights(userId);
@@ -142,30 +125,26 @@ router.get("/", async (req, res) => {
 });
 
 // Generate AI insights (requires authentication)
-router.post("/generate", requireAuth, async (req, res) => {
+router.post('/generate', requireAuth, async (req, res) => {
   try {
     const userId = req.user?.id;
-
+    
     if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
-
+    
     // Ensure user is not a guest
     if (req.user?.isGuest) {
-      return res
-        .status(403)
-        .json({ message: "Guest users cannot generate insights" });
+      return res.status(403).json({ message: "Guest users cannot generate insights" });
     }
-
+    
     console.log(`Generating insight for user: ${userId}`);
-
+    
     const habits = await storage.getUserHabits(userId);
     const completions = await storage.getHabitCompletions(userId);
-
-    console.log(
-      `Found ${habits.length} habits and ${completions.length} completions`
-    );
-
+    
+    console.log(`Found ${habits.length} habits and ${completions.length} completions`);
+    
     const insight = await generatePersonalizedInsight(habits, completions);
     console.log("Generated insight:", insight);
 
@@ -177,21 +156,21 @@ router.post("/generate", requireAuth, async (req, res) => {
     );
 
     console.log("Created insight in database:", createdInsight.id);
-
+    
     return res.json({
       insight: insight.content,
       title: insight.title,
       type: insight.type,
-      id: createdInsight.id,
+      id: createdInsight.id
     });
   } catch (error) {
     console.error("Error generating insight:", error);
-
+    
     if (error instanceof Error) {
-      return res.status(500).json({
-        message: "Failed to generate insight",
+      return res.status(500).json({ 
+        message: "Failed to generate insight", 
         error: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     } else {
       return res.status(500).json({ message: "Failed to generate insight" });
@@ -200,7 +179,7 @@ router.post("/generate", requireAuth, async (req, res) => {
 });
 
 // Mark insight as read (no auth required)
-router.put("/:id/read", async (req, res) => {
+router.put('/:id/read', async (req, res) => {
   try {
     const insightId = parseInt(req.params.id);
     await storage.markInsightAsRead(insightId);
@@ -212,12 +191,11 @@ router.put("/:id/read", async (req, res) => {
 });
 
 // Get AI recommendations (no auth required)
-router.get("/recommendations", async (req, res) => {
+router.get('/recommendations', async (req, res) => {
   try {
     const userId = getUserId(req);
-    const { recommendationEngine } = await import("../recommendationEngine");
-    const recommendations =
-      await recommendationEngine.generatePersonalizedRecommendations(userId);
+    const { recommendationEngine } = await import('../recommendationEngine');
+    const recommendations = await recommendationEngine.generatePersonalizedRecommendations(userId);
     res.json(recommendations);
   } catch (error) {
     console.error("Error generating AI recommendations:", error);
@@ -226,13 +204,13 @@ router.get("/recommendations", async (req, res) => {
 });
 
 // Generate AI recommendations (no auth required)
-router.post("/recommendations", async (req, res) => {
+router.post('/recommendations', async (req, res) => {
   try {
     const userId = getUserId(req);
     const { questionnaireData } = req.body;
 
     if (!questionnaireData) {
-      return res.status(400).json({ error: "Questionnaire data required" });
+      return res.status(400).json({ error: 'Questionnaire data required' });
     }
 
     const recommendations = await generateAIRecommendations(questionnaireData);
@@ -240,7 +218,7 @@ router.post("/recommendations", async (req, res) => {
       success: true,
       recommendations,
       user_id: userId,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error("Error generating AI recommendations:", error);
@@ -249,29 +227,27 @@ router.post("/recommendations", async (req, res) => {
 });
 
 // Get available AI Coach services
-router.get("/coach/services", requireAuth, async (_req, res) => {
+router.get('/coach/services', requireAuth, async (_req, res) => {
   try {
     const services = getAvailableServices();
     res.json({ services });
   } catch (error) {
-    console.error("Error fetching coach services:", error);
-    res.status(500).json({ error: "Failed to fetch coach services" });
+    console.error('Error fetching coach services:', error);
+    res.status(500).json({ error: 'Failed to fetch coach services' });
   }
 });
 
 // Generate AI Coach insight with context
-router.post("/coach/insight", requireAuth, async (req, res) => {
+router.post('/coach/insight', requireAuth, async (req, res) => {
   try {
     const { serviceId, context } = req.body;
-
+    
     if (!serviceId) {
-      return res.status(400).json({ error: "Service ID is required" });
+      return res.status(400).json({ error: 'Service ID is required' });
     }
 
     if (!context || !context.habits || !context.completions) {
-      return res
-        .status(400)
-        .json({ error: "Context with habits and completions is required" });
+      return res.status(400).json({ error: 'Context with habits and completions is required' });
     }
 
     const insight = await generateAdvancedServiceInsight(serviceId, {
@@ -279,47 +255,43 @@ router.post("/coach/insight", requireAuth, async (req, res) => {
       completions: context.completions,
       questionnaire: context.questionnaire || {},
       userLevel: context.userLevel || 1,
-      totalXP: context.totalXP || 0,
+      totalXP: context.totalXP || 0
     });
 
     res.json({ insight });
   } catch (error) {
-    console.error("Error generating AI insight:", error);
-    res.status(500).json({ error: "Failed to generate AI insight" });
+    console.error('Error generating AI insight:', error);
+    res.status(500).json({ error: 'Failed to generate AI insight' });
   }
 });
 
 // Ask AI coach a question (requires authentication)
-router.post("/ask", requireAuth, async (req, res) => {
+router.post('/ask', requireAuth, async (req, res) => {
   try {
     const userId = req.user?.id;
-
+    
     if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
-
+    
     // Ensure user is not a guest
     if (req.user?.isGuest) {
-      return res
-        .status(403)
-        .json({ message: "Guest users cannot ask coach questions" });
+      return res.status(403).json({ message: "Guest users cannot ask coach questions" });
     }
-
+    
     const { question } = req.body;
-
-    if (!question || typeof question !== "string") {
+    
+    if (!question || typeof question !== 'string') {
       return res.status(400).json({ message: "Question is required" });
     }
-
+    
     console.log(`AI Coach question from user ${userId}: ${question}`);
-
+    
     const habits = await storage.getUserHabits(userId);
     const completions = await storage.getHabitCompletions(userId);
-
-    console.log(
-      `Context: ${habits.length} habits, ${completions.length} completions`
-    );
-
+    
+    console.log(`Context: ${habits.length} habits, ${completions.length} completions`);
+    
     // Generate personalized response using OpenAI
     const response = await generatePersonalizedInsight(habits, completions);
     console.log("Generated coach response:", response);
@@ -327,16 +299,16 @@ router.post("/ask", requireAuth, async (req, res) => {
     return res.json({
       response: response.content || "I'm here to help with your habit journey!",
       type: "coach_response",
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error("Error asking coach question:", error);
-
+    
     if (error instanceof Error) {
-      return res.status(500).json({
-        message: "Failed to get coach response",
+      return res.status(500).json({ 
+        message: "Failed to get coach response", 
         error: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     } else {
       return res.status(500).json({ message: "Failed to get coach response" });
@@ -345,29 +317,27 @@ router.post("/ask", requireAuth, async (req, res) => {
 });
 
 // Generate general insights
-router.post("/insights/generate", requireAuth, async (req, res) => {
+router.post('/insights/generate', requireAuth, async (req, res) => {
   try {
     const { habits, completions, userLevel, totalXP } = req.body;
-
+    
     if (!habits || !completions) {
-      return res
-        .status(400)
-        .json({ error: "Habits and completions data required" });
+      return res.status(400).json({ error: 'Habits and completions data required' });
     }
 
     // Import OpenAI dynamically to avoid circular dependencies
-    const { default: OpenAI } = await import("openai");
-    const { env } = await import("../env");
-
+    const { default: OpenAI } = await import('openai');
+    const { env } = await import('../env');
+    
     const openai = new OpenAI({
       apiKey: env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
     });
-
+    
     // Create a comprehensive prompt with user data
     const prompt = `
 As an AI habit coach, analyze this user's data and provide personalized insights:
 
-HABITS: ${habits.map((h: Habit) => `${h.title} (${h.frequency})`).join(", ")}
+HABITS: ${habits.map((h: Habit) => `${h.title} (${h.frequency})`).join(', ')}
 
 COMPLETIONS: ${completions.length} total completions
 USER LEVEL: ${userLevel || 1}
@@ -393,32 +363,30 @@ Respond with JSON:
       messages: [
         {
           role: "system",
-          content:
-            "You are a helpful AI habit coach. Always respond with valid JSON as requested.",
+          content: "You are a helpful AI habit coach. Always respond with valid JSON as requested."
         },
         {
           role: "user",
-          content: prompt,
-        },
+          content: prompt
+        }
       ],
       response_format: { type: "json_object" },
       max_tokens: 400,
-      temperature: 0.7,
+      temperature: 0.7
     });
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
-      throw new Error("No response from OpenAI");
+      throw new Error('No response from OpenAI');
     }
 
     const insights = JSON.parse(content);
     res.json({ insights });
   } catch (error) {
-    console.error("Error generating insights:", error);
-    res.status(500).json({
-      error: "Failed to generate insights",
-      fallback:
-        "Focus on consistency over perfection. Small daily actions compound into significant results.",
+    console.error('Error generating insights:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate insights',
+      fallback: "Focus on consistency over perfection. Small daily actions compound into significant results."
     });
   }
 });

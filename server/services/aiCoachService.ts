@@ -1,4 +1,4 @@
-import { Habit, HabitCompletion, Questionnaire } from "../../shared/schema";
+import { Habit, HabitCompletion, Questionnaire } from '../../shared/schema';
 
 // Advanced coaching service types
 interface CoachingContext {
@@ -30,15 +30,15 @@ interface TimePattern {
 
 interface BehaviorInsight {
   pattern: string;
-  strength: "strong" | "moderate" | "weak";
+  strength: 'strong' | 'moderate' | 'weak';
   frequency: number;
-  impact: "positive" | "negative" | "neutral";
+  impact: 'positive' | 'negative' | 'neutral';
 }
 
 interface CompletionTrend {
   period: string;
   completionRate: number;
-  trending: "up" | "down" | "stable";
+  trending: 'up' | 'down' | 'stable';
   momentum: number;
 }
 
@@ -46,8 +46,7 @@ interface CompletionTrend {
 export const coachServices = {
   progress_analysis: {
     title: "Progress Analysis",
-    description:
-      "Deep insights into your completion patterns, streaks, and behavioral trends",
+    description: "Deep insights into your completion patterns, streaks, and behavioral trends",
     category: "analytics",
     difficulty: "beginner",
     estimatedDuration: "2-3 minutes",
@@ -56,32 +55,19 @@ You are an elite habit formation scientist and behavioral analyst. Provide a com
 
 ADVANCED HABIT METRICS:
 - Total habits: ${ctx.habits.length}
-- Habit complexity: ${ctx.habits
-      .map((h) => `${h.title} (${h.frequency})`)
-      .join("; ")}
+- Habit complexity: ${ctx.habits.map(h => `${h.title} (${h.frequency})`).join("; ")}
 - Consistency score: ${ctx.streakAnalysis.consistencyScore}%
 - Average streak length: ${ctx.streakAnalysis.averageStreak} days
 
 BEHAVIORAL PATTERNS:
-- Completion trends: ${ctx.completionTrends
-      .map((t) => `${t.period}: ${t.completionRate}% (${t.trending})`)
-      .join("; ")}
-- Time optimization: ${ctx.timePatterns
-      .map(
-        (tp) =>
-          `${tp.habitId}: ${tp.bestPerformanceWindow} (${tp.completionRate}%)`
-      )
-      .join("; ")}
-- Behavioral insights: ${ctx.behaviorInsights
-      .map((bi) => `${bi.pattern} (${bi.strength} ${bi.impact})`)
-      .join("; ")}
+- Completion trends: ${ctx.completionTrends.map(t => `${t.period}: ${t.completionRate}% (${t.trending})`).join("; ")}
+- Time optimization: ${ctx.timePatterns.map(tp => `${tp.habitId}: ${tp.bestPerformanceWindow} (${tp.completionRate}%)`).join("; ")}
+- Behavioral insights: ${ctx.behaviorInsights.map(bi => `${bi.pattern} (${bi.strength} ${bi.impact})`).join("; ")}
 
 PSYCHOLOGICAL PROFILE:
 - Level: ${ctx.userLevel} (${ctx.totalXP} XP)
-- Motivation style: ${ctx.questionnaire?.motivationStyle || "Adaptive"}
-- Focus areas: ${
-      ctx.questionnaire?.focusAreas?.join(", ") || "General development"
-    }
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Adaptive'}
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'General development'}
 - Consistency rating: ${ctx.questionnaire?.consistencyRating || 3}/5
 
 Provide a sophisticated JSON response with:
@@ -122,8 +108,7 @@ Respond with JSON:
   },
   adaptive_coaching: {
     title: "Adaptive Coaching",
-    description:
-      "Dynamic coaching that adapts to your current state and circumstances",
+    description: "Dynamic coaching that adapts to your current state and circumstances",
     category: "personalized",
     difficulty: "intermediate",
     estimatedDuration: "3-4 minutes",
@@ -131,32 +116,21 @@ Respond with JSON:
 You are an adaptive AI coach with expertise in behavioral psychology and personalized development. Analyze the user's current state:
 
 CURRENT STATE ANALYSIS:
-- Recent performance: ${ctx.completionTrends
-      .slice(-3)
-      .map((t) => `${t.period}: ${t.completionRate}%`)
-      .join(", ")}
-- Momentum indicator: ${
-      ctx.completionTrends[ctx.completionTrends.length - 1]?.momentum || 0
-    }
-- Stress indicators: ${
-      ctx.behaviorInsights.filter((bi) => bi.impact === "negative").length
-    } negative patterns
-- Energy patterns: ${ctx.timePatterns
-      .map((tp) => `${tp.preferredTimes.join(", ")}`)
-      .join("; ")}
+- Recent performance: ${ctx.completionTrends.slice(-3).map(t => `${t.period}: ${t.completionRate}%`).join(", ")}
+- Momentum indicator: ${ctx.completionTrends[ctx.completionTrends.length - 1]?.momentum || 0}
+- Stress indicators: ${ctx.behaviorInsights.filter(bi => bi.impact === 'negative').length} negative patterns
+- Energy patterns: ${ctx.timePatterns.map(tp => `${tp.preferredTimes.join(", ")}`).join("; ")}
 
 ADAPTIVE FACTORS:
-- Motivation time: ${ctx.questionnaire?.motivationTime || "Flexible"}
-- Current habits: ${
-      ctx.questionnaire?.currentHabits?.length || 0
-    } existing habits
-- Mood: ${ctx.questionnaire?.mood || "Balanced"}
+- Motivation time: ${ctx.questionnaire?.motivationTime || 'Flexible'}
+- Current habits: ${ctx.questionnaire?.currentHabits?.length || 0} existing habits
+- Mood: ${ctx.questionnaire?.mood || 'Balanced'}
 - Consistency rating: ${ctx.questionnaire?.consistencyRating || 3}/5
 
 PERSONALIZATION DATA:
-- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || "General"}
-- Motivation style: ${ctx.questionnaire?.motivationStyle || "Adaptive"}
-- Habit time preference: ${ctx.questionnaire?.habitTime || "Flexible"}
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'General'}
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Adaptive'}
+- Habit time preference: ${ctx.questionnaire?.habitTime || 'Flexible'}
 
 Provide adaptive coaching with:
 1. Current state assessment with emotional intelligence
@@ -193,8 +167,7 @@ Respond with JSON:
   },
   breakthrough_coaching: {
     title: "Breakthrough Coaching",
-    description:
-      "Advanced coaching for overcoming plateaus and achieving breakthrough moments",
+    description: "Advanced coaching for overcoming plateaus and achieving breakthrough moments",
     category: "advanced",
     difficulty: "advanced",
     estimatedDuration: "5-7 minutes",
@@ -202,34 +175,21 @@ Respond with JSON:
 You are a breakthrough specialist and peak performance coach. Focus on identifying and overcoming plateaus:
 
 PLATEAU ANALYSIS:
-- Stagnant habits: ${ctx.habits
-      .filter((h) => ctx.streakAnalysis.currentStreaks[h.id.toString()] < 3)
-      .map((h) => h.title)
-      .join(", ")}
-- Streak breaks pattern: ${Object.entries(ctx.streakAnalysis.streakBreaks)
-      .map(([id, breaks]) => `${id}: ${breaks} breaks`)
-      .join("; ")}
-- Performance ceiling: ${Math.max(
-      ...Object.values(ctx.streakAnalysis.currentStreaks)
-    )} days max streak
-- Completion variance: ${ctx.completionTrends
-      .map((t) => t.completionRate)
-      .join(", ")}%
+- Stagnant habits: ${ctx.habits.filter(h => ctx.streakAnalysis.currentStreaks[h.id.toString()] < 3).map(h => h.title).join(", ")}
+- Streak breaks pattern: ${Object.entries(ctx.streakAnalysis.streakBreaks).map(([id, breaks]) => `${id}: ${breaks} breaks`).join("; ")}
+- Performance ceiling: ${Math.max(...Object.values(ctx.streakAnalysis.currentStreaks))} days max streak
+- Completion variance: ${ctx.completionTrends.map(t => t.completionRate).join(", ")}%
 
 BREAKTHROUGH INDICATORS:
-- Ready habits: ${
-      ctx.habits.filter(
-        (h) => ctx.streakAnalysis.currentStreaks[h.id.toString()] > 7
-      ).length
-    } stable habits
-- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || "Unexplored"}
+- Ready habits: ${ctx.habits.filter(h => ctx.streakAnalysis.currentStreaks[h.id.toString()] > 7).length} stable habits
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'Unexplored'}
 - Consistency rating: ${ctx.questionnaire?.consistencyRating || 3}/5
-- Goals: ${ctx.questionnaire?.goals?.join(", ") || "Building foundation"}
+- Goals: ${ctx.questionnaire?.goals?.join(", ") || 'Building foundation'}
 
 PSYCHOLOGICAL READINESS:
 - Confidence level: ${ctx.userLevel * 10}% estimated
-- Motivation style: ${ctx.questionnaire?.motivationStyle || "Building"}
-- Support system: ${ctx.questionnaire?.checkInPreference || "Independent"}
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Building'}
+- Support system: ${ctx.questionnaire?.checkInPreference || 'Independent'}
 
 Design breakthrough strategies with:
 1. Plateau identification and root cause analysis
@@ -267,8 +227,7 @@ Respond with JSON:
   },
   holistic_optimization: {
     title: "Holistic Life Optimization",
-    description:
-      "Complete life systems analysis and optimization recommendations",
+    description: "Complete life systems analysis and optimization recommendations",
     category: "comprehensive",
     difficulty: "expert",
     estimatedDuration: "7-10 minutes",
@@ -276,38 +235,20 @@ Respond with JSON:
 You are a holistic life optimization specialist with expertise in systems thinking and lifestyle design. Analyze all life dimensions:
 
 LIFE SYSTEMS ANALYSIS:
-- Habit ecosystem: ${ctx.habits
-      .map((h) => `${h.title} (${h.category})`)
-      .join("; ")}
-- Time allocation: ${ctx.timePatterns
-      .map((tp) => `${tp.bestPerformanceWindow}: ${tp.completionRate}%`)
-      .join("; ")}
-- Energy management: ${
-      ctx.behaviorInsights.filter((bi) => bi.impact === "positive").length
-    } positive vs ${
-      ctx.behaviorInsights.filter((bi) => bi.impact === "negative").length
-    } negative patterns
-- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || "Standard areas"}
+- Habit ecosystem: ${ctx.habits.map(h => `${h.title} (${h.category})`).join("; ")}
+- Time allocation: ${ctx.timePatterns.map(tp => `${tp.bestPerformanceWindow}: ${tp.completionRate}%`).join("; ")}
+- Energy management: ${ctx.behaviorInsights.filter(bi => bi.impact === 'positive').length} positive vs ${ctx.behaviorInsights.filter(bi => bi.impact === 'negative').length} negative patterns
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'Standard areas'}
 
 INTERDEPENDENCY MAPPING:
-- Habit synergies: ${
-      ctx.habits.length > 1
-        ? "Multiple habit interactions"
-        : "Single habit focus"
-    }
-- Goals alignment: ${
-      ctx.questionnaire?.goals?.join(", ") || "Building foundation"
-    }
-- Support systems: ${ctx.questionnaire?.checkInPreference || "Self-reliant"}
-- Resource allocation: ${ctx.questionnaire?.motivationTime || "Balanced"}
+- Habit synergies: ${ctx.habits.length > 1 ? 'Multiple habit interactions' : 'Single habit focus'}
+- Goals alignment: ${ctx.questionnaire?.goals?.join(", ") || 'Building foundation'}
+- Support systems: ${ctx.questionnaire?.checkInPreference || 'Self-reliant'}
+- Resource allocation: ${ctx.questionnaire?.motivationTime || 'Balanced'}
 
 OPTIMIZATION OPPORTUNITIES:
-- Efficiency gaps: ${
-      100 - ctx.streakAnalysis.consistencyScore
-    }% improvement potential
-- Focus area expansion: ${
-      ctx.questionnaire?.focusAreas?.length || 0
-    } current areas
+- Efficiency gaps: ${100 - ctx.streakAnalysis.consistencyScore}% improvement potential
+- Focus area expansion: ${ctx.questionnaire?.focusAreas?.length || 0} current areas
 - Growth multipliers: ${ctx.questionnaire?.consistencyRating || 3}/5 rating
 
 Create a comprehensive optimization plan with:
@@ -347,8 +288,7 @@ Respond with JSON:
   },
   crisis_coaching: {
     title: "Crisis & Recovery Coaching",
-    description:
-      "Specialized support for overcoming setbacks and rebuilding momentum",
+    description: "Specialized support for overcoming setbacks and rebuilding momentum",
     category: "recovery",
     difficulty: "intermediate",
     estimatedDuration: "3-5 minutes",
@@ -356,41 +296,20 @@ Respond with JSON:
 You are a crisis intervention specialist and resilience coach. Address current challenges:
 
 CRISIS INDICATORS:
-- Recent streak breaks: ${Object.values(ctx.streakAnalysis.streakBreaks).reduce(
-      (a, b) => a + b,
-      0
-    )} total breaks
-- Declining performance: ${
-      ctx.completionTrends.filter((t) => t.trending === "down").length
-    } downward trends
+- Recent streak breaks: ${Object.values(ctx.streakAnalysis.streakBreaks).reduce((a, b) => a + b, 0)} total breaks
+- Declining performance: ${ctx.completionTrends.filter(t => t.trending === 'down').length} downward trends
 - Consistency drop: ${100 - ctx.streakAnalysis.consistencyScore}% below optimal
-- Behavioral red flags: ${
-      ctx.behaviorInsights.filter((bi) => bi.impact === "negative").length
-    } negative patterns
+- Behavioral red flags: ${ctx.behaviorInsights.filter(bi => bi.impact === 'negative').length} negative patterns
 
 RESILIENCE FACTORS:
-- Current habits: ${
-      ctx.questionnaire?.currentHabits?.length || 0
-    } existing habits
-- Support availability: ${
-      ctx.questionnaire?.checkInPreference || "Self-reliant"
-    }
-- Coping mechanisms: ${ctx.questionnaire?.missedHabitReaction || "Developing"}
-- Motivation reserves: ${
-      ctx.userLevel > 5 ? "Experienced" : "Building experience"
-    }
+- Current habits: ${ctx.questionnaire?.currentHabits?.length || 0} existing habits
+- Support availability: ${ctx.questionnaire?.checkInPreference || 'Self-reliant'}
+- Coping mechanisms: ${ctx.questionnaire?.missedHabitReaction || 'Developing'}
+- Motivation reserves: ${ctx.userLevel > 5 ? 'Experienced' : 'Building experience'}
 
 RECOVERY OPPORTUNITIES:
-- Quick wins available: ${
-      ctx.habits.filter(
-        (h) => ctx.streakAnalysis.currentStreaks[h.id.toString()] === 0
-      ).length
-    } habits ready for restart
-- Strong foundations: ${
-      ctx.habits.filter(
-        (h) => ctx.streakAnalysis.longestStreaks[h.id.toString()] > 7
-      ).length
-    } proven successful habits
+- Quick wins available: ${ctx.habits.filter(h => ctx.streakAnalysis.currentStreaks[h.id.toString()] === 0).length} habits ready for restart
+- Strong foundations: ${ctx.habits.filter(h => ctx.streakAnalysis.longestStreaks[h.id.toString()] > 7).length} proven successful habits
 - Learning potential: High growth opportunity from current challenges
 
 Provide crisis intervention with:
@@ -443,11 +362,7 @@ function buildAdvancedContext(
   // Time pattern analysis
   const timePatterns = analyzeTimePatterns(habits, completions);
   // Behavior insights
-  const behaviorInsights = generateBehaviorInsights(
-    habits,
-    completions,
-    streakAnalysis
-  );
+  const behaviorInsights = generateBehaviorInsights(habits, completions, streakAnalysis);
   // Completion trends
   const completionTrends = calculateCompletionTrends(habits, completions);
 
@@ -465,34 +380,28 @@ function buildAdvancedContext(
 }
 
 // Advanced analytics functions
-function calculateAdvancedStreaks(
-  habits: Habit[],
-  completions: HabitCompletion[]
-): StreakAnalysis {
+function calculateAdvancedStreaks(habits: Habit[], completions: HabitCompletion[]): StreakAnalysis {
   const currentStreaks: Record<string, number> = {};
   const longestStreaks: Record<string, number> = {};
   const streakBreaks: Record<string, number> = {};
 
-  habits.forEach((habit) => {
+  habits.forEach(habit => {
     const habitCompletions = completions
-      .filter((c) => c.habitId === habit.id)
-      .sort(
-        (a, b) =>
-          new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
-      );
+      .filter(c => c.habitId === habit.id)
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
 
     // Calculate current streak
     let currentStreak = 0;
     let currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
-
+    
     while (true) {
-      const hasCompletion = habitCompletions.some((c) => {
+      const hasCompletion = habitCompletions.some(c => {
         const completionDate = new Date(c.completedAt);
         completionDate.setHours(0, 0, 0, 0);
         return completionDate.getTime() === currentDate.getTime();
       });
-
+      
       if (hasCompletion) {
         currentStreak++;
         currentDate.setDate(currentDate.getDate() - 1);
@@ -500,7 +409,7 @@ function calculateAdvancedStreaks(
         break;
       }
     }
-
+    
     // Calculate longest streak and breaks
     let longestStreak = 0;
     let tempStreak = 0;
@@ -512,8 +421,8 @@ function calculateAdvancedStreaks(
       return date;
     }).reverse();
 
-    last30Days.forEach((date) => {
-      const hasCompletion = habitCompletions.some((c) => {
+    last30Days.forEach(date => {
+      const hasCompletion = habitCompletions.some(c => {
         const completionDate = new Date(c.completedAt);
         completionDate.setHours(0, 0, 0, 0);
         return completionDate.getTime() === date.getTime();
@@ -533,16 +442,9 @@ function calculateAdvancedStreaks(
     streakBreaks[habit.id.toString()] = breaks;
   });
 
-  const averageStreak =
-    Object.values(currentStreaks).reduce((a, b) => a + b, 0) / habits.length ||
-    0;
-  const consistencyScore =
-    habits.length > 0
-      ? (Object.values(currentStreaks).filter((s) => s > 0).length /
-          habits.length) *
-        100
-      : 0;
-
+  const averageStreak = Object.values(currentStreaks).reduce((a, b) => a + b, 0) / habits.length || 0;
+  const consistencyScore = habits.length > 0 ? (Object.values(currentStreaks).filter(s => s > 0).length / habits.length) * 100 : 0;
+  
   return {
     currentStreaks,
     longestStreaks,
@@ -552,15 +454,12 @@ function calculateAdvancedStreaks(
   };
 }
 
-function analyzeTimePatterns(
-  habits: Habit[],
-  completions: HabitCompletion[]
-): TimePattern[] {
-  return habits.map((habit) => {
-    const habitCompletions = completions.filter((c) => c.habitId === habit.id);
+function analyzeTimePatterns(habits: Habit[], completions: HabitCompletion[]): TimePattern[] {
+  return habits.map(habit => {
+    const habitCompletions = completions.filter(c => c.habitId === habit.id);
     const timeGroups = { morning: 0, afternoon: 0, evening: 0 };
 
-    habitCompletions.forEach((completion) => {
+    habitCompletions.forEach(completion => {
       const hour = new Date(completion.completedAt).getHours();
       if (hour < 12) timeGroups.morning++;
       else if (hour < 18) timeGroups.afternoon++;
@@ -573,19 +472,13 @@ function analyzeTimePatterns(
       .map(([time]) => time);
 
     const bestTime = Object.entries(timeGroups).reduce((a, b) =>
-      timeGroups[a[0] as keyof typeof timeGroups] >
-      timeGroups[b[0] as keyof typeof timeGroups]
-        ? a
-        : b
+      timeGroups[a[0] as keyof typeof timeGroups] > timeGroups[b[0] as keyof typeof timeGroups] ? a : b
     );
 
     return {
       habitId: habit.id, // This is now number type
       preferredTimes,
-      completionRate:
-        total > 0
-          ? (timeGroups[bestTime[0] as keyof typeof timeGroups] / total) * 100
-          : 0,
+      completionRate: total > 0 ? (timeGroups[bestTime[0] as keyof typeof timeGroups] / total) * 100 : 0,
       bestPerformanceWindow: bestTime[0],
     };
   });
@@ -609,10 +502,7 @@ function generateBehaviorInsights(
   }
 
   // Streak break patterns
-  const totalBreaks = Object.values(streakAnalysis.streakBreaks).reduce(
-    (a, b) => a + b,
-    0
-  );
+  const totalBreaks = Object.values(streakAnalysis.streakBreaks).reduce((a, b) => a + b, 0);
   if (totalBreaks > habits.length * 2) {
     insights.push({
       pattern: "Frequent streak interruptions",
@@ -623,11 +513,11 @@ function generateBehaviorInsights(
   }
 
   // Weekend vs weekday patterns
-  const weekendCompletions = completions.filter((c) => {
+  const weekendCompletions = completions.filter(c => {
     const day = new Date(c.completedAt).getDay();
     return day === 0 || day === 6;
   });
-  const weekdayCompletions = completions.filter((c) => {
+  const weekdayCompletions = completions.filter(c => {
     const day = new Date(c.completedAt).getDay();
     return day > 0 && day < 6;
   });
@@ -644,71 +534,52 @@ function generateBehaviorInsights(
   return insights;
 }
 
-function calculateCompletionTrends(
-  habits: Habit[],
-  completions: HabitCompletion[]
-): CompletionTrend[] {
-  const periods = ["week1", "week2", "week3", "week4"];
+function calculateCompletionTrends(habits: Habit[], completions: HabitCompletion[]): CompletionTrend[] {
+  const periods = ['week1', 'week2', 'week3', 'week4'];
   const now = new Date();
 
-  return periods
-    .map((period, index) => {
-      const weekStart = new Date(
-        now.getTime() - (index + 1) * 7 * 24 * 60 * 60 * 1000
-      );
-      const weekEnd = new Date(now.getTime() - index * 7 * 24 * 60 * 60 * 1000);
+  return periods.map((period, index) => {
+    const weekStart = new Date(now.getTime() - (index + 1) * 7 * 24 * 60 * 60 * 1000);
+    const weekEnd = new Date(now.getTime() - index * 7 * 24 * 60 * 60 * 1000);
 
-      const weekCompletions = completions.filter((c) => {
+    const weekCompletions = completions.filter(c => {
+      const completionDate = new Date(c.completedAt);
+      return completionDate >= weekStart && completionDate < weekEnd;
+    });
+
+    const possibleCompletions = habits.length * 7;
+    const completionRate = possibleCompletions > 0 ? (weekCompletions.length / possibleCompletions) * 100 : 0;
+
+    // Calculate trend
+    let trending: 'up' | 'down' | 'stable' = 'stable';
+    let momentum = 0;
+
+    if (index > 0) {
+      const prevWeekStart = new Date(now.getTime() - (index + 2) * 7 * 24 * 60 * 60 * 1000);
+      const prevWeekEnd = new Date(now.getTime() - (index + 1) * 7 * 24 * 60 * 60 * 1000);
+      const prevWeekCompletions = completions.filter(c => {
         const completionDate = new Date(c.completedAt);
-        return completionDate >= weekStart && completionDate < weekEnd;
+        return completionDate >= prevWeekStart && completionDate < prevWeekEnd;
       });
+      const prevCompletionRate = possibleCompletions > 0 ? (prevWeekCompletions.length / possibleCompletions) * 100 : 0;
+      const change = completionRate - prevCompletionRate;
+      if (change > 5) trending = 'up';
+      else if (change < -5) trending = 'down';
+      momentum = change;
+    }
 
-      const possibleCompletions = habits.length * 7;
-      const completionRate =
-        possibleCompletions > 0
-          ? (weekCompletions.length / possibleCompletions) * 100
-          : 0;
-
-      // Calculate trend
-      let trending: "up" | "down" | "stable" = "stable";
-      let momentum = 0;
-
-      if (index > 0) {
-        const prevWeekStart = new Date(
-          now.getTime() - (index + 2) * 7 * 24 * 60 * 60 * 1000
-        );
-        const prevWeekEnd = new Date(
-          now.getTime() - (index + 1) * 7 * 24 * 60 * 60 * 1000
-        );
-        const prevWeekCompletions = completions.filter((c) => {
-          const completionDate = new Date(c.completedAt);
-          return (
-            completionDate >= prevWeekStart && completionDate < prevWeekEnd
-          );
-        });
-        const prevCompletionRate =
-          possibleCompletions > 0
-            ? (prevWeekCompletions.length / possibleCompletions) * 100
-            : 0;
-        const change = completionRate - prevCompletionRate;
-        if (change > 5) trending = "up";
-        else if (change < -5) trending = "down";
-        momentum = change;
-      }
-
-      return {
-        period,
-        completionRate,
-        trending,
-        momentum,
-      };
-    })
-    .reverse();
+    return {
+      period,
+      completionRate,
+      trending,
+      momentum,
+    };
+  }).reverse();
 }
 
 // Enhanced AI Coach service with better error handling and caching
 export async function generateAdvancedServiceInsight(
-  serviceId: keyof typeof coachServices,
+  serviceId: keyof typeof coachServices, 
   context: {
     habits: Habit[];
     completions: HabitCompletion[];
@@ -723,45 +594,45 @@ export async function generateAdvancedServiceInsight(
   }
 
   const enhancedContext = buildAdvancedContext(
-    context.habits,
-    context.completions,
+    context.habits, 
+    context.completions, 
     context.questionnaire,
     context.userLevel,
     context.totalXP
   );
-
+  
   const prompt = service.promptTemplate(enhancedContext);
 
   try {
     // Import OpenAI dynamically
-    const { default: OpenAI } = await import("openai");
-    const { env } = await import("../env");
+    const { default: OpenAI } = await import('openai');
+    const { env } = await import('../env');
     const openai = new OpenAI({
       apiKey: env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
     });
-
+    
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: `You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Always respond with valid JSON as requested, ensuring depth and practical value in every recommendation.`,
+        { 
+          role: "system", 
+          content: `You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Always respond with valid JSON as requested, ensuring depth and practical value in every recommendation.`
         },
         {
           role: "user",
-          content: prompt,
-        },
+          content: prompt
+        }
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
       max_tokens: 1500, // Increased for more detailed responses
     });
-
+    
     const content = res.choices[0].message.content;
     if (!content) {
-      throw new Error("No response from OpenAI");
+      throw new Error('No response from OpenAI');
     }
-
+    
     const parsedResponse = JSON.parse(content);
 
     // Add metadata
@@ -777,97 +648,90 @@ export async function generateAdvancedServiceInsight(
           habits: context.habits.length,
           completions: context.completions.length,
           userLevel: context.userLevel,
-        },
-      },
+        }
+      }
     };
   } catch (e: any) {
     console.error(`AI insight failed for ${serviceId}`, e);
-
+    
     // Enhanced fallback responses based on service type
     const fallbackResponses: Record<keyof typeof coachServices, any> = {
       progress_analysis: {
         strengthAnalysis: {
           topPerformingHabits: "Building your foundation",
           consistencyPatterns: "Developing consistency",
-          timeOptimization: "Finding your rhythm",
+          timeOptimization: "Finding your rhythm"
         },
         improvementStrategy: {
           immediate: "Focus on one small win today",
           shortTerm: "Build momentum over the next two weeks",
-          longTerm: "Create sustainable systems",
+          longTerm: "Create sustainable systems"
         },
         error: "Unable to generate detailed analysis",
-        fallback:
-          "Focus on consistency over perfection. Track your progress and celebrate small wins.",
+        fallback: "Focus on consistency over perfection. Track your progress and celebrate small wins."
       },
       adaptive_coaching: {
         stateAssessment: {
           currentMomentum: "Building momentum",
           energyLevel: "Steady energy",
-          readinessLevel: "Ready for growth",
+          readinessLevel: "Ready for growth"
         },
         adaptiveRecommendations: {
-          normalState: "Maintain steady progress with consistent daily actions",
+          normalState: "Maintain steady progress with consistent daily actions"
         },
         error: "Unable to generate adaptive insights",
-        fallback:
-          "Adapt your approach based on your energy levels. High energy days are for growth, low energy days are for maintenance.",
+        fallback: "Adapt your approach based on your energy levels. High energy days are for growth, low energy days are for maintenance."
       },
       breakthrough_coaching: {
         plateauAnalysis: {
           identifiedPlateaus: "Building foundation",
           rootCauses: "Developing consistency",
-          readinessScore: "Ready for growth",
+          readinessScore: "Ready for growth"
         },
         breakthroughStrategies: {
           edgePushing: "Gradual challenges",
           compoundingApproach: "Habit stacking",
-          mentalShifts: "Mindset development",
+          mentalShifts: "Mindset development"
         },
         error: "Unable to generate breakthrough insights",
-        fallback:
-          "Focus on incremental improvements. Small changes compound into significant breakthroughs over time.",
+        fallback: "Focus on incremental improvements. Small changes compound into significant breakthroughs over time."
       },
       holistic_optimization: {
         systemsAnalysis: {
           habitEcosystem: "Building foundation",
           timeEnergyMatrix: "Finding balance",
-          lifeBalance: "Developing systems",
+          lifeBalance: "Developing systems"
         },
         optimizationStrategy: {
           synergyMaximization: "Habit integration",
           efficiencyGains: "Process improvement",
-          resourceReallocation: "Better time management",
+          resourceReallocation: "Better time management"
         },
         error: "Unable to generate optimization insights",
-        fallback:
-          "Focus on creating systems that work for you. Small optimizations compound into significant improvements.",
+        fallback: "Focus on creating systems that work for you. Small optimizations compound into significant improvements."
       },
       crisis_coaching: {
         crisisAssessment: {
           severityLevel: "Manageable",
           primaryCauses: "Building resilience",
           impactAnalysis: "Learning opportunity",
-          recoveryReadiness: "Ready to recover",
+          recoveryReadiness: "Ready to recover"
         },
         stabilizationPlan: {
           immediateActions: "Focus on one small habit",
           damageControl: "Maintain minimum viable habits",
           safetyNet: "Keep one habit going",
-          supportActivation: "Self-compassion and patience",
+          supportActivation: "Self-compassion and patience"
         },
         error: "Unable to generate crisis insights",
-        fallback:
-          "Remember that setbacks are part of the journey. Focus on getting back on track with one small step.",
-      },
+        fallback: "Remember that setbacks are part of the journey. Focus on getting back on track with one small step."
+      }
     };
 
-    return (
-      fallbackResponses[serviceId] || {
-        error: "Unable to generate AI insight",
-        fallback: `Here's a general tip for ${service.title.toLowerCase()}: Focus on small, consistent actions that compound over time. Progress, not perfection, is the goal.`,
-      }
-    );
+    return fallbackResponses[serviceId] || {
+      error: "Unable to generate AI insight",
+      fallback: `Here's a general tip for ${service.title.toLowerCase()}: Focus on small, consistent actions that compound over time. Progress, not perfection, is the goal.`
+    };
   }
 }
 
@@ -894,21 +758,21 @@ export function recommendServices(context: {
 
   // Beginner recommendations
   if (context.userLevel < 5 || context.habits.length < 3) {
-    recommendations.push("progress_analysis");
+    recommendations.push('progress_analysis');
   }
 
   // Crisis intervention
   if (context.recentActivity < 30) {
-    recommendations.push("crisis_coaching");
+    recommendations.push('crisis_coaching');
   }
 
   // Advanced users
   if (context.userLevel > 10 && context.habits.length > 5) {
-    recommendations.push("breakthrough_coaching", "holistic_optimization");
+    recommendations.push('breakthrough_coaching', 'holistic_optimization');
   }
 
   // Always available
-  recommendations.push("adaptive_coaching");
+  recommendations.push('adaptive_coaching');
 
   return recommendations;
 }

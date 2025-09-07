@@ -26,24 +26,13 @@ router.post('/connect', requireAuth, async (req, res) => {
       });
     }
 
-    // TEMPORARY EXCEPTION - REMOVE AFTER SUPABASE FIX
-    // Special handling for akeel.lithan@gmail.com to use Supabase auth for testing
-    if (user.email === 'akeel.lithan@gmail.com') {
-      console.log('🔧 Using Supabase auth exception for akeel.lithan@gmail.com');
-      // This user will use auth_token and authUser from localStorage
-      // Bypass guest system for email testing purposes
-    }
-
-    // Since we're using SendGrid with single sender verification (akeel.lithan@gmail.com),
-    // all emails will be sent FROM that address, but TO the user's email
+    // Standard email connection for all users
     res.json({ 
       success: true, 
       message: 'Email connected successfully',
       email: user.email,
       provider: 'sendgrid',
-      senderEmail: 'akeel.lithan@gmail.com', // Verified sender
-      note: 'All emails will be sent from akeel.lithan@gmail.com (verified sender)',
-      isExceptionUser: user.email === 'akeel.lithan@gmail.com' // Flag for frontend
+                    note: 'All emails will be sent from habitloop-report@em6056.techversehublk.site (domain authenticated)'
     });
   } catch (error) {
     console.error('Email connect error:', error);
@@ -119,10 +108,20 @@ router.post('/send-report', requireAuth, async (req, res) => {
       totalCompletions: completions.length,
       currentStreak: currentStreak,
       level: user?.level || 1,
-      xp: user?.xp || 0
+      xp: user?.xp || 0,
+      longestStreak: 0, // Will be calculated by AI service if needed
+      recentHabits: habits.slice(-5).map(h => ({
+        title: h.title,
+        category: h.category,
+        completed: completions.some(c => c.habitId === h.id && c.completedAt)
+      })),
+      // Add user-specific data for better personalization
+      difficulty: user?.difficulty || 'medium',
+      role: user?.role || 'habitloop_user',
+      emailSettings: user?.emailSettings || {}
     };
 
-    const result = await EmailService.sendWeeklyReport(email, stats);
+    const result = await EmailService.sendWeeklyReport(email, stats, user);
     
     if (result.success) {
       res.json({ success: true, message: 'Weekly report sent successfully' });
@@ -164,15 +163,9 @@ router.post('/test', requireAuth, async (req, res) => {
     // Allow override from request body if provided
     const email = req.body.email || user.email;
 
-    // TEMPORARY EXCEPTION - REMOVE AFTER SUPABASE FIX
-    // Special handling for akeel.lithan@gmail.com to use Supabase auth for testing
-    if (email === 'akeel.lithan@gmail.com') {
-      console.log('🔧 Using Supabase auth exception for akeel.lithan@gmail.com test email');
-      // This user will use auth_token and authUser from localStorage
-      // Bypass guest system for email testing purposes
-    }
 
-    const result = await EmailService.sendTestEmail(email);
+
+    const result = await EmailService.sendTestEmail(email, user);
     
     if (result.success) {
       res.json({ success: true, message: 'Test email sent successfully' });

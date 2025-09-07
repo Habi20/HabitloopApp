@@ -22,7 +22,8 @@ export class EmailService {
 
     const msg = {
       to,
-      from: 'akeel.lithan@gmail.com', // Always use verified sender
+      from: 'habitloop-report@em6056.techversehublk.site', // Domain authenticated sender (RECOMMENDED)
+      // from: 'akeel.lithan@gmail.com', // Single sender verification (fallback)
       subject: 'Habit Reminder - ' + habitName,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -47,17 +48,48 @@ export class EmailService {
     }
   }
 
-  static async sendWeeklyReport(to: string, stats: any) {
+  static async sendWeeklyReport(to: string, stats: any, userData?: any) {
     if (!this.isConfigured()) {
       console.log('📧 Email simulation: Weekly report to', to, 'with stats:', stats);
       return { success: true, simulated: true };
     }
 
-    const msg = {
-      to,
-      from: 'akeel.lithan@gmail.com', // Always use verified sender
-      subject: 'Your Weekly Habit Report',
-      html: `
+    // Try to generate AI-powered report
+    let emailContent = '';
+    let emailSubject = 'Your Weekly Habit Report';
+    
+    try {
+      const { generateEmailReport } = await import('../openaiService');
+      
+      const reportData = {
+        name: userData?.firstName || 'there',
+        level: stats.level || 1,
+        xp: stats.xp || 0,
+        totalHabits: stats.totalHabits || 0,
+        totalCompletions: stats.totalCompletions || 0,
+        currentStreak: stats.currentStreak || 0,
+        longestStreak: stats.longestStreak || 0,
+        completionRate: stats.totalHabits > 0 ? Math.round((stats.totalCompletions / stats.totalHabits) * 100) : 0,
+        recentHabits: stats.recentHabits || [],
+        difficulty: stats.difficulty || userData?.difficulty || 'medium',
+        role: stats.role || userData?.role || 'habitloop_user',
+        emailSettings: stats.emailSettings || userData?.emailSettings || {}
+      };
+
+      console.log('📊 Email Report Data for AI:', JSON.stringify(reportData, null, 2));
+
+      const aiReport = await generateEmailReport(reportData, 'weekly');
+      emailSubject = aiReport.subject;
+      emailContent = aiReport.content;
+      
+      console.log('🤖 AI-generated weekly report created successfully');
+    } catch (error) {
+      console.error('⚠️ AI report generation failed:', error);
+      console.log('📊 Stats that caused failure:', JSON.stringify(stats, null, 2));
+      console.log('👤 User data that caused failure:', JSON.stringify(userData, null, 2));
+      
+      // Fallback to original template
+      emailContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #6366F1;">Weekly Habit Report</h2>
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -83,7 +115,15 @@ export class EmailService {
           </div>
           <p>Keep up the amazing work! Every small step counts towards your goals. 💪</p>
         </div>
-      `
+      `;
+    }
+
+    const msg = {
+      to,
+      from: 'habitloop-report@em6056.techversehublk.site', // Domain authenticated sender (RECOMMENDED)
+      // from: 'akeel.lithan@gmail.com', // Single sender verification (fallback)
+      subject: emailSubject,
+      html: emailContent
     };
 
     try {
@@ -103,7 +143,8 @@ export class EmailService {
 
     const msg = {
       to,
-      from: 'akeel.lithan@gmail.com', // Always use verified sender
+      from: 'habitloop-report@em6056.techversehublk.site', // Domain authenticated sender (RECOMMENDED)
+      // from: 'akeel.lithan@gmail.com', // Single sender verification (fallback)
       subject: 'Your Daily Motivation',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -125,30 +166,70 @@ export class EmailService {
     }
   }
 
-  static async sendTestEmail(to: string) {
+  static async sendTestEmail(to: string, userData?: any) {
     if (!this.isConfigured()) {
       console.log('📧 Email simulation: Test email to', to);
       return { success: true, simulated: true, message: 'Email simulation mode - SendGrid not configured' };
     }
 
-    const msg = {
-      to,
-      from: 'akeel.lithan@gmail.com', // Always use verified sender
-              subject: 'HabitLoop Email Test',
-      html: `
+    // Try to generate AI-powered test email
+    let emailContent = '';
+    let emailSubject = 'HabitLoop Email Integration Test';
+    
+    try {
+      const { generateEmailReport } = await import('../openaiService');
+      
+      // Create sample data for test email
+      const reportData = {
+        name: userData?.firstName || 'there',
+        level: userData?.level || 1,
+        xp: userData?.xp || 0,
+        totalHabits: userData?.totalHabits || 0,
+        totalCompletions: userData?.totalCompletions || 0,
+        currentStreak: userData?.currentStreak || 0,
+        longestStreak: userData?.longestStreak || 0,
+        completionRate: userData?.completionRate || 0,
+        recentHabits: userData?.recentHabits || [],
+        difficulty: userData?.difficulty || 'medium',
+        role: userData?.role || 'habitloop_user',
+        emailSettings: userData?.emailSettings || {}
+      };
+
+      const aiReport = await generateEmailReport(reportData, 'milestone');
+      emailSubject = '🎉 Welcome to HabitLoop - Your Email is Connected!';
+      emailContent = aiReport.content;
+      
+      console.log('🤖 AI-generated test email created successfully');
+    } catch (error) {
+      console.log('⚠️ AI test email generation failed, using fallback template');
+      
+      // Fallback to personalized template
+      emailContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #6366F1;">Email Integration Test</h2>
+          <h2 style="color: #6366F1;">🎉 Welcome to HabitLoop, ${userData?.firstName || 'there'}!</h2>
           <p>Great! Your email integration is working perfectly. 🎉</p>
-          <p>You'll now receive:</p>
-          <ul>
-            <li>Daily habit reminders</li>
-            <li>Weekly progress reports</li>
-            <li>Motivational messages</li>
-            <li>AI coaching insights</li>
-          </ul>
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">What You'll Receive:</h3>
+            <ul style="margin: 0; padding-left: 20px;">
+              <li>📅 <strong>Daily habit reminders</strong> at your preferred time</li>
+              <li>📊 <strong>Weekly progress reports</strong> with detailed insights</li>
+              <li>💪 <strong>Motivational messages</strong> to keep you inspired</li>
+              <li>🤖 <strong>AI coaching insights</strong> personalized just for you</li>
+              <li>🏆 <strong>Streak milestone celebrations</strong> when you achieve goals</li>
+            </ul>
+          </div>
+          <p>Your current level: <strong>${userData?.level || 1}</strong> | XP: <strong>${userData?.xp || 0}</strong></p>
           <p>Keep building those amazing habits! 💪</p>
         </div>
-      `
+      `;
+    }
+
+    const msg = {
+      to,
+      from: 'habitloop-report@em6056.techversehublk.site', // Domain authenticated sender (RECOMMENDED)
+      // from: 'akeel.lithan@gmail.com', // Single sender verification (fallback)
+      subject: emailSubject,
+      html: emailContent
     };
 
     try {

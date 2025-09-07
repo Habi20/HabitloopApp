@@ -1,5 +1,6 @@
 // server/index.ts
 import './env';
+import './utils/adminLogger'; // Initialize admin logging control
 
 import express, { type Express } from "express";
 import cors from "cors";
@@ -65,16 +66,6 @@ app.use((req, res, next) => {
   await setupAuth(app);
   const server = await registerRoutes(app);
 
-  // Health check endpoint for Railway
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development'
-    });
-  });
-
   // Add default route handler for root path
   app.get('/', (_req, res) => {
     res.json({
@@ -107,6 +98,7 @@ app.use((req, res, next) => {
     console.log(`🚀 Backend API running on http://localhost:${PORT}`);
     console.log(`📊 ML System: Ready for testing`);
     console.log(`🔐 RBAC System: Active`);
+    console.log(`🔧 Admin Log Control: Initialized`);
   });
 
   // Error handling middleware

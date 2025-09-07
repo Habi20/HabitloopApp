@@ -79,9 +79,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
       console.log('🔐 Using JWT token from Authorization header');
-    } else if (req.session?.token) {
+    } else if ((req.session as any)?.token) {
       // Fallback to session token only if no Authorization header
-      token = req.session.token;
+      token = (req.session as any).token;
       console.log('🔐 Using session token as fallback');
     }
 

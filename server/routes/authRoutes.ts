@@ -1,47 +1,89 @@
-import { Router } from "express";
-import bcrypt from "bcryptjs";
-import jwt, { Secret, SignOptions } from "jsonwebtoken";
-import { randomUUID } from "crypto";
-import { storage } from "../storage";
-import { requireAuth } from "./middlewareRoutes";
-import { supabase } from "../supabaseAuth";
-import { typedEnv } from "../env";
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import { db } from '../db';
+import { users, habits, habitCompletions, streaks } from '../../shared/schema';
+import { eq } from 'drizzle-orm';
+import { typedEnv } from '../env';
+import { requireAuth } from './middlewareRoutes';
+import { sessionManager } from '../services/sessionManager';
+import { adminLog } from '../utils/adminLogger';
 
-// Declare module augmentation for express-session
-declare module "express-session" {
-  interface SessionData {
-    token?: string;
-    user?: any;
-  }
-}
+const router = express.Router();
 
-export function authRoutes() {
-  const router = Router();
-
-  router.get("/login", (_req, res) => {
-    res.redirect("/login");
-  });
-
-  // Get current user data
-  router.get("/user", requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-
+// HabitLoop user signin
+router.post('/habitloop/signin', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+      
       if (!userId) {
+      return res.status(400).json({
+        success: false, 
+        error: 'Missing userId',
+        message: 'userId is required'
+      });
+    }
+
+    // Get user from database
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (userResult.length === 0) {
+        return res.status(401).json({ 
+          success: false, 
+        error: 'Invalid credentials',
+        message: 'Invalid userId or password'
+      });
+    }
+
+    const user = userResult[0];
+
+    // Check password if provided
+    if (password && user.passwordHash) {
+      const bcrypt = await import('bcryptjs');
+      const isValidPassword = await bcrypt.default.compare(password, user.passwordHash);
+      if (!isValidPassword) {
         return res.status(401).json({
-          success: false,
-          error: "User not authenticated",
+          success: false, 
+          error: 'Invalid credentials',
+          message: 'Invalid userId or password'
         });
       }
+    }
 
-      const user = await storage.getUser(userId);
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        isGuest: user.isGuest || false
+      },
+      typedEnv.jwtSecret,
+      { expiresIn: '24h' }
+    );
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          error: "User not found",
-        });
-      }
+    // Create session with device info
+    const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+    const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
+    
+    await sessionManager.createSession(
+      user.id,
+      token,
+      deviceInfo,
+      ipAddress,
+      req.headers['user-agent']
+    );
+
+    // Update last login
+    await db
+      .update(users)
+      .set({ updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    adminLog.log(`User ${user.id} signed in successfully`);
 
       res.json({
         success: true,
@@ -53,877 +95,980 @@ export function authRoutes() {
           level: user.level,
           xp: user.xp,
           role: user.role,
-          isGuest: user.isGuest,
+          isGuest: user.isGuest || false,
+          profileImageUrl: user.profileImageUrl,
           difficulty: user.difficulty,
-          questionnaire: user.questionnaire,
-          aiRecommendations: user.aiRecommendations,
-          emailSettings: user.emailSettings,
-          userSettings: user.userSettings,
+          userSettings: user.userSettings
         },
+        token,
+        message: 'Signed in successfully'
       });
     } catch (error) {
-      console.error("Get user error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to get user data",
+    adminLog.error('HabitLoop signin error:', error);
+      res.status(500).json({ 
+        success: false, 
+      error: 'Signin failed',
+      message: 'An error occurred during signin'
       });
     }
   });
 
-  // Update user settings
-  router.put("/user/settings", requireAuth, async (req: any, res) => {
+// HabitLoop user signup
+router.post('/habitloop/signup', async (req, res) => {
     try {
-      const userId = req.user?.id;
+    console.log('Signup request body:', JSON.stringify(req.body, null, 2));
+    const { userId, firstName, lastName, email, difficulty, questionnaireData, aiRecommendations } = req.body;
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          error: "User not authenticated",
-        });
-      }
-
-      const { settings } = req.body;
-
-      if (!settings) {
+    if (!userId || !firstName || !lastName || !email) {
         return res.status(400).json({
           success: false,
-          error: "Settings data required",
-        });
-      }
+        error: 'Missing required fields',
+        message: 'userId, firstName, lastName, and email are required'
+      });
+    }
 
-      await storage.saveUserSettings(userId, settings);
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      return res.status(409).json({
+          success: false,
+        error: 'User already exists',
+        message: 'A user with this ID already exists'
+      });
+    }
+
+                    // Hash password if provided
+                let passwordHash = null;
+                if (req.body.password) {
+                  const bcrypt = await import('bcryptjs');
+                  passwordHash = await bcrypt.default.hash(req.body.password, 10);
+                }
+
+                // Ensure questionnaire data is properly formatted for JSONB
+                let formattedQuestionnaire = null;
+                if (questionnaireData) {
+                  try {
+                    // If it's already an object, use it directly
+                    if (typeof questionnaireData === 'object') {
+                      formattedQuestionnaire = questionnaireData;
+                    } else if (typeof questionnaireData === 'string') {
+                      // If it's a string, try to parse it
+                      formattedQuestionnaire = JSON.parse(questionnaireData);
+                    }
+                  } catch (parseError) {
+                    console.error('Error parsing questionnaire data:', parseError);
+                    formattedQuestionnaire = { rawData: questionnaireData };
+                  }
+                }
+
+                console.log('About to create user with data:', {
+                  id: userId,
+                  email: email,
+                  firstName: firstName,
+                  lastName: lastName,
+                  difficulty: difficulty || 'medium',
+                  level: 1,
+                  xp: 0,
+                  role: 'user',
+                  isGuest: false,
+                  profileImageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+                  questionnaire: formattedQuestionnaire,
+                  passwordHash: passwordHash ? '[HASHED]' : null,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                });
+
+                // Create new user with only essential fields
+                const userData: any = {
+                  id: userId,
+                  email: email,
+                  firstName: firstName,
+                  lastName: lastName,
+                  difficulty: difficulty || 'medium',
+                  level: 1,
+                  xp: 0,
+                  role: 'user',
+                  isGuest: false,
+                  profileImageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                };
+
+                // Add optional fields only if they exist
+                if (questionnaireData) {
+                  (userData as any).questionnaire = questionnaireData;
+                }
+                if (aiRecommendations) {
+                  (userData as any).aiRecommendations = aiRecommendations;
+                }
+                if (passwordHash) {
+                  (userData as any).passwordHash = passwordHash;
+                }
+
+                console.log('Final user data for insert:', {
+                  ...userData,
+                  aiRecommendations: userData.aiRecommendations ? `[${userData.aiRecommendations.length} recommendations]` : null,
+                  questionnaire: userData.questionnaire ? '[QUESTIONNAIRE_DATA]' : null,
+                  passwordHash: userData.passwordHash ? '[HASHED]' : null
+                });
+
+                const [newUser] = await db
+                  .insert(users)
+                  .values(userData)
+                  .returning();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        isGuest: newUser.isGuest || false
+      },
+      typedEnv.jwtSecret,
+      { expiresIn: '24h' }
+    );
+
+    // Create session with device info
+    try {
+      const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+      const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
+      
+      await sessionManager.createSession(
+        newUser.id,
+        token,
+        deviceInfo,
+        ipAddress,
+        req.headers['user-agent']
+      );
+    } catch (sessionError) {
+      adminLog.error('Session creation error:', sessionError);
+      // Continue without session if it fails
+    }
+
+        adminLog.log(`New user ${newUser.id} signed up successfully${newUser.aiRecommendations ? ` with ${Array.isArray(newUser.aiRecommendations) ? newUser.aiRecommendations.length : 'AI recommendations'}` : ''}`);
+
+    res.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        level: newUser.level,
+        xp: newUser.xp,
+        role: newUser.role,
+        isGuest: newUser.isGuest || false,
+        profileImageUrl: newUser.profileImageUrl,
+        difficulty: newUser.difficulty
+      },
+      token,
+      message: 'Account created successfully'
+    });
+  } catch (error) {
+    adminLog.error('HabitLoop signup error:', error);
+    console.error('Detailed signup error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Signup failed',
+      message: 'An error occurred during signup',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Guest authentication
+router.post('/guest/auth', async (req, res) => {
+    try {
+    const { guestId } = req.body;
+
+    if (!guestId) {
+        return res.status(400).json({
+          success: false,
+        error: 'Missing guestId',
+        message: 'guestId is required'
+      });
+    }
+
+    // Check if guest user exists, create if not
+    let user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, guestId))
+      .limit(1);
+
+    if (user.length === 0) {
+      // Create guest user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          id: guestId,
+          email: 'guest@guest.local',
+          firstName: 'Guest',
+          lastName: 'User',
+          level: 1,
+          xp: 0,
+          role: 'guest',
+          isGuest: true
+        })
+        .returning();
+      
+      user = [newUser];
+    }
+
+    const guestUser = user[0];
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: guestUser.id,
+        email: guestUser.email,
+        role: guestUser.role,
+        isGuest: true
+      },
+      typedEnv.jwtSecret,
+      { expiresIn: '24h' }
+    );
+
+    // Create session
+    const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+    const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
+    
+    await sessionManager.createSession(
+      guestUser.id,
+      token,
+      deviceInfo,
+      ipAddress,
+      req.headers['user-agent']
+    );
+
+    adminLog.log(`Guest user ${guestUser.id} authenticated`);
 
       res.json({
         success: true,
-        message: "User settings updated successfully",
-      });
-    } catch (error) {
-      console.error("Update user settings error:", error);
+      user: {
+        id: guestUser.id,
+        email: guestUser.email,
+        firstName: guestUser.firstName,
+        lastName: guestUser.lastName,
+        level: guestUser.level,
+        xp: guestUser.xp,
+        role: guestUser.role,
+        isGuest: true
+      },
+      token,
+      message: 'Guest session created successfully'
+    });
+  } catch (error) {
+    adminLog.error('Guest auth error:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to update user settings",
+      error: 'Guest authentication failed',
+      message: 'An error occurred during guest authentication'
       });
     }
   });
 
-  // ✅ NEW: Add the missing /auth/signin endpoint that your Postman test expects
-  router.post("/auth/signin", async (req: any, res) => {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({
+// Get current user
+router.get('/user', requireAuth, async (req: any, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
           success: false,
-          error: { message: "Email and password required" },
-        });
-      }
-
-      // Use Supabase authentication
-      if (!supabase) {
-        return res.status(500).json({
-          success: false,
-          error: { message: "Supabase not configured" },
-        });
-      }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error || !data.user) {
-        return res.status(400).json({
-          success: false,
-          error: { message: error?.message || "Invalid login credentials" },
-        });
-      }
-
-      // Store session data
-      req.session.token = data.session?.access_token;
-      req.session.user = data.user;
-
-      // Get user data from public.users table
-      const publicUser = await storage.getUserByEmail(data.user.email || "");
-
-      const userData = {
-        id: publicUser?.id || data.user.id,
-        email: data.user.email,
-        firstName: publicUser?.firstName || data.user.user_metadata?.first_name,
-        lastName: publicUser?.lastName || data.user.user_metadata?.last_name,
-        level: publicUser?.level || 1,
-        xp: publicUser?.xp || 0,
-        role: publicUser?.role || "user",
-        isGuest: false,
-        difficulty: publicUser?.difficulty || "medium",
-        profileImageUrl: publicUser?.profileImageUrl,
-      };
-
-      res.json({
-        success: true,
-        user: userData,
-        session: data.session,
-      });
-    } catch (error: any) {
-      console.error("Signin error:", error);
-      res.status(500).json({
-        success: false,
-        error: { message: "Internal server error" },
+        error: 'User not found',
+        message: 'User information not available'
       });
     }
-  });
 
-  // ✅ NEW: Add signup endpoint to match your Postman tests
-  router.post("/auth/signup", async (req: any, res) => {
-    try {
-      const { email, password, firstName, lastName } = req.body;
+    const userResult = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, req.user.id))
+      .limit(1);
 
-      if (!email || !password) {
-        return res.status(400).json({
+    if (userResult.length === 0) {
+      return res.status(404).json({
           success: false,
-          error: { message: "Email and password required" },
-        });
-      }
-
-      // Use Supabase authentication
-      if (!supabase) {
-        return res.status(500).json({
-          success: false,
-          error: { message: "Supabase not configured" },
-        });
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            email_verified: false,
-          },
-        },
-      });
-
-      if (error) {
-        return res.status(400).json({
-          success: false,
-          error: { message: error.message },
-        });
-      }
-
-      if (!data.user) {
-        return res.status(400).json({
-          success: false,
-          error: { message: "User creation failed" },
-        });
-      }
-
-      req.session.user = data.user;
-      if (data.session?.access_token) {
-        req.session.token = data.session.access_token;
-      }
-
-      // Get user data from public.users table
-      const publicUser = await storage.getUserByEmail(data.user.email || "");
-
-      const userData = {
-        id: publicUser?.id || data.user.id,
-        email: data.user.email,
-        firstName: publicUser?.firstName || data.user.user_metadata?.first_name,
-        lastName: publicUser?.lastName || data.user.user_metadata?.last_name,
-        level: publicUser?.level || 1,
-        xp: publicUser?.xp || 0,
-        role: publicUser?.role || "user",
-        isGuest: false,
-        difficulty: publicUser?.difficulty || "medium",
-        profileImageUrl: publicUser?.profileImageUrl,
-      };
-
-      res.json({
-        success: true,
-        user: userData,
-        session: data.session,
-      });
-    } catch (error: any) {
-      console.error("Signup error:", error);
-      res.status(500).json({
-        success: false,
-        error: { message: "Internal server error" },
+        error: 'User not found',
+        message: 'User account not found'
       });
     }
-  });
 
-  // ✅ ENHANCED: Update the /auth/user endpoint to return Supabase user data
-  router.get("/auth/user", requireAuth, async (req: any, res) => {
-    try {
-      // Get user from Supabase using the token
-      const token =
-        req.headers.authorization?.replace("Bearer ", "") || req.session?.token;
+    const user = userResult[0];
 
-      if (!token) {
-        return res.status(401).json({
-          success: false,
-          error: { message: "No token provided" },
-        });
-      }
-
-      if (!supabase) {
-        return res.status(500).json({
-          success: false,
-          error: { message: "Supabase not configured" },
-        });
-      }
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser(token);
-
-      if (error || !user) {
-        return res.status(401).json({
-          success: false,
-          error: { message: "Invalid session" },
-        });
-      }
-
-      // Return the Supabase user data that your Postman tests expect
-      res.json({
+    res.json({
+      success: true,
+      user: {
         id: user.id,
         email: user.email,
-        aud: user.aud,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        level: user.level,
+        xp: user.xp,
         role: user.role,
-        email_confirmed_at: user.email_confirmed_at,
-        user_metadata: user.user_metadata,
-        identities: user.identities,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-      });
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({
-        success: false,
-        error: { message: "Failed to fetch user" },
+        isGuest: user.isGuest || false,
+        profileImageUrl: user.profileImageUrl,
+        difficulty: user.difficulty,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    adminLog.error('Get user error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user',
+      message: 'An error occurred while fetching user information'
+    });
+  }
+});
+
+// Logout
+router.post('/logout', requireAuth, async (req: any, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+          success: false,
+        error: 'User not found',
+        message: 'User information not available'
       });
     }
-  });
 
-  // Keep your existing endpoints
-  router.post("/auth/register", async (req: any, res) => {
-    try {
-      const { email, password, firstName, lastName } = req.body;
-
-      if (!email || !password || !firstName) {
-        return res.status(400).json({
-          success: false,
-          error: { message: "Email, password, and first name required" },
-        });
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      
+      // Deactivate session
+      const sessionValidation = await sessionManager.validateSession(token);
+      if (sessionValidation.session) {
+        await sessionManager.deactivateSession(sessionValidation.session.userId);
       }
-
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(409).json({
-          success: false,
-          error: { message: "Email already registered" },
-        });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const newUser = await storage.upsertUser({
-        id: randomUUID(),
-        email,
-        firstName,
-        lastName,
-        passwordHash: hashedPassword,
-        level: 1,
-        xp: 0,
-        isGuest: false,
-      });
-
-      const jwtSecret = typedEnv.jwtSecret;
-      if (!jwtSecret) {
-        throw new Error("JWT secret key not configured");
-      }
-
-      const token = jwt.sign(
-        { userId: newUser.id },
-        jwtSecret as Secret,
-        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } as SignOptions
-      );
-
-      req.session.token = token;
-      req.session.user = newUser;
-
-      res.status(201).json({
-        success: true,
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          firstName: newUser.firstName,
-          level: newUser.level,
-          xp: newUser.xp,
-        },
-        token,
-      });
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      res.status(500).json({
-        success: false,
-        error: { message: "Registration failed", details: error.message },
-      });
     }
-  });
 
-  // Add GET logout endpoint for frontend compatibility
-  router.get("/logout", (req: any, res) => {
-    req.session.destroy((err: any) => {
-      if (err) {
-        return res.status(500).json({
-          success: false,
-          error: { message: "Logout failed" },
-        });
-      }
-      res.json({ success: true });
-    });
-  });
-
-  router.post("/auth/logout", (req: any, res) => {
-    req.session.destroy((err: any) => {
-      if (err) {
-        return res.status(500).json({
-          success: false,
-          error: { message: "Logout failed" },
-        });
-      }
-      res.json({ success: true });
-    });
-  });
-
-  // Add signout endpoint for frontend compatibility
-  router.post("/auth/signout", (req: any, res) => {
-    req.session.destroy((err: any) => {
-      if (err) {
-        return res.status(500).json({
-          success: false,
-          error: { message: "Signout failed" },
-        });
-      }
-      res.json({ success: true });
-    });
-  });
-
-  router.post("/auth/guest", async (req, res) => {
-    try {
-      const guestUser = await storage.upsertUser({
-        id: randomUUID(),
-        email: `guest-${Date.now()}@example.com`,
-        firstName: "Guest",
-        lastName: "User",
-        level: 1,
-        xp: 0,
-        isGuest: true,
-      });
-
-      const jwtSecret = typedEnv.jwtSecret;
-      if (!jwtSecret) {
-        throw new Error("JWT secret key not configured");
-      }
-
-      const token = jwt.sign(
-        { userId: guestUser.id },
-        jwtSecret as Secret,
-        { expiresIn: "24h" } as SignOptions
-      );
-
-      req.session.token = token;
-      req.session.user = guestUser;
+    adminLog.log(`User ${req.user.id} logged out successfully`);
 
       res.json({
         success: true,
-        user: guestUser,
-        token,
+      message: 'Logged out successfully'
       });
-    } catch (error) {
-      console.error("Error creating guest user:", error);
+  } catch (error) {
+    adminLog.error('Logout error:', error);
       res.status(500).json({
         success: false,
-        error: { message: "Failed to create guest user" },
+      error: 'Logout failed',
+      message: 'An error occurred during logout'
       });
     }
   });
 
-  // HabitLoop user signup (JWT only, no sessions)
-  router.post("/habitloop/signup", async (req: any, res) => {
+// Update user profile
+router.put('/users/:userId', requireAuth, async (req: any, res) => {
     try {
-      const {
-        userId,
-        email,
-        firstName,
-        lastName,
-        password,
-        difficulty = "medium",
-        profileImageUrl,
-      } = req.body;
-
-      if (!userId || !email || !firstName || !password) {
-        return res.status(400).json({
+    const { userId } = req.params;
+    const { firstName, lastName, profileImageUrl } = req.body;
+      
+    if (!req.user || req.user.id !== userId) {
+      return res.status(403).json({
           success: false,
-          error: {
-            message: "User ID, email, first name, and password required",
-          },
-        });
-      }
-
-      // Check if user already exists by ID
-      const existingUserById = await storage.getUser(userId);
-      if (existingUserById) {
-        console.log("🔐 Signup conflict: User ID already exists:", userId);
-        return res.status(409).json({
-          success: false,
-          error: { message: "User with this ID already exists" },
-        });
-      }
-
-      // Check if user already exists by email
-      const existingUserByEmail = await storage.getUserByEmail(email);
-      if (existingUserByEmail) {
-        console.log("🔐 Signup conflict: Email already exists:", email);
-        return res.status(409).json({
-          success: false,
-          error: { message: "User with this email already exists" },
-        });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create new HabitLoop user
-      const newUser = await storage.createUser({
-        id: userId,
-        email,
-        firstName,
-        lastName,
-        passwordHash: hashedPassword,
-        level: 1,
-        xp: 0,
-        role: "habitloop_user",
-        isGuest: false,
-        difficulty,
-        profileImageUrl: profileImageUrl || "👤",
+        error: 'Unauthorized',
+        message: 'You can only update your own profile'
       });
+    }
 
-      // Generate JWT token
-      const token = jwt.sign({ userId: newUser.id }, typedEnv.jwtSecret, {
-        expiresIn: "7d",
+    const updateData: any = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl;
+    updateData.updatedAt = new Date();
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning();
+
+    adminLog.log(`User ${userId} profile updated`);
+
+      res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        profileImageUrl: updatedUser.profileImageUrl,
+        updatedAt: updatedUser.updatedAt
+      },
+      message: 'Profile updated successfully'
+    });
+    } catch (error) {
+    adminLog.error('Update user error:', error);
+      res.status(500).json({
+        success: false,
+      error: 'Update failed',
+      message: 'An error occurred while updating profile'
       });
+    }
+  });
 
-      console.log(
-        "🔐 New HabitLoop user created:",
-        newUser.id,
-        "Level:",
-        newUser.level,
-        "XP:",
-        newUser.xp
-      );
+// Check session status
+router.get('/session/status', requireAuth, async (req: any, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+          success: false,
+        error: 'User not found',
+        message: 'User information not available'
+      });
+    }
 
-      res.status(201).json({
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+          success: false,
+        error: 'No token provided',
+        message: 'Authentication token is required'
+      });
+    }
+
+    const token = authHeader.substring(7);
+    const sessionValidation = await sessionManager.validateSession(token);
+
+    if (!sessionValidation.valid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Session expired',
+        message: sessionValidation.message || 'Session has expired'
+      });
+    }
+
+    // Check if user has active session on another device
+    const hasOtherDevice = await sessionManager.hasActiveSessionOnOtherDevice(req.user.id, token);
+
+    res.json({
         success: true,
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          firstName: newUser.firstName,
-          lastName: newUser.lastName,
-          level: newUser.level,
-          xp: newUser.xp,
-          role: newUser.role,
-          isGuest: false,
-          difficulty: newUser.difficulty,
-          profileImageUrl: newUser.profileImageUrl,
-        },
-        token: token,
-        message: "HabitLoop user created successfully",
-      });
-    } catch (error) {
-      console.error("HabitLoop signup error:", error);
+      session: {
+        valid: true,
+        expiresAt: sessionValidation.session?.expiresAt,
+        timeoutMinutes: sessionManager.getSessionTimeoutMinutes(),
+        hasOtherDevice
+      }
+    });
+  } catch (error) {
+    adminLog.error('Session status error:', error);
       res.status(500).json({
         success: false,
-        error: { message: "Failed to create user" },
+      error: 'Session check failed',
+      message: 'An error occurred while checking session status'
       });
     }
   });
 
-  // HabitLoop user authentication (JWT only, no sessions)
-  router.post("/habitloop/signin", async (req: any, res) => {
-    try {
-      const { userId, password } = req.body;
+// Get all HabitLoop users (public endpoint for login modal)
+router.get('/habitloop/users', async (_req, res) => {
+  try {
+    // Get all non-guest users from database
+    const userResult = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        xp: users.xp,
+        role: users.role,
+        isGuest: users.isGuest,
+        difficulty: users.difficulty
+      })
+      .from(users)
+      .where(eq(users.isGuest, false))
+      .orderBy(users.id);
+
+    adminLog.log(`Fetched ${userResult.length} HabitLoop users for login modal`);
+
+    res.json({
+      success: true,
+      users: userResult
+    });
+  } catch (error) {
+    adminLog.error('Fetch users error:', error);
+    res.status(500).json({
+          success: false,
+      error: 'Failed to fetch users',
+      message: 'An error occurred while fetching users'
+    });
+  }
+});
+
+// Export user data
+router.get('/export-data', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const format = req.query.format || 'json'; // json, csv, or excel
+    
+    // Fetch all user data
+    const [userData, habitsData, completionsData, streaksData] = await Promise.all([
+      db.select().from(users).where(eq(users.id, userId)).limit(1),
+      db.select().from(habits).where(eq(habits.userId, userId)),
+      db.select().from(habitCompletions).where(eq(habitCompletions.userId, userId)),
+      db.select().from(streaks).where(eq(streaks.userId, userId))
+    ]);
+
+    const exportData = {
+      user: userData[0],
+      habits: habitsData,
+      completions: completionsData,
+      streaks: streaksData,
+      exportedAt: new Date().toISOString(),
+      version: '1.0'
+    };
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    if (format === 'csv') {
+      // Generate CSV data
+      const csvData = generateCSVData(exportData);
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="habitloop-data-${userId}-${dateStr}.csv"`);
+      
+      adminLog.log(`User ${userId} exported their data as CSV`);
+      res.send(csvData);
+
+    } else {
+      // Default JSON format
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="habitloop-data-${userId}-${dateStr}.json"`);
+      
+      adminLog.log(`User ${userId} exported their data as JSON`);
+      res.json(exportData);
+    }
+  } catch (error) {
+    adminLog.error('Export data error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Export failed',
+      message: 'An error occurred while exporting data'
+    });
+  }
+});
+
+// Helper function to generate CSV data
+function generateCSVData(data: any): string {
+  const csvLines: string[] = [];
+  
+  // User Profile
+  csvLines.push('=== YOUR PROFILE ===');
+  csvLines.push('Name,Email,Level,XP,Difficulty');
+  if (data.user) {
+    const name = `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim();
+    csvLines.push(`"${name}","${data.user.email}","${data.user.level}","${data.user.xp}","${data.user.difficulty}"`);
+  }
+  csvLines.push('');
+  
+  // Habits
+  csvLines.push('=== YOUR HABITS ===');
+  csvLines.push('Habit Name,Category,Frequency,Difficulty,Created Date');
+  if (data.habits && data.habits.length > 0) {
+    data.habits.forEach((habit: any) => {
+      csvLines.push(`"${habit.title}","${habit.category}","${habit.frequency}","${habit.difficulty}","${habit.createdAt}"`);
+    });
+  } else {
+    csvLines.push('No habits found');
+  }
+  csvLines.push('');
+  
+  // Habit Completions
+  csvLines.push('=== HABIT COMPLETIONS ===');
+  csvLines.push('Habit Name,Completed Date,Notes');
+  if (data.completions && data.completions.length > 0) {
+    data.completions.forEach((completion: any) => {
+      const habit = data.habits?.find((h: any) => h.id === completion.habitId);
+      const habitName = habit ? habit.title : 'Unknown Habit';
+      csvLines.push(`"${habitName}","${completion.completedAt}","${completion.notes || ''}"`);
+    });
+  } else {
+    csvLines.push('No completions found');
+  }
+  csvLines.push('');
+  
+  // Streaks
+  csvLines.push('=== YOUR STREAKS ===');
+  csvLines.push('Habit Name,Current Streak,Longest Streak');
+  if (data.streaks && data.streaks.length > 0) {
+    data.streaks.forEach((streak: any) => {
+      const habit = data.habits?.find((h: any) => h.id === streak.habitId);
+      const habitName = habit ? habit.title : 'Unknown Habit';
+      csvLines.push(`"${habitName}","${streak.currentStreak}","${streak.longestStreak}"`);
+    });
+  } else {
+    csvLines.push('No streaks found');
+  }
+  
+  return csvLines.join('\n');
+}
+
+
+
+// Delete user account
+router.delete('/delete-account', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { confirmation } = req.body;
+
+    if (confirmation !== 'DELETE') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid confirmation',
+        message: 'Please enter "DELETE" to confirm account deletion'
+      });
+    }
+    
+    // First, deactivate the user's session
+    await sessionManager.deactivateSession(userId);
+    
+    // Delete all user data (cascade delete)
+    await Promise.all([
+      db.delete(habitCompletions).where(eq(habitCompletions.userId, userId)),
+      db.delete(streaks).where(eq(streaks.userId, userId)),
+      db.delete(habits).where(eq(habits.userId, userId)),
+      db.delete(users).where(eq(users.id, userId))
+    ]);
+    
+    adminLog.log(`User ${userId} account deleted permanently`);
+
+      res.json({
+        success: true,
+      message: 'Account deleted successfully'
+      });
+    } catch (error) {
+    adminLog.error('Delete account error:', error);
+      res.status(500).json({
+        success: false,
+      error: 'Delete failed',
+      message: 'An error occurred while deleting account'
+      });
+    }
+  });
+
+
+
+// Get user profile for login preview (public endpoint)
+router.get('/habitloop/user-profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
 
       if (!userId) {
         return res.status(400).json({
           success: false,
-          error: { message: "User ID required" },
-        });
-      }
+        error: 'Missing userId',
+        message: 'userId is required'
+      });
+    }
 
-      // Define HabitLoop user metadata (no XP/level data)
-      const habitLoopUserMetadata = {
-        "user-001": {
-          id: "user-001",
-          email: "user-001@habitloop.local",
-          firstName: "Alex",
-          lastName: "Chen",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "medium",
-          profileImageUrl: "👨‍💻",
-          password: "test123",
-        },
-        "user-002": {
-          id: "user-002",
-          email: "user-002@habitloop.local",
-          firstName: "Sarah",
-          lastName: "Johnson",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "easy",
-          profileImageUrl: "👩‍🎨",
-          password: "test123",
-        },
-        "user-003": {
-          id: "user-003",
-          email: "user-003@habitloop.local",
-          firstName: "Marcus",
-          lastName: "Rodriguez",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "medium",
-          profileImageUrl: "🏃‍♂️",
-          password: "test123",
-        },
-        "user-004": {
-          id: "user-004",
-          email: "user-004@habitloop.local",
-          firstName: "Emma",
-          lastName: "Thompson",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "medium",
-          profileImageUrl: "🧘‍♀️",
-          password: "test123",
-        },
-        "user-005": {
-          id: "user-005",
-          email: "user-005@habitloop.local",
-          firstName: "David",
-          lastName: "Kim",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "medium",
-          profileImageUrl: "📚",
-          password: "test123",
-        },
-        "user-006": {
-          id: "user-006",
-          email: "user-006@habitloop.local",
-          firstName: "Lisa",
-          lastName: "Wang",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "easy",
-          profileImageUrl: "🌱",
-          password: "test123",
-        },
-        "user-007": {
-          id: "user-007",
-          email: "user-007@habitloop.local",
-          firstName: "New",
-          lastName: "User",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "easy",
-          profileImageUrl: "🆕",
-          password: "test123",
-        },
-        "user-008": {
-          id: "user-008",
-          email: "user-008@habitloop.local",
-          firstName: "Fresh",
-          lastName: "Start",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "easy",
-          profileImageUrl: "🆕",
-          password: "test123",
-        },
-        "user-009": {
-          id: "user-009",
-          email: "user-009@habitloop.local",
-          firstName: "Zero",
-          lastName: "Level",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "easy",
-          profileImageUrl: "🆕",
-          password: "test123",
-        },
-        "user-010": {
-          id: "user-010",
-          email: "user-010@habitloop.local",
-          firstName: "Anna",
-          lastName: "Taylor",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "medium",
-          profileImageUrl: "👩‍💼",
-          password: "test123",
-        },
-        "user-011": {
-          id: "user-011",
-          email: "user-011@habitloop.local",
-          firstName: "James",
-          lastName: "Bond",
-          role: "habitloop_user",
-          isGuest: false,
-          difficulty: "medium",
-          profileImageUrl: "🕵️‍♂️",
-          password: "test123",
-        },
-      };
+    const userResult = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      level: users.level,
+      xp: users.xp,
+      difficulty: users.difficulty,
+      profileImageUrl: users.profileImageUrl,
+      role: users.role
+    }).from(users).where(eq(users.id, userId)).limit(1);
 
-      // First check hardcoded metadata for pre-configured users
-      let userMetadata =
-        habitLoopUserMetadata[userId as keyof typeof habitLoopUserMetadata];
-
-      // If not found in hardcoded metadata, check database for newly created users
-      if (!userMetadata) {
-        const dbUser = await storage.getUser(userId);
-        if (
-          dbUser &&
-          !dbUser.isGuest &&
-          (dbUser.role === "habitloop_user" ||
-            dbUser.id.startsWith("user-") ||
-            !dbUser.supabaseAuthId ||
-            dbUser.role === "user")
-        ) {
-          userMetadata = {
-            id: dbUser.id,
-            email: dbUser.email || `${dbUser.id}@habitloop.local`,
-            firstName: dbUser.firstName || "User",
-            lastName: dbUser.lastName || "Name",
-            role: dbUser.role || "user",
-            isGuest: false,
-            difficulty: dbUser.difficulty || "medium",
-            profileImageUrl: dbUser.profileImageUrl || "👤",
-            password: "test123", // Default password for new users
-          };
-        }
-      }
-
-      if (!userMetadata) {
+    if (userResult.length === 0) {
         return res.status(404).json({
           success: false,
-          error: { message: "HabitLoop user not found" },
-        });
-      }
-
-      // Check password for users
-      if (password) {
-        // For hardcoded users, check against metadata password
-        if (
-          habitLoopUserMetadata[userId as keyof typeof habitLoopUserMetadata]
-        ) {
-          if (userMetadata.password && password !== userMetadata.password) {
-            return res.status(401).json({
-              success: false,
-              error: { message: "Invalid password" },
-            });
-          }
-        } else {
-          // For database users, check against hashed password
-          const dbUser = await storage.getUser(userId);
-          if (dbUser && dbUser.passwordHash) {
-            const isValidPassword = await bcrypt.compare(
-              password,
-              dbUser.passwordHash
-            );
-            if (!isValidPassword) {
-              return res.status(401).json({
-                success: false,
-                error: { message: "Invalid password" },
-              });
-            }
-          }
-        }
-      }
-
-      // Get fresh user data from database (or create if needed)
-      let freshUserData;
-      try {
-        const existingUser = await storage.getUser(userMetadata.id);
-        if (existingUser) {
-          // Use database values - NEVER overwrite with hardcoded values
-          freshUserData = {
-            ...userMetadata,
-            level: existingUser.level || 1,
-            xp: existingUser.xp || 0,
-            difficulty: existingUser.difficulty || "medium",
-          };
-        } else {
-          // Create new user in database if doesn't exist
-          console.log(
-            "Creating new HabitLoop user in database:",
-            userMetadata.id
-          );
-          await storage.createUser({
-            id: userMetadata.id,
-            email: userMetadata.email,
-            firstName: userMetadata.firstName,
-            lastName: userMetadata.lastName,
-            level: 1,
-            xp: 0,
-            role: userMetadata.role,
-            isGuest: false,
-            difficulty: userMetadata.difficulty,
-            profileImageUrl: userMetadata.profileImageUrl,
-          });
-
-          freshUserData = {
-            ...userMetadata,
-            level: 1,
-            xp: 0,
-            difficulty: userMetadata.difficulty,
-          };
-        }
-      } catch (error) {
-        console.error("Error getting/creating user data:", error);
-        return res.status(500).json({
-          success: false,
-          error: { message: "Failed to get user data" },
-        });
-      }
-
-      // Generate JWT token (no session cookie for HabitLoop users)
-      const token = jwt.sign({ userId: userMetadata.id }, typedEnv.jwtSecret, {
-        expiresIn: "7d",
+        error: 'User not found',
+        message: 'User does not exist'
       });
-
-      // HabitLoop user authenticated successfully
-
-      // Return response without setting session cookie
-      res.json({
-        success: true,
-        user: freshUserData,
-        token: token,
-        message: "HabitLoop user authenticated successfully",
-      });
-    } catch (error) {
-      console.error("HabitLoop signin error:", error);
-      try {
-        if (
-          res &&
-          typeof res.status === "function" &&
-          typeof res.json === "function"
-        ) {
-          res.status(500).json({
-            success: false,
-            error: { message: "Authentication failed" },
-          });
-        } else {
-          console.error("❌ Response object is invalid:", typeof res, res);
-        }
-      } catch (responseError) {
-        console.error("❌ Failed to send error response:", responseError);
-      }
     }
-  });
 
-  // Update user profile
-  router.put("/users/:userId", requireAuth, async (req: any, res) => {
-    try {
-      const { userId } = req.params;
-      const { firstName, lastName, email, profileImageUrl } = req.body;
-
-      // Verify the user is updating their own profile
-      if (req.user.id !== userId) {
-        return res.status(403).json({
-          success: false,
-          error: { message: "You can only update your own profile" },
-        });
+    const user = userResult[0];
+    
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        level: user.level,
+        xp: user.xp,
+        difficulty: user.difficulty,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role
       }
+    });
+  } catch (error) {
+    adminLog.error('User profile fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Profile fetch failed',
+      message: 'An error occurred while fetching user profile'
+    });
+  }
+});
 
-      // Update user data
-      const updatedUser = await storage.updateUser(userId, {
+// Create new HabitLoop user account
+router.post('/habitloop/signup', async (req, res) => {
+  try {
+    const { userId, firstName, lastName, email, difficulty, questionnaireData } = req.body;
+
+    if (!userId || !firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'userId, firstName, and lastName are required'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'User already exists',
+        message: 'A user with this ID already exists'
+      });
+    }
+
+    // Create new user
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id: userId,
         firstName,
         lastName,
-        email,
-        profileImageUrl,
-      });
+        email: email || `${userId}@habitloop.local`,
+        role: 'user',
+        isGuest: false,
+        level: 1,
+        xp: 0,
+        difficulty: difficulty || 'medium',
+        profileImageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+        questionnaire: questionnaireData || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
 
-      if (!updatedUser) {
-        return res.status(404).json({
-          success: false,
-          error: { message: "User not found" },
-        });
-      }
+    // Generate JWT token
+      const token = jwt.sign(
+      { 
+        id: newUser.id, 
+        role: newUser.role,
+        isGuest: false 
+      },
+      typedEnv.jwtSecret,
+      { expiresIn: '24h' }
+    );
 
-      res.json({
-        success: true,
-        user: updatedUser,
-        message: "Profile updated successfully",
+    adminLog.log(`New HabitLoop user created: ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Account created successfully',
+      user: {
+        id: newUser.id,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        level: newUser.level,
+        xp: newUser.xp,
+        difficulty: newUser.difficulty,
+        profileImageUrl: newUser.profileImageUrl,
+        role: newUser.role
+      },
+      token
+    });
+  } catch (error) {
+    adminLog.error('Signup error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Account creation failed',
+      message: 'An error occurred while creating your account'
+    });
+  }
+});
+
+// Get next available user ID for signup
+router.get('/habitloop/next-user-id', async (_req, res) => {
+  try {
+    const allUsers = await db.select({ id: users.id }).from(users);
+    
+    // Extract all user IDs that start with 'user-'
+    const userIds = allUsers
+      .map(user => user.id)
+      .filter(id => id.startsWith('user-'));
+
+    // Find the highest number
+    const numbers = userIds.map(id => {
+      const numberPart = id.replace('user-', '');
+      const parsed = parseInt(numberPart, 10);
+      return isNaN(parsed) ? 0 : parsed;
+    });
+    
+    const maxNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
+    const nextNumber = maxNumber + 1;
+
+    // Format as user-XXXXXX (6 digits with leading zeros)
+    const nextUserId = `user-${nextNumber.toString().padStart(6, '0')}`;
+    
+    res.json({
+      success: true,
+      nextUserId
       });
     } catch (error) {
-      console.error("Update user error:", error);
-      res.status(500).json({
+    adminLog.error('Next user ID generation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'ID generation failed',
+      message: 'An error occurred while generating next user ID'
+    });
+  }
+});
+
+// Update user settings
+router.put('/user/settings', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const settings = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        error: { message: "Failed to update profile" },
+        error: 'User not authenticated',
+        message: 'User information not available'
       });
     }
-  });
 
-  // Get all HabitLoop users
-  router.get("/habitloop/users", async (_req: any, res) => {
-    try {
-      // Get all users from database
-      const allUsers = await storage.getAllUsers();
+    // Update user settings in database
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        userSettings: settings,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
 
-      // Filter to only HabitLoop users (not Supabase users) and exclude guest users
-      const habitLoopUsers = allUsers.filter(
-        (user) =>
-          !user.isGuest && // Exclude guest users
-          (user.role === "habitloop_user" ||
-            user.id.startsWith("user-") ||
-            !user.supabaseAuthId || // HabitLoop users don't have supabaseAuthId
-            user.role === "user") // Include users with role 'user' (non-Supabase users)
-      );
+    adminLog.log(`User ${userId} updated settings`);
 
-      // Transform to match frontend interface and sort by ID
-      const users = habitLoopUsers
-        .map((user) => ({
-          id: user.id,
-          username: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          difficulty: user.difficulty || "medium",
-          avatar: user.profileImageUrl || "👤",
-          description: `${user.firstName} ${user.lastName} - ${
-            user.difficulty || "medium"
-          } difficulty`,
-          level: user.level || 1,
-          xp: user.xp || 0,
-        }))
-        .sort((a, b) => a.id.localeCompare(b.id)); // Sort by ID in ascending order
+    res.json({
+      success: true,
+      message: 'Settings updated successfully',
+      settings: updatedUser.userSettings
+    });
+  } catch (error) {
+    adminLog.error('Update settings error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Update failed',
+      message: 'An error occurred while updating settings'
+    });
+  }
+});
 
-      res.json({
-        success: true,
-        users,
-      });
-    } catch (error) {
-      console.error("Get HabitLoop users error:", error);
-      res.status(500).json({
+// Update user profile
+router.put('/user/:userId', requireAuth, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { firstName, lastName, email, profileImageUrl } = req.body;
+    
+    // Verify the user is updating their own profile
+    if (req.user.id !== userId) {
+      return res.status(403).json({
         success: false,
-        error: { message: "Failed to fetch users" },
+        error: 'Forbidden',
+        message: 'You can only update your own profile'
       });
     }
-  });
 
-  return router;
-}
+    // Update user data
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        email: email || undefined,
+        profileImageUrl: profileImageUrl || undefined,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'User could not be found'
+      });
+    }
+
+    adminLog.log(`User ${userId} updated profile`);
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        level: updatedUser.level,
+        xp: updatedUser.xp,
+        role: updatedUser.role,
+        isGuest: updatedUser.isGuest,
+        difficulty: updatedUser.difficulty,
+        profileImageUrl: updatedUser.profileImageUrl
+      },
+      message: 'Profile updated successfully'
+    });
+  } catch (error) {
+    adminLog.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Update failed',
+      message: 'An error occurred while updating profile'
+    });
+  }
+});
+
+// Test endpoint to check database structure
+router.get('/test-db-structure', async (_req, res) => {
+  try {
+    // Try to get a single user to see the structure
+    const testUser = await db
+      .select()
+      .from(users)
+      .limit(1);
+    
+    console.log('Database structure test - User fields:', Object.keys(testUser[0] || {}));
+    
+    res.json({
+      success: true,
+      userFields: testUser[0] ? Object.keys(testUser[0]) : [],
+      hasPasswordHash: testUser[0] ? 'passwordHash' in testUser[0] : false,
+      sampleUser: testUser[0] || null
+    });
+  } catch (error) {
+    console.error('Database structure test error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Database test failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+export default router;
