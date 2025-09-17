@@ -1,5 +1,7 @@
 import { useState, ReactNode, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
+import { GuestIndicator } from '@/components/GuestIndicator';
+import { HabitLoopUserModal } from '@/components/HabitLoopUserModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useIsMobile, useIsTouchDevice, useScreenSize } from '@/hooks/use-mobile';
@@ -24,6 +26,7 @@ export function Layout({
   pageTitle = "HabitLoop"
 }: LayoutProps) {
   const [internalSidebarOpen, setInternalSidebarOpen] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const isTouchDevice = useIsTouchDevice();
@@ -137,6 +140,17 @@ export function Layout({
           </div>
         </header>
 
+        {/* Guest Indicator */}
+        {user?.isGuest && (
+          <div className="px-4 sm:px-6 lg:px-8 py-2">
+            <div className="max-w-7xl mx-auto">
+              <GuestIndicator onUpgrade={() => {
+                setShowSignupModal(true);
+              }} />
+            </div>
+          </div>
+        )}
+
         {/* Page Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
@@ -153,6 +167,16 @@ export function Layout({
           aria-hidden="true"
         />
       )}
+
+      {/* Signup Modal */}
+      <HabitLoopUserModal
+        open={showSignupModal}
+        onClose={() => setShowSignupModal(false)}
+        onSuccess={() => {
+          setShowSignupModal(false);
+          // User will be redirected automatically when authentication state changes
+        }}
+      />
     </div>
   );
 }

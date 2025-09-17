@@ -133,8 +133,8 @@ export default function Profile() {
                 <CardTitle>Personal Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center space-x-6">
-                  <Avatar className="h-20 w-20" key={user.profileImageUrl}>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+                  <Avatar className="h-20 w-20 mx-auto sm:mx-0" key={user.profileImageUrl}>
                     <AvatarImage 
                       src={user.profileImageUrl && user.profileImageUrl !== "👤" ? user.profileImageUrl : ""} 
                       alt={`${getUserDisplayName(user)}'s profile`}
@@ -143,11 +143,13 @@ export default function Profile() {
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
-                    <h2 className="text-xl font-semibold text-gray-900">
+                  <div className="flex-1 text-center sm:text-left w-full">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
                       {getUserDisplayName(user)}
                     </h2>
-                    <p className="text-gray-600">{getUserEmail(user)}</p>
+                    <p className="text-gray-600 text-sm sm:text-base break-all sm:break-normal">
+                      {getUserEmail(user)}
+                    </p>
                   </div>
                 </div>
 

@@ -1,46 +1,5 @@
 # HabitLoop - Comprehensive Documentation
-**Last Updated: 17.09.25**
-
-## 🆕 **RECENT MAJOR UPDATES (September 17, 2025)**
-
-### **Google Calendar Integration (17.09.25 - 06:00 AM)**
-- ✅ **OAuth2 Authentication Flow** - Complete Google Calendar OAuth2 integration
-- ✅ **Settings Integration** - Connect/disconnect buttons in Settings page
-- ✅ **Habit Card Integration** - "Add to Calendar" buttons on each habit card
-- ✅ **Environment Detection** - Automatic redirect URI selection (localhost vs production)
-- ✅ **Error Handling** - Graceful OAuth2 error handling and user feedback
-- ✅ **Mobile Responsive** - Calendar integration works on all devices
-- ✅ **Route Configuration** - Proper callback route handling for OAuth2 flow
-- ✅ **UX Improvements** - Habits preview before sync, reminder time warnings, sync status feedback
-- ✅ **Empty State Handling** - Proper handling when no habits exist or no reminder times set
-
-**Technical Implementation:**
-- **Backend Routes**: `/api/google-calendar/*` endpoints for OAuth2 flow
-- **Frontend Components**: `GoogleCalendarIntegration.tsx` and `GoogleCalendarCallback.tsx`
-- **Environment Variables**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-- **OAuth2 Scopes**: Calendar read/write permissions
-- **Redirect URIs**: 
-  - Development: `http://localhost:5173/callback`
-  - Production: `https://techversehublk.site/callback`
-
-**Files Modified:**
-- `server/routes/googleCalendarRoutes.ts` - OAuth2 configuration and routes
-- `server/routes/index.ts` - Route registration for callback handling
-- `client/src/components/GoogleCalendarIntegration.tsx` - Settings integration
-- `client/src/pages/GoogleCalendarCallback.tsx` - OAuth2 callback handling
-- `client/src/components/HabitCard.tsx` - Added "Add to Calendar" buttons
-
-## 🆕 **PREVIOUS MAJOR UPDATES (September 12, 2025)**
-
-### **UX Improvements & Mobile Optimization**
-- ✅ **Email-based Login System** - Users can now login with email instead of user IDs
-- ✅ **Enhanced Profile Layout** - Professional spacing and responsive design
-- ✅ **Improved Target Inputs** - Mobile-friendly +/- buttons for habit targets
-- ✅ **Fixed Horizontal Scrolling** - All content now fits properly on mobile devices
-- ✅ **Better Habit Completion UX** - Clear, intuitive completion interface with animations
-- ✅ **Mobile-First Design** - Touch-friendly buttons and responsive layouts
-
-*See `UX_IMPROVEMENTS_SUMMARY_12_09_25.md` for detailed change log*
+**Last Updated: 28.08.25**
 
 ## 📋 **PROJECT OVERVIEW**
 
@@ -428,15 +387,7 @@ const consistencyScore = Math.max(15, baseConsistencyScore - inactivityPenalty);
 - **Error Handling**: Proper error handling for API calls
 - **Loading States**: Loading indicators for better UX
 
-### **5. Google Calendar Integration:**
-- **OAuth2 Authentication**: Secure Google Calendar connection
-- **Settings Management**: Connect/disconnect calendar in Settings
-- **Habit Integration**: "Add to Calendar" buttons on habit cards
-- **Event Creation**: Automatically create calendar events for habits
-- **Environment Detection**: Automatic localhost vs production configuration
-- **Mobile Responsive**: Works seamlessly on all devices
-
-### **6. Admin System:**
+### **5. Admin System:**
 - **Log Control**: Toggle logging on/off
 - **System Status**: Real-time system monitoring
 - **User Management**: Admin user management
@@ -471,40 +422,6 @@ const warningMinutes = 5;  // 5 minutes warning
 ```
 Frontend Request → mlPredictionRoutes.ts → mlAdvancedService.ts → Python ML Models
 ```
-
-### **Google Calendar Integration Architecture:**
-```
-Frontend Settings → GoogleCalendarIntegration.tsx → OAuth2 Flow → Google Calendar API
-Habit Cards → "Add to Calendar" → Settings Page → OAuth2 Authentication
-```
-
-**OAuth2 Flow:**
-1. User clicks "Connect" in Settings
-2. Redirects to Google OAuth2 authorization
-3. User grants calendar permissions
-4. Google redirects to callback URL with authorization code
-5. Server exchanges code for access token
-6. Token stored in user settings
-7. Calendar integration enabled
-
-**Environment Configuration:**
-```typescript
-// Development
-const redirectUri = "http://localhost:5173/callback";
-
-// Production  
-const redirectUri = "https://techversehublk.site/callback";
-```
-
-**OAuth2 Scopes:**
-- `https://www.googleapis.com/auth/calendar` - Read/write calendar access
-- `https://www.googleapis.com/auth/calendar.events` - Manage calendar events
-
-**Reminder Time Logic:**
-- **Individual Habit Time**: If a habit has `reminderTime` set, it uses that time
-- **Default Fallback**: If no individual time, uses Calendar Settings "Default Reminder Time"
-- **Skip if Neither**: Only skips if neither individual nor default time is set
-- **Preview Shows**: Users see which habits use individual vs default times before syncing
 
 ### **Database Schema:**
 - **Users**: JWT-based authentication
@@ -552,12 +469,6 @@ OPENAI_API_KEY=your-openai-key
 SENDGRID_API_KEY=your-sendgrid-key
 SENDGRID_FROM_EMAIL=habitloop-report@em6056.techversehublk.site
 
-# Google Calendar Integration
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:5173/callback
-GOOGLE_REDIRECT_URI_PROD=https://techversehublk.site/callback
-
 # Session
 SESSION_TIMEOUT_MINUTES=1440
 ```
@@ -582,20 +493,13 @@ curl -X POST http://localhost:5000/api/ml/train
 ## 📝 **DEVELOPMENT NOTES**
 
 ### **Recent Fixes:**
-1. **Google Calendar Integration**: Complete OAuth2 flow implementation (17.09.25)
-2. **React Query Errors**: Fixed missing queryFn in all useQuery calls
-3. **Navigation Issues**: Added missing routes for Stats, Habits, Challenges
-4. **Session Management**: Implemented comprehensive session system
-5. **ML Integration**: Optimized ML predictions and analytics
-6. **TypeScript Errors**: Resolved all TypeScript compilation issues
-7. **OAuth2 Redirect URIs**: Fixed environment-specific redirect URI configuration
+1. **React Query Errors**: Fixed missing queryFn in all useQuery calls
+2. **Navigation Issues**: Added missing routes for Stats, Habits, Challenges
+3. **Session Management**: Implemented comprehensive session system
+4. **ML Integration**: Optimized ML predictions and analytics
+5. **TypeScript Errors**: Resolved all TypeScript compilation issues
 
 ### **Key Files Modified:**
-- `server/routes/googleCalendarRoutes.ts` - Google Calendar OAuth2 implementation (17.09.25)
-- `server/routes/index.ts` - OAuth2 callback route registration (17.09.25)
-- `client/src/components/GoogleCalendarIntegration.tsx` - Settings integration (17.09.25)
-- `client/src/pages/GoogleCalendarCallback.tsx` - OAuth2 callback handling (17.09.25)
-- `client/src/components/HabitCard.tsx` - Added "Add to Calendar" buttons (17.09.25)
 - `client/src/pages/Stats.tsx` - Added queryFn
 - `client/src/pages/Habits.tsx` - Added queryFn
 - `client/src/components/AICoachAssistant.tsx` - Added queryFn

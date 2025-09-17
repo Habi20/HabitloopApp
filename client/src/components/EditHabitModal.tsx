@@ -6,16 +6,17 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useAuth } from "@/contexts/AuthContext";
 import { Habit } from "@/types";
+import { useScreenSize, useIsTouchDevice } from "@/hooks/use-mobile";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getMobileModalHeader, getMobileModalBody, getMobileModalFooter, getMobileButtonClasses } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -28,9 +29,13 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
+import {
+  ResponsiveFormField,
+  ResponsiveInput,
+  ResponsiveTextarea,
+  ResponsiveGrid,
+} from "@/components/ui/responsive-form-field";
 
 const habitSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title too long"),
@@ -54,7 +59,10 @@ interface EditHabitModalProps {
 
 export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isMobile } = useScreenSize();
+  const isTouchDevice = useIsTouchDevice();
 
   const form = useForm<HabitFormData>({
     resolver: zodResolver(habitSchema),
@@ -91,7 +99,7 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
       await apiRequest(`habits/${habit.id}`, "PUT", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/habits", user?.id] });
       toast({
         title: "Success",
         description: "Habit updated successfully!",
@@ -218,174 +226,275 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
     }
   };
 
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-              <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto mx-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-gray-900">
+      <DialogContent 
+        className="overflow-hidden" // Let the component handle responsive sizing
+        mobileVariant="bottom-sheet"
+      >
+        {/* Header - Mobile optimized */}
+        <DialogHeader className={getMobileModalHeader(isMobile)}>
+          <DialogTitle className={isMobile ? "text-xl" : "text-lg"}>
             Edit Habit
           </DialogTitle>
         </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Habit Title *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Drink water" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Optional description of your habit"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category *</FormLabel>
-                  <Select
-                    onValueChange={handleCategoryChange}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          <div className="flex items-center">
-                            <i
-                              className={`${category.icon} mr-2`}
-                              style={{ color: category.color }}
-                            ></i>
-                            {category.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
+        {/* Form Content - Scrollable body */}
+        <div className={getMobileModalBody(isMobile)}>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className={isMobile ? "space-y-5" : "space-y-4"}>
               <FormField
                 control={form.control}
-                name="targetValue"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Target *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 1)
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="unit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unit *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <ResponsiveFormField
+                      label="Habit Title"
+                      required
+                      error={form.formState.errors.title?.message}
+                      variant={isMobile && isTouchDevice ? "floating" : "default"}
+                    >
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <ResponsiveInput
+                          placeholder="e.g., Drink water"
+                          floatingLabel={isMobile && isTouchDevice}
+                          icon={<i className="fas fa-check text-sm" />}
+                          {...field}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {units.map((unit) => (
-                          <SelectItem key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
+                    </ResponsiveFormField>
                   </FormItem>
                 )}
               />
-            </div>
 
-            <FormField
-              control={form.control}
-              name="reminderTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reminder Time</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select reminder time" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {timeSlots.map((time) => (
-                        <SelectItem key={time} value={time}>
-                          {time}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <ResponsiveFormField
+                      label="Description"
+                      error={form.formState.errors.description?.message}
+                      variant={isMobile && isTouchDevice ? "floating" : "default"}
+                    >
+                      <FormControl>
+                        <ResponsiveTextarea
+                          placeholder="Optional description of your habit"
+                          rows={isMobile ? 3 : 2}
+                          floatingLabel={isMobile && isTouchDevice}
+                          icon={<i className="fas fa-align-left text-sm" />}
+                          {...field}
+                        />
+                      </FormControl>
+                    </ResponsiveFormField>
+                  </FormItem>
+                )}
+              />
 
-            <div className="flex space-x-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={updateHabitMutation.isPending}
-                className="flex-1"
-              >
-                {updateHabitMutation.isPending ? "Updating..." : "Update Habit"}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <ResponsiveFormField
+                      label="Category"
+                      required
+                      error={form.formState.errors.category?.message}
+                      variant={isMobile && isTouchDevice ? "floating" : "default"}
+                    >
+                      <FormControl>
+                        <Select
+                          onValueChange={handleCategoryChange}
+                          value={field.value}
+                        >
+                          <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem 
+                                key={category.value} 
+                                value={category.value}
+                                className={isMobile ? "py-3" : "py-2"}
+                              >
+                                <div className="flex items-center">
+                                  <i
+                                    className={`${category.icon} mr-2`}
+                                    style={{ color: category.color }}
+                                  ></i>
+                                  <span className={isMobile ? "text-base" : "text-sm"}>{category.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </ResponsiveFormField>
+                  </FormItem>
+                )}
+              />
+
+              <ResponsiveGrid cols={isMobile ? 1 : 2} gap="md">
+                <FormField
+                  control={form.control}
+                  name="targetValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ResponsiveFormField
+                        label="Target"
+                        required
+                        error={form.formState.errors.targetValue?.message}
+                        variant={isMobile && isTouchDevice ? "floating" : "default"}
+                      >
+                        <FormControl>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-10 w-10 p-0 shrink-0"
+                              onClick={() => {
+                                const newValue = Math.max(1, (field.value || 1) - 1);
+                                field.onChange(newValue);
+                              }}
+                            >
+                              -
+                            </Button>
+                            <ResponsiveInput
+                              type="text"
+                              placeholder="1"
+                              value={field.value || 1}
+                              className="text-center"
+                              floatingLabel={isMobile && isTouchDevice}
+                              icon={<i className="fas fa-target text-sm" />}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                const numValue = parseInt(value) || 1;
+                                field.onChange(Math.max(1, numValue));
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-10 w-10 p-0 shrink-0"
+                              onClick={() => {
+                                const newValue = (field.value || 1) + 1;
+                                field.onChange(newValue);
+                              }}
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </FormControl>
+                      </ResponsiveFormField>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="unit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ResponsiveFormField
+                        label="Unit"
+                        required
+                        error={form.formState.errors.unit?.message}
+                        variant={isMobile && isTouchDevice ? "floating" : "default"}
+                      >
+                        <FormControl>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {units.map((unit) => (
+                                <SelectItem 
+                                  key={unit.value} 
+                                  value={unit.value}
+                                  className={isMobile ? "py-3" : "py-2"}
+                                >
+                                  <span className={isMobile ? "text-base" : "text-sm"}>{unit.label}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </ResponsiveFormField>
+                    </FormItem>
+                  )}
+                />
+              </ResponsiveGrid>
+
+              <FormField
+                control={form.control}
+                name="reminderTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <ResponsiveFormField
+                      label="Reminder Time"
+                      error={form.formState.errors.reminderTime?.message}
+                      variant={isMobile && isTouchDevice ? "floating" : "default"}
+                    >
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
+                            <SelectValue placeholder="Select reminder time" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeSlots.map((time) => (
+                              <SelectItem 
+                                key={time} 
+                                value={time}
+                                className={isMobile ? "py-3" : "py-2"}
+                              >
+                                <span className={isMobile ? "text-base" : "text-sm"}>{time}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </ResponsiveFormField>
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </div>
+
+        {/* Footer - Fixed at bottom with mobile optimization */}
+        <div className={getMobileModalFooter(isMobile)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className={getMobileButtonClasses('outline', isMobile)}
+            disabled={updateHabitMutation.isPending}
+          >
+            Cancel
+          </Button>
+          
+          <Button
+            type="submit"
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={updateHabitMutation.isPending}
+            className={getMobileButtonClasses('primary', isMobile)}
+          >
+            {updateHabitMutation.isPending ? (
+              <>
+                <i className="fas fa-spinner fa-spin mr-2"></i>
+                {isMobile ? "Updating..." : "Updating..."}
+              </>
+            ) : (
+              <>
+                <i className="fas fa-save mr-2"></i>
+                {isMobile ? "Update Habit" : "Update Habit"}
+              </>
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

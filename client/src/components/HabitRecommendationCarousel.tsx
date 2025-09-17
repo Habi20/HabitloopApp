@@ -69,7 +69,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
 
   // Fetch user's existing habits to filter out already added ones
   const { data: existingHabitsResponse } = useQuery({
-    queryKey: ['/api/habits'],
+    queryKey: ['/api/habits', user?.id],
     queryFn: async () => {
       try {
         const response = await apiRequest('habits', 'GET');
@@ -231,6 +231,14 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
     return !alreadyExists;
   });
 
+  // Debug logging for carousel state
+  console.log('Carousel state:', {
+    allRecommendations: allRecommendations.length,
+    existingHabits: existingHabits.length,
+    filteredRecommendations: recommendations.length,
+    isLoading
+  });
+
   // Log filtering results for debugging
   if (allRecommendations.length > 0) {
     console.log(`Carousel filtering: ${allRecommendations.length} total recommendations, ${recommendations.length} available after filtering`);
@@ -307,7 +315,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       }
       
              // Invalidate habits query to refresh the habit list and update filtering
-      queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/habits', user?.id] });
       
       // Update recommendations cache to remove the added recommendation
       queryClient.setQueryData(['/api/ai/recommendations'], (oldData: HabitRecommendation[] | undefined) => {

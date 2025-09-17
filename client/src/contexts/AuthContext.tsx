@@ -456,10 +456,15 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
   const loginAsHabitLoopUser = async (userData: any) => {
     try {
-      console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', userData.id);
+      console.log('🔐 AuthContext: loginAsHabitLoopUser called with:', userData.email || userData.userId || userData.id);
       
-      // Send both userId and password if provided
-      const requestBody: any = { userId: userData.userId || userData.id };
+      // Send email or userId and password if provided
+      const requestBody: any = {};
+      if (userData.email) {
+        requestBody.email = userData.email;
+      } else if (userData.userId || userData.id) {
+        requestBody.userId = userData.userId || userData.id;
+      }
       if (userData.password) {
         requestBody.password = userData.password;
       }
@@ -789,19 +794,40 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const clearUserSpecificData = () => {
     console.log('🔐 AuthContext: Clearing user-specific data from localStorage');
     
-    // Clear AI questionnaire and recommendation data
-    localStorage.removeItem('habitRecommendations');
+    // Check if carousel data should be retained (7 days)
+    const carouselData = localStorage.getItem('habitRecommendations');
+    const carouselTimestamp = localStorage.getItem('carouselGeneratedAt');
+    
+    if (carouselData && carouselTimestamp) {
+      const generatedTime = new Date(carouselTimestamp).getTime();
+      const currentTime = new Date().getTime();
+      const daysSinceGenerated = (currentTime - generatedTime) / (1000 * 60 * 60 * 24);
+      
+      // Retain carousel data for 7 days
+      if (daysSinceGenerated < 7) {
+        console.log('🔐 AuthContext: Retaining carousel data (generated', Math.round(daysSinceGenerated), 'days ago)');
+        // Don't remove carousel data, just clear other user data
+      } else {
+        console.log('🔐 AuthContext: Carousel data expired, clearing');
+        localStorage.removeItem('habitRecommendations');
+        localStorage.removeItem('carouselGeneratedAt');
+      }
+    } else {
+      // No carousel data to retain
+      localStorage.removeItem('habitRecommendations');
+      localStorage.removeItem('carouselGeneratedAt');
+    }
+    
+    // Clear other user-specific data
     localStorage.removeItem('questionnaireCompleted');
     localStorage.removeItem('questionnaireData');
     localStorage.removeItem('dismissedRecommendations');
-    
-    // Clear other user-specific data
     localStorage.removeItem('userPreferences');
     localStorage.removeItem('lastSyncTime');
     localStorage.removeItem('currentUserId');
     
-    // Clear user-specific UI settings
-    localStorage.removeItem('habitloop_ui_settings');
+    // Don't clear UI settings - they should persist across logins
+    // localStorage.removeItem('habitloop_ui_settings');
     
     // Note: We don't clear authentication data as that's handled by logout
     

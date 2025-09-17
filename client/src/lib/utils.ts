@@ -191,3 +191,89 @@ export const breakpointUtils = {
   isDesktop: (width: number) => width >= BREAKPOINTS.lg,
   isLargeDesktop: (width: number) => width >= BREAKPOINTS.xl,
 }
+
+// Enhanced mobile modal utilities
+export function getMobileModalClasses() {
+  return cn(
+    'flex flex-col max-h-[85vh] overflow-hidden'
+  )
+}
+
+export function getMobileModalHeader(isMobile: boolean = false) {
+  return cn(
+    'flex-shrink-0 space-y-1.5 text-center sm:text-left',
+    isMobile ? 'px-5 pt-5 pb-5' : 'px-6 pt-4 pb-4'
+  )
+}
+
+export function getMobileModalBody(isMobile: boolean = false) {
+  return cn(
+    'flex-1 overflow-y-auto',
+    isMobile ? 'px-5 pb-5' : 'px-6 pb-4',
+    // Smooth scrolling on mobile with proper bounds
+    'overscroll-contain [-webkit-overflow-scrolling:touch]',
+    // Prevent scroll chaining to parent
+    'overscroll-behavior-contain',
+    // Consistent 20px spacing between form elements
+    'space-y-5',
+    // Ensure content doesn't overflow modal bounds
+    'max-h-full'
+  )
+}
+
+export function getMobileModalFooter(isMobile: boolean = false) {
+  return cn(
+    'flex-shrink-0 border-t bg-background/95 backdrop-blur-sm',
+    isMobile ? [
+      'px-5 py-5 gap-4 flex flex-col',
+      'safe-area-inset-bottom' // Handle notched phones
+    ] : [
+      'px-6 py-4 flex flex-row-reverse gap-2'
+    ]
+  )
+}
+
+// Enhanced button classes for mobile
+export function getMobileButtonClasses(
+  variant: 'primary' | 'secondary' | 'outline' = 'primary',
+  isMobile: boolean = false
+) {
+  const baseClasses = cn(
+    'inline-flex items-center justify-center font-medium',
+    'transition-all duration-200 focus-visible:outline-none focus-visible:ring-2',
+    'disabled:opacity-50 disabled:pointer-events-none',
+    // Responsive sizing and spacing
+    isMobile ? [
+      'h-12 px-5 text-base min-w-[48px]',
+      'rounded-[20px]' // 20px rounded corners for mobile
+    ] : [
+      'h-10 px-4 text-sm',
+      'rounded-lg' // Standard rounded on desktop
+    ]
+  )
+
+  const variants = {
+    primary: cn(
+      'bg-primary text-primary-foreground hover:bg-primary/90',
+      'focus-visible:ring-primary/50'
+    ),
+    secondary: cn(
+      'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+      'focus-visible:ring-secondary/50'
+    ),
+    outline: cn(
+      'border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
+      'focus-visible:ring-ring/50'
+    )
+  }
+
+  return cn(baseClasses, variants[variant])
+}
+
+// Update your existing getDialogClasses function
+export function getEnhancedDialogClasses(isMobile: boolean) {
+  if (isMobile) {
+    return getMobileModalClasses()
+  }
+  return "w-[95vw] max-w-lg max-h-[90vh] mx-auto flex flex-col"
+}

@@ -15,6 +15,8 @@ import Admin from './pages/Admin';
 import Stats from './pages/Stats';
 import Habits from './pages/Habits';
 import Challenges from './pages/Challenges';
+import { GoogleCalendarCallback } from './pages/GoogleCalendarCallback';
+import { DebugRoute } from './pages/DebugRoute';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -48,6 +50,15 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
         <Switch>
+          {/* OAuth2 callback routes - use simpler path */}
+          <Route path="/google-callback" component={GoogleCalendarCallback} />
+          <Route path="/callback" component={GoogleCalendarCallback} />
+          <Route path="/auth/google/callback" component={GoogleCalendarCallback} />
+          
+          {/* Test route for debugging */}
+          <Route path="/test-callback" component={GoogleCalendarCallback} />
+          <Route path="/debug-route" component={DebugRoute} />
+          
           {/* Public routes */}
           <Route path="/" component={Landing} />
           
@@ -76,8 +87,8 @@ function App() {
             </>
           )}
           
-          {/* Catch-all route */}
-          <Route component={Landing} />
+          {/* Catch-all route - but exclude OAuth2 callbacks */}
+          <Route path="/:rest*" component={Landing} />
         </Switch>
 
         {/* Session timeout modal */}

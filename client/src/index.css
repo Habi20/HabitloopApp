@@ -219,3 +219,118 @@
 .main-content {
   z-index: 10;
 }
+
+/* Enhanced mobile modal animations */
+@keyframes slide-in-from-bottom-enhanced {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-to-bottom-enhanced {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+/* Mobile modal specific animations */
+@keyframes slide-in-from-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-out-to-bottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* Safe area support for modern phones */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Improved touch scrolling */
+.mobile-scroll-enhanced {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+/* Mobile form improvements */
+.mobile-form-spacing {
+  @apply space-y-4;
+}
+
+.mobile-form-field {
+  @apply mb-5;
+}
+
+/* Enhanced mobile form styling */
+.mobile-input {
+  @apply h-12 text-base rounded-[20px] border-2 border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20;
+}
+
+.mobile-textarea {
+  @apply min-h-[100px] text-base rounded-[20px] border-2 border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20;
+}
+
+.mobile-select {
+  @apply h-12 text-base rounded-[20px] border-2 border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20;
+}
+
+/* Touch-friendly interactive elements */
+.touch-friendly {
+  @apply min-h-[44px] min-w-[44px];
+}
+
+/* Enhanced touch targets for mobile */
+.mobile-button {
+  @apply min-h-[48px] min-w-[48px] rounded-[20px] text-base font-medium;
+}
+
+/* Modal backdrop improvements */
+.modal-backdrop-mobile {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Enhanced mobile modal styling */
+.mobile-modal-content {
+  @apply rounded-t-[20px] shadow-2xl;
+}
+
+.desktop-modal-content {
+  @apply rounded-xl shadow-xl;
+}
+
+/* Responsive spacing utilities */
+.mobile-padding {
+  @apply px-4 py-3;
+}
+
+.desktop-padding {
+  @apply px-6 py-4;
+}
+
+/* Enhanced focus states for mobile */
+.mobile-focus {
+  @apply focus:ring-2 focus:ring-primary/50 focus:outline-none;
+}

@@ -57,7 +57,7 @@ export default function Habits() {
   }, [user, authLoading, toast]);
 
   const { data: habits, isLoading: habitsLoading } = useQuery({
-    queryKey: ["/api/habits"],
+    queryKey: ["/api/habits", user?.id],
     queryFn: async () => {
       const response = await apiRequest("habits", 'GET');
       return await response.json();
@@ -72,7 +72,7 @@ export default function Habits() {
               await apiRequest(`habits/${habitId}`, "DELETE");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/habits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/habits", user?.id] });
       toast({
         title: "Success",
         description: "Habit deleted successfully",
@@ -181,19 +181,21 @@ export default function Habits() {
       <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             {/* Removed duplicate page title - now shown in header */}
-            <div className="flex space-x-3">
-              <Button variant="outline" onClick={() => setShowAICoach(true)} title="AI Coach">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              <Button variant="outline" onClick={() => setShowAICoach(true)} title="AI Coach" className="flex-shrink-0">
                 <i className="fas fa-lightbulb"></i>
                 <span className="hidden sm:inline ml-2">AI Coach</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setShowEmailIntegration(true)}
+                className="flex-shrink-0"
               >
                 <i className="fas fa-envelope mr-2"></i>
-                Email Notifications
+                <span className="hidden xs:inline">Email Notifications</span>
+                <span className="xs:hidden">Email</span>
               </Button>
-              <Button onClick={() => setShowAddHabit(true)}>
+              <Button onClick={() => setShowAddHabit(true)} className="flex-shrink-0">
                 <i className="fas fa-plus mr-2"></i>
                 Add Habit
               </Button>

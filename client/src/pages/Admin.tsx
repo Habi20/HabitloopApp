@@ -34,7 +34,11 @@ interface SystemStatus {
     platform: string;
   };
   database: {
-    status: string;
+    connectionPool?: {
+      totalConnections: number;
+      idleConnections: number;
+      activeConnections: number;
+    };
     lastQuery: string;
   };
   users: {
@@ -83,6 +87,14 @@ const Admin: React.FC = () => {
   const isAdmin = user?.role === 'admin' || user?.role === 'super_user';
 
   useEffect(() => {
+    // If admin_token exists in localStorage, treat admin as authenticated for the admin panel
+    const existingAdminToken = localStorage.getItem('admin_token');
+    if (existingAdminToken && !isAdminAuthenticated) {
+      setIsAdminAuthenticated(true);
+      fetchSystemStatus();
+      fetchUsers();
+    }
+
     if (isAuthenticated && isAdmin) {
       // Auto-authenticate admin users
       setIsAdminAuthenticated(true);
@@ -222,6 +234,16 @@ const Admin: React.FC = () => {
       console.error('Failed to initiate shutdown:', error);
       setError('Failed to initiate shutdown');
     }
+  };
+
+  const handleAdminLogout = () => {
+    // Clear only admin panel auth, not user auth
+    localStorage.removeItem('admin_token');
+    setIsAdminAuthenticated(false);
+    setAdminToken('');
+    setError(null);
+    setSystemStatus(null);
+    setUsers([]);
   };
 
   const formatUptime = (seconds: number) => {
@@ -375,6 +397,11 @@ const Admin: React.FC = () => {
             <Power className="h-4 w-4 mr-2" />
             Emergency Shutdown
           </Button>
+          {(isAdminAuthenticated || isAdmin) && (
+            <Button variant="secondary" onClick={handleAdminLogout}>
+              Logout
+            </Button>
+          )}
         </div>
       </div>
 
@@ -653,7 +680,7 @@ const Admin: React.FC = () => {
                   <div>
                     <h3 className="font-semibold">Database Status</h3>
                     <p className="text-sm text-muted-foreground">
-                      {systemStatus.database?.status || 'Unknown'} - Last query: {systemStatus.database?.lastQuery || 'N/A'}
+                      {systemStatus.database?.connectionPool ? 'Connected' : 'Unknown'} - Last query: {systemStatus.database?.lastQuery || 'N/A'}
                     </p>
                   </div>
                   <div>
@@ -693,8 +720,8 @@ const Admin: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold">System Status</h3>
-                    <Badge variant={systemStatus?.mlSystem === 'online' ? 'default' : 'secondary'}>
-                      {systemStatus?.mlSystem || 'Unknown'}
+                    <Badge variant="secondary">
+                      Running ML Models
                     </Badge>
                   </div>
                   <div>

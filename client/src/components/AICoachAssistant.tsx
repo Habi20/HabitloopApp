@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Habit, Completion } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { getMobileModalHeader, getMobileModalBody, getMobileModalFooter, getMobileButtonClasses } from "@/lib/utils";
+import { useScreenSize } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,17 +34,19 @@ interface AICoachAssistantProps {
 
 export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { isMobile } = useScreenSize();
   const [selectedService, setSelectedService] = useState<string>("");
   const [userQuestion, setUserQuestion] = useState("");
   const [coachResponse, setCoachResponse] = useState("");
 
   const { data: habitsResponse } = useQuery({
-    queryKey: ["/api/habits"],
+    queryKey: ["/api/habits", user?.id],
     queryFn: async () => {
       const response = await apiRequest("habits", 'GET');
       return await response.json();
     },
-    enabled: open,
+    enabled: open && !!user,
   });
 
   const { data: completionsResponse } = useQuery({
@@ -184,9 +189,13 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-              <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto mx-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center">
+      <DialogContent 
+        className="overflow-hidden"
+        mobileVariant="bottom-sheet"
+      >
+        {/* Header - Mobile optimized */}
+        <DialogHeader className={getMobileModalHeader(isMobile)}>
+          <DialogTitle className={`${isMobile ? "text-xl" : "text-2xl"} font-bold text-gray-900 flex items-center`}>
             <Brain className="w-6 h-6 mr-2 text-purple-600" />
             AI Coach Assistant
           </DialogTitle>
@@ -195,6 +204,9 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
             journey
           </DialogDescription>
         </DialogHeader>
+
+        {/* Content - Scrollable body */}
+        <div className={getMobileModalBody(isMobile)}>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Services Panel */}
@@ -355,6 +367,17 @@ export function AICoachAssistant({ open, onClose }: AICoachAssistantProps) {
               </Card>
             )}
           </div>
+        </div>
+        </div>
+
+        {/* Footer - Mobile optimized */}
+        <div className={getMobileModalFooter(isMobile)}>
+          <Button
+            onClick={onClose}
+            className={getMobileButtonClasses('outline', isMobile)}
+          >
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Habit {
   id: number;
@@ -37,6 +38,7 @@ interface HabitPerformanceScore {
 }
 
 export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProps) {
+  const { user } = useAuth();
   const [isAnimating, setIsAnimating] = useState(false);
   const [performanceScore, setPerformanceScore] = useState<HabitPerformanceScore | null>(null);
   const [loadingScore, setLoadingScore] = useState(false);
@@ -44,6 +46,11 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
   // Fetch habit performance score
   useEffect(() => {
     const fetchPerformanceScore = async () => {
+      // Skip if habit ID is invalid or user is not authenticated
+      if (!habit.id || !user) {
+        return;
+      }
+
       try {
         setLoadingScore(true);
         const response = await apiRequest(`ml/habit-scores/${habit.id}`, 'GET');
@@ -52,14 +59,21 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
           setPerformanceScore(data);
         }
       } catch (error) {
-        console.error('Failed to fetch habit performance score:', error);
+        // Only log error if it's not a 404 (habit not found), 401 (unauthorized), or network error
+        if (error instanceof Error && 
+            !error.message.includes('404') && 
+            !error.message.includes('401') && 
+            !error.message.includes('Failed to fetch') &&
+            !error.message.includes('NetworkError')) {
+          console.error('Failed to fetch habit performance score:', error);
+        }
       } finally {
         setLoadingScore(false);
       }
     };
 
     fetchPerformanceScore();
-  }, [habit.id]);
+  }, [habit.id, user]);
 
   const handleToggle = () => {
     if (loading) return;
@@ -108,19 +122,74 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start space-x-3 sm:space-x-4 md:space-x-5 lg:space-x-6">
-          <button 
-            onClick={handleToggle}
-            disabled={loading}
-            className={cn(buttonClasses, "flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16")}
-          >
-            {completed ? (
-              <i className="fas fa-check text-sm sm:text-base md:text-lg lg:text-xl"></i>
-            ) : progressPercentage > 0 && progressPercentage < 100 ? (
-              <i className="fas fa-play text-sm sm:text-base md:text-lg lg:text-xl"></i>
-            ) : (
-              <i className="fas fa-circle text-sm sm:text-base md:text-lg lg:text-xl"></i>
-            )}
-          </button>
+          <div className="flex flex-col items-center space-y-1">
+            <div className="relative">
+              {/* Progress ring for in-progress habits */}
+              {progressPercentage > 0 && progressPercentage < 100 && !completed && (
+                <div className="absolute inset-0 rounded-full">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-gray-200"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-primary"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      fill="none"
+                      strokeDasharray={`${progressPercentage}, 100`}
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                </div>
+              )}
+              
+              <button 
+                onClick={handleToggle}
+                disabled={loading}
+                className={cn(
+                  buttonClasses, 
+                  "flex-shrink-0 w-14 h-14 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18",
+                  "relative overflow-hidden transition-all duration-300",
+                  "hover:scale-105 active:scale-95",
+                  "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                  completed ? "shadow-lg shadow-green-200" : "shadow-md hover:shadow-lg"
+                )}
+              >
+              {completed ? (
+                <div className="flex items-center justify-center w-full h-full">
+                  <i className="fas fa-check text-sm sm:text-base md:text-lg lg:text-xl"></i>
+                </div>
+              ) : progressPercentage > 0 && progressPercentage < 100 ? (
+                <div className="flex items-center justify-center w-full h-full">
+                  <i className="fas fa-play text-sm sm:text-base md:text-lg lg:text-xl"></i>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center w-full h-full">
+                  <i className="fas fa-circle text-sm sm:text-base md:text-lg lg:text-xl"></i>
+                </div>
+              )}
+              
+                {/* Completion animation overlay */}
+                {isAnimating && (
+                  <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+                    <i className="fas fa-check text-green-500 text-lg animate-bounce"></i>
+                  </div>
+                )}
+              </button>
+            </div>
+            
+            {/* Clear completion status text */}
+            <span className={cn(
+              "text-xs font-medium transition-colors duration-200",
+              completed ? "text-green-600" : "text-gray-500"
+            )}>
+              {completed ? "Done!" : "Tap to complete"}
+            </span>
+          </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-1 space-y-1 sm:space-y-0">
@@ -134,28 +203,27 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
               <p className="text-gray-600 text-xs sm:text-sm md:text-base lg:text-lg mb-2 line-clamp-2">{habit.description}</p>
             )}
             
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm md:text-base lg:text-lg text-gray-500">
-              <span className="flex items-center space-x-1">
-                <i className="fas fa-fire text-warning"></i>
-                <span className="streak-display">Loading...</span>
-              </span>
-              {habit.reminderTime && (
-                <span className="flex items-center space-x-1">
-                  <i className="fas fa-clock"></i>
-                  <span className="truncate">{habit.reminderTime}</span>
-                </span>
-              )}
-              {completed && (
-                <span className="flex items-center space-x-1 text-success">
-                  <i className="fas fa-check-circle"></i>
-                  <span>Completed today</span>
-                </span>
-              )}
+            <div className="flex flex-col space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm md:text-base lg:text-lg text-gray-500">
+                {habit.reminderTime && (
+                  <span className="flex items-center space-x-1">
+                    <i className="fas fa-clock"></i>
+                    <span className="truncate">{habit.reminderTime}</span>
+                  </span>
+                )}
+                {completed && (
+                  <span className="flex items-center space-x-1 text-success">
+                    <i className="fas fa-check-circle"></i>
+                    <span>Completed today</span>
+                  </span>
+                )}
+              </div>
+              
             </div>
             
             {/* Consistency Score */}
             {performanceScore && (
-              <div className="mt-2 flex items-center justify-between text-xs">
+              <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0 text-xs">
                 <div className="flex items-center space-x-2">
                   <i className="fas fa-chart-line text-blue-600"></i>
                   <span className="text-gray-600">Consistency:</span>
@@ -167,14 +235,28 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
                     {performanceScore.performance_score}%
                   </span>
                 </div>
-                <div className="text-gray-500">
-                  {performanceScore.metrics.current_streak > 0 ? 
-                    `${performanceScore.metrics.current_streak}d streak` : 
-                    'No streak'
-                  }
+                <div className="flex items-center space-x-1 text-gray-500">
+                  <i className="fas fa-fire text-orange-500"></i>
+                  <span>
+                    {performanceScore.metrics.current_streak > 0 ? 
+                      `${performanceScore.metrics.current_streak}d streak` : 
+                      'No streak'
+                    }
+                  </span>
                 </div>
               </div>
             )}
+t            
+            {/* Quick Add to Calendar Button */}
+            <div className="mt-2">
+              <button
+                onClick={() => window.location.href = '/settings'}
+                className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <i className="fas fa-calendar-plus"></i>
+                <span>Add to Calendar</span>
+              </button>
+            </div>
             {loadingScore && (
               <div className="mt-2 p-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-2">

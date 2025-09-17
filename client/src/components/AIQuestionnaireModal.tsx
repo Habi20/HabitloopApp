@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getMobileModalHeader, getMobileModalBody, getMobileModalFooter, getMobileButtonClasses, cn } from "@/lib/utils";
+import { useScreenSize } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 // import { Checkbox } from "@/components/ui/checkbox";
 // import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -23,7 +25,7 @@ interface AIQuestionnaireModalProps {
 
 export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionnaireModalProps) {
   const { toast } = useToast();
-
+  const { isMobile } = useScreenSize();
   const [, setLocation] = useLocation();
   
   const [questionnaire, setQuestionnaire] = useState({
@@ -72,6 +74,7 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
       
       // Store recommendations for later use
       localStorage.setItem("habitRecommendations", JSON.stringify(data.recommendations));
+      localStorage.setItem("carouselGeneratedAt", new Date().toISOString());
       
       // Mark questionnaire as completed
       localStorage.setItem("questionnaireCompleted", "true");
@@ -142,12 +145,19 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-              <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto mx-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-gray-900">
+      <DialogContent 
+        className="overflow-hidden"
+        mobileVariant="bottom-sheet"
+      >
+        {/* Header - Mobile optimized */}
+        <DialogHeader className={getMobileModalHeader(isMobile)}>
+          <DialogTitle className={`${isMobile ? "text-lg" : "text-xl"} font-bold text-gray-900`}>
             Let's personalize your experience
           </DialogTitle>
         </DialogHeader>
+
+        {/* Content - Scrollable body */}
+        <div className={getMobileModalBody(isMobile)}>
         
         <div className="space-y-6">
           <div className="text-center">
@@ -175,53 +185,144 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               {step === 9 && "What's your main reason for building these habits?"}
               {step === 10 && "How consistent are you with current routines?"}
             </h3>
-            <p className="text-muted-foreground text-sm">
-              {step === 1 && "Choose the areas that matter most to you"}
-              {step === 2 && "This helps us suggest the best times for your habits"}
-              {step === 3 && "Your mindset affects habit success"}
-              {step === 4 && "Understanding your motivation style helps personalize recommendations"}
-              {step === 5 && "Knowing when you struggle helps us plan better"}
-              {step === 6 && "Your response to setbacks shapes your habit strategy"}
-              {step === 7 && "Identifying distractions helps us suggest focused habits"}
-              {step === 8 && "Regular check-ins improve habit maintenance"}
-              {step === 9 && "Your deeper motivation drives long-term success"}
-              {step === 10 && "This helps us calibrate difficulty levels"}
-            </p>
+            <div className="flex items-center justify-center space-x-2 text-muted-foreground text-sm">
+              {step === 1 && (
+                <>
+                  <i className="fas fa-check-square text-blue-500"></i>
+                  <span>Choose the areas that matter most to you (select multiple)</span>
+                </>
+              )}
+              {step === 2 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - this helps us suggest the best times for your habits</span>
+                </>
+              )}
+              {step === 3 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - your mindset affects habit success</span>
+                </>
+              )}
+              {step === 4 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - understanding your motivation style helps personalize recommendations</span>
+                </>
+              )}
+              {step === 5 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - knowing when you struggle helps us plan better</span>
+                </>
+              )}
+              {step === 6 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - your response to setbacks shapes your habit strategy</span>
+                </>
+              )}
+              {step === 7 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - identifying distractions helps us suggest focused habits</span>
+                </>
+              )}
+              {step === 8 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - regular check-ins improve habit maintenance</span>
+                </>
+              )}
+              {step === 9 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - your deeper motivation drives long-term success</span>
+                </>
+              )}
+              {step === 10 && (
+                <>
+                  <i className="fas fa-dot-circle text-green-500"></i>
+                  <span>Choose one option - this helps us calibrate difficulty levels</span>
+                </>
+              )}
+            </div>
           </div>
 
           {step === 1 && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" role="group" aria-labelledby="focus-areas-label">
+              <div id="focus-areas-label" className="sr-only">Select your focus areas</div>
               {focusAreas.map((area) => (
                 <Button
                   key={area}
+                  type="button"
                   variant={questionnaire.focusAreas.includes(area) ? "default" : "outline"}
                   onClick={() => toggleFocusArea(area)}
-                  className="h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.focusAreas.includes(area) 
+                      ? "ring-2 ring-blue-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-blue-200"
+                  )}
+                  aria-pressed={questionnaire.focusAreas.includes(area)}
+                  aria-describedby={`focus-area-${area.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <span className="font-medium">{area}</span>
+                  <div className="flex items-center space-x-2 w-full">
+                    <i className={cn(
+                      "fas text-sm",
+                      questionnaire.focusAreas.includes(area) 
+                        ? "fa-check-square text-white" 
+                        : "fa-square text-gray-400"
+                    )}></i>
+                    <span className="font-medium">{area}</span>
+                  </div>
+                  <span id={`focus-area-${area.toLowerCase().replace(/\s+/g, '-')}`} className="sr-only">
+                    {area} focus area
+                  </span>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="motivation-time-label">
+              <div id="motivation-time-label" className="sr-only">Select your motivation time</div>
               {motivationTimes.map((time) => (
                 <Button
                   key={time.value}
+                  type="button"
                   variant={questionnaire.motivationTime === time.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, motivationTime: time.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.motivationTime === time.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.motivationTime === time.value}
+                  aria-describedby={`motivation-time-${time.value}`}
                 >
-                  <span className="font-medium">{time.label}</span>
-                  <span className="text-sm text-muted-foreground">{time.description}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.motivationTime === time.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1">
+                      <span className="font-medium block">{time.label}</span>
+                      <span id={`motivation-time-${time.value}`} className="text-sm text-muted-foreground">{time.description}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 3 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="mood-label">
+              <div id="mood-label" className="sr-only">Select your current mood</div>
               {[
                 { value: "excited", label: "Excited and ready!", desc: "I'm enthusiastic about starting new habits" },
                 { value: "motivated", label: "Motivated but cautious", desc: "I want to change but know it takes work" },
@@ -231,19 +332,39 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((mood) => (
                 <Button
                   key={mood.value}
+                  type="button"
                   variant={questionnaire.mood === mood.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, mood: mood.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.mood === mood.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.mood === mood.value}
+                  aria-describedby={`mood-${mood.value}`}
                 >
-                  <span className="font-medium">{mood.label}</span>
-                  <span className="text-sm text-muted-foreground">{mood.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.mood === mood.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1">
+                      <span className="font-medium block">{mood.label}</span>
+                      <span id={`mood-${mood.value}`} className="text-sm text-muted-foreground">{mood.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 4 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="motivation-style-label">
+              <div id="motivation-style-label" className="sr-only">Select your motivation style</div>
               {[
                 { value: "achievement", label: "Achievement & Progress", desc: "I love checking things off and seeing results" },
                 { value: "social", label: "Social Connection", desc: "I'm motivated by sharing with others" },
@@ -253,19 +374,39 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((style) => (
                 <Button
                   key={style.value}
+                  type="button"
                   variant={questionnaire.motivationStyle === style.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, motivationStyle: style.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.motivationStyle === style.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.motivationStyle === style.value}
+                  aria-describedby={`motivation-style-${style.value}`}
                 >
-                  <span className="font-medium">{style.label}</span>
-                  <span className="text-sm text-muted-foreground">{style.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.motivationStyle === style.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block break-words">{style.label}</span>
+                      <span id={`motivation-style-${style.value}`} className="text-sm text-muted-foreground block break-words">{style.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 5 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="procrastination-time-label">
+              <div id="procrastination-time-label" className="sr-only">Select when you procrastinate</div>
               {[
                 { value: "morning", label: "Morning", desc: "I struggle to get started in the morning" },
                 { value: "afternoon", label: "Afternoon", desc: "After lunch, I lose focus and motivation" },
@@ -275,19 +416,39 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((time) => (
                 <Button
                   key={time.value}
+                  type="button"
                   variant={questionnaire.procrastinationTime === time.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, procrastinationTime: time.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.procrastinationTime === time.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.procrastinationTime === time.value}
+                  aria-describedby={`procrastination-time-${time.value}`}
                 >
-                  <span className="font-medium">{time.label}</span>
-                  <span className="text-sm text-muted-foreground">{time.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.procrastinationTime === time.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block break-words">{time.label}</span>
+                      <span id={`procrastination-time-${time.value}`} className="text-sm text-muted-foreground block break-words">{time.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 6 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="missed-habit-reaction-label">
+              <div id="missed-habit-reaction-label" className="sr-only">Select your reaction to missed habits</div>
               {[
                 { value: "bounce-back", label: "Bounce back quickly", desc: "I don't dwell on it and get back on track" },
                 { value: "frustrated", label: "Get frustrated", desc: "I feel disappointed but keep trying" },
@@ -297,19 +458,39 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((reaction) => (
                 <Button
                   key={reaction.value}
+                  type="button"
                   variant={questionnaire.missedHabitReaction === reaction.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, missedHabitReaction: reaction.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.missedHabitReaction === reaction.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.missedHabitReaction === reaction.value}
+                  aria-describedby={`missed-habit-reaction-${reaction.value}`}
                 >
-                  <span className="font-medium">{reaction.label}</span>
-                  <span className="text-sm text-muted-foreground">{reaction.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.missedHabitReaction === reaction.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block break-words">{reaction.label}</span>
+                      <span id={`missed-habit-reaction-${reaction.value}`} className="text-sm text-muted-foreground block break-words">{reaction.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 7 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="main-distraction-label">
+              <div id="main-distraction-label" className="sr-only">Select your main distraction</div>
               {[
                 { value: "phone", label: "Phone & Social Media", desc: "I get pulled into scrolling and notifications" },
                 { value: "people", label: "Other People", desc: "Friends, family, or colleagues interrupt my routine" },
@@ -319,19 +500,39 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((distraction) => (
                 <Button
                   key={distraction.value}
+                  type="button"
                   variant={questionnaire.mainDistraction === distraction.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, mainDistraction: distraction.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.mainDistraction === distraction.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.mainDistraction === distraction.value}
+                  aria-describedby={`main-distraction-${distraction.value}`}
                 >
-                  <span className="font-medium">{distraction.label}</span>
-                  <span className="text-sm text-muted-foreground">{distraction.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.mainDistraction === distraction.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block break-words">{distraction.label}</span>
+                      <span id={`main-distraction-${distraction.value}`} className="text-sm text-muted-foreground block break-words">{distraction.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 8 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="check-in-preference-label">
+              <div id="check-in-preference-label" className="sr-only">Select your check-in preference</div>
               {[
                 { value: "daily", label: "Daily", desc: "I want to track progress every day" },
                 { value: "weekly", label: "Weekly", desc: "A weekly summary works best for me" },
@@ -341,19 +542,39 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((preference) => (
                 <Button
                   key={preference.value}
+                  type="button"
                   variant={questionnaire.checkInPreference === preference.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, checkInPreference: preference.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.checkInPreference === preference.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.checkInPreference === preference.value}
+                  aria-describedby={`check-in-preference-${preference.value}`}
                 >
-                  <span className="font-medium">{preference.label}</span>
-                  <span className="text-sm text-muted-foreground">{preference.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.checkInPreference === preference.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block break-words">{preference.label}</span>
+                      <span id={`check-in-preference-${preference.value}`} className="text-sm text-muted-foreground block break-words">{preference.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
           )}
 
           {step === 9 && (
-            <div className="space-y-3">
+            <div className="space-y-3" role="radiogroup" aria-labelledby="habit-why-label">
+              <div id="habit-why-label" className="sr-only">Select your main reason for building habits</div>
               {[
                 { value: "health", label: "Better Health", desc: "I want to feel stronger, healthier, and more energetic" },
                 { value: "productivity", label: "Increased Productivity", desc: "I want to accomplish more and reach my goals" },
@@ -364,12 +585,31 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               ].map((why) => (
                 <Button
                   key={why.value}
+                  type="button"
                   variant={questionnaire.habitWhy === why.value ? "default" : "outline"}
                   onClick={() => setQuestionnaire(prev => ({ ...prev, habitWhy: why.value }))}
-                  className="w-full h-auto p-4 text-left flex-col items-start"
+                  className={cn(
+                    "w-full h-auto p-4 text-left flex-col items-start relative",
+                    questionnaire.habitWhy === why.value 
+                      ? "ring-2 ring-green-500 ring-offset-2" 
+                      : "hover:ring-2 hover:ring-green-200"
+                  )}
+                  role="radio"
+                  aria-checked={questionnaire.habitWhy === why.value}
+                  aria-describedby={`habit-why-${why.value}`}
                 >
-                  <span className="font-medium">{why.label}</span>
-                  <span className="text-sm text-muted-foreground">{why.desc}</span>
+                  <div className="flex items-start space-x-3 w-full">
+                    <i className={cn(
+                      "fas text-sm mt-0.5 flex-shrink-0",
+                      questionnaire.habitWhy === why.value 
+                        ? "fa-dot-circle text-white" 
+                        : "fa-circle text-gray-400"
+                    )}></i>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block break-words">{why.label}</span>
+                      <span id={`habit-why-${why.value}`} className="text-sm text-muted-foreground block break-words">{why.desc}</span>
+                    </div>
+                  </div>
                 </Button>
               ))}
             </div>
@@ -379,19 +619,34 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
             <div className="space-y-4">
               <div className="text-center">
                 <p className="text-lg font-medium mb-2">Rate your consistency: {questionnaire.consistencyRating}/5</p>
-                <div className="flex justify-center space-x-2 mb-4">
+                <div className="flex justify-center space-x-2 mb-4" role="radiogroup" aria-labelledby="consistency-rating-label">
+                  <div id="consistency-rating-label" className="sr-only">Rate your consistency from 1 to 5</div>
                   {[1, 2, 3, 4, 5].map((rating) => (
                     <Button
                       key={rating}
+                      type="button"
                       variant={questionnaire.consistencyRating === rating ? "default" : "outline"}
                       onClick={() => setQuestionnaire(prev => ({ ...prev, consistencyRating: rating }))}
-                      className="w-12 h-12 rounded-full"
+                      className={cn(
+                        "w-12 h-12 rounded-full relative",
+                        questionnaire.consistencyRating === rating 
+                          ? "ring-2 ring-green-500 ring-offset-2" 
+                          : "hover:ring-2 hover:ring-green-200"
+                      )}
+                      role="radio"
+                      aria-checked={questionnaire.consistencyRating === rating}
+                      aria-label={`Rate ${rating} out of 5`}
                     >
-                      {rating}
+                      <div className="flex items-center justify-center">
+                        {questionnaire.consistencyRating === rating && (
+                          <i className="fas fa-dot-circle text-white text-xs absolute -top-1 -right-1"></i>
+                        )}
+                        <span className="font-semibold">{rating}</span>
+                      </div>
                     </Button>
                   ))}
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground" id="consistency-description">
                   {questionnaire.consistencyRating === 1 && "I struggle to stick with routines"}
                   {questionnaire.consistencyRating === 2 && "I'm inconsistent but trying"}
                   {questionnaire.consistencyRating === 3 && "I'm moderately consistent"}
@@ -431,36 +686,6 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
             </div>
           )}
 
-          <div className="flex space-x-3 pt-4">
-            {step > 1 && (
-              <Button 
-                variant="outline" 
-                onClick={() => setStep(step - 1)}
-                className="flex-1"
-              >
-                Back
-              </Button>
-            )}
-
-            <Button 
-              onClick={nextStep}
-              disabled={!canProceed() || generateRecommendationsMutation.isPending}
-              className="flex-1"
-            >
-              {step === totalSteps ? (
-                generateRecommendationsMutation.isPending ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                    Generating...
-                  </>
-                ) : (
-                  "Done"
-                )
-              ) : (
-                "Next"
-              )}
-            </Button>
-          </div>
 
           {/* Progress indicator */}
           <div className="flex space-x-2 justify-center">
@@ -471,6 +696,45 @@ export function AIQuestionnaireModal({ open, onClose, onComplete }: AIQuestionna
               />
             ))}
           </div>
+        </div>
+        </div>
+
+        {/* Footer - Mobile optimized */}
+        <div className={getMobileModalFooter(isMobile)}>
+          <Button
+            onClick={onClose}
+            className={getMobileButtonClasses('outline', isMobile)}
+          >
+            {step === 1 ? 'Skip' : 'Cancel'}
+          </Button>
+          
+          {step > 1 && (
+            <Button
+              onClick={() => setStep(step - 1)}
+              className={getMobileButtonClasses('outline', isMobile)}
+            >
+              Back
+            </Button>
+          )}
+          
+          <Button
+            onClick={nextStep}
+            disabled={!canProceed() || generateRecommendationsMutation.isPending}
+            className={getMobileButtonClasses('primary', isMobile)}
+          >
+            {step === totalSteps ? (
+              generateRecommendationsMutation.isPending ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Generating...
+                </>
+              ) : (
+                "Complete"
+              )
+            ) : (
+              "Next"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
