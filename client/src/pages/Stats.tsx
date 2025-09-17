@@ -27,12 +27,14 @@ export default function Stats() {
   }, [user, authLoading, toast]);
 
   const { data: habitsResponse } = useQuery({
-    queryKey: ["/api/habits"],
+    queryKey: ["/api/habits", user?.id],
     queryFn: async () => {
       const response = await apiRequest("habits", 'GET');
       return await response.json();
     },
     enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
   });
 
   const { data: completionsResponse } = useQuery({
@@ -42,6 +44,8 @@ export default function Stats() {
       return await response.json();
     },
     enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
   });
 
   if (authLoading) {

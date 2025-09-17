@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getMobileModalHeader, getMobileModalBody, getMobileModalFooter, getMobileButtonClasses } from "@/lib/utils";
+import { useScreenSize } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +26,7 @@ interface EmailIntegrationModalProps {
 export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isMobile } = useScreenSize();
   const [emailSettings, setEmailSettings] = useState({
     dailyReminders: false,
     weeklyProgress: false,
@@ -178,58 +181,75 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-              <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto mx-auto">
-        <DialogHeader>
-                      <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center">
-              <Mail className="w-6 h-6 mr-2 text-blue-600" />
-              Email Integration
-            </DialogTitle>
+      <DialogContent 
+        className="overflow-hidden"
+        mobileVariant="bottom-sheet"
+      >
+        {/* Header - Mobile optimized */}
+        <DialogHeader className={getMobileModalHeader(isMobile)}>
+          <DialogTitle className={`${isMobile ? "text-xl" : "text-2xl"} font-bold text-gray-900 flex items-center`}>
+            <Mail className="w-6 h-6 mr-2 text-blue-600" />
+            Email Integration
+          </DialogTitle>
             <p className="text-gray-600">
               Connect your Email account to receive personalized habit notifications and insights
             </p>
         </DialogHeader>
 
-        <div className="space-y-6">
+        {/* Content - Scrollable body */}
+        <div className={getMobileModalBody(isMobile)}>
+          <div className="space-y-6">
           {/* Connection Status */}
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="space-y-4">
                 <div>
-                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                     Email Connection Status
-                   </h3>
-                  <div className="flex items-center space-x-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Email Connection Status
+                  </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                     {emailStatusData?.connected ? (
                       <>
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                        <span className="text-green-700">Connected to {emailStatusData.email}</span>
-                        <Badge variant="secondary" className="ml-2">Active</Badge>
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                          <span className="text-green-700 text-sm sm:text-base">Connected to:</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <span className="text-green-700 font-medium text-sm sm:text-base break-all">
+                            {emailStatusData.email}
+                          </span>
+                          <Badge variant="secondary" className="w-fit">Active</Badge>
+                        </div>
                       </>
                     ) : (
                       <>
-                        <Mail className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-600">Not connected</span>
-                        <Badge variant="outline" className="ml-2">Inactive</Badge>
+                        <div className="flex items-center space-x-2">
+                          <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-600 text-sm sm:text-base">Not connected</span>
+                          <Badge variant="outline" className="w-fit">Inactive</Badge>
+                        </div>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="space-x-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   {emailStatusData?.connected ? (
                     <Button 
                       variant="outline" 
                       onClick={() => sendTestEmailMutation.mutate()}
                       disabled={sendTestEmailMutation.isPending}
+                      className="w-full sm:w-auto"
                     >
                       {sendTestEmailMutation.isPending ? "Sending..." : "Send Test Email"}
                     </Button>
                   ) : (
-                                         <Button 
-                       onClick={() => connectEmailMutation.mutate()}
-                       disabled={connectEmailMutation.isPending}
-                     >
-                       {connectEmailMutation.isPending ? "Connecting..." : "Connect Email"}
-                     </Button>
+                    <Button 
+                      onClick={() => connectEmailMutation.mutate()}
+                      disabled={connectEmailMutation.isPending}
+                      className="w-full sm:w-auto"
+                    >
+                      {connectEmailMutation.isPending ? "Connecting..." : "Connect Email"}
+                    </Button>
                   )}
                 </div>
               </div>
@@ -312,6 +332,17 @@ export function EmailIntegrationModal({ open, onClose }: EmailIntegrationModalPr
               </p>
             </CardContent>
           </Card>
+          </div>
+        </div>
+
+        {/* Footer - Mobile optimized */}
+        <div className={getMobileModalFooter(isMobile)}>
+          <Button
+            onClick={onClose}
+            className={getMobileButtonClasses('outline', isMobile)}
+          >
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

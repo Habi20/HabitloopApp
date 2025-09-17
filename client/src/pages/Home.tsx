@@ -105,7 +105,7 @@ export default function Home() {
 
   // Query for habits data
   const { data: habitsResponse, isLoading: habitsLoading } = useQuery<any>({
-    queryKey: ["/api/habits"],
+    queryKey: ["/api/habits", user?.id],
     queryFn: async () => {
       const response = await apiRequest("habits", 'GET');
       return await response.json();
@@ -282,6 +282,7 @@ export default function Home() {
       // Force refetch to ensure cache consistency
       queryClient.invalidateQueries({ queryKey: ["/api/completions", today] });
       queryClient.invalidateQueries({ queryKey: ["/api/completions"] }); // Invalidate general completions query
+      queryClient.invalidateQueries({ queryKey: ["/api/habits", user?.id] }); // Invalidate habits query for stats
       
       // Invalidate related queries with proper timing
       setTimeout(() => {
@@ -542,6 +543,21 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
+
+              {/* Instructions for habit completion */}
+              {habits.length > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
+                    <div className="text-sm text-blue-700">
+                      <p className="font-medium mb-1">How to complete habits:</p>
+                      <p className="text-xs">
+                        • Click the circular button on the left of each habit
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className={`space-y-4 ${uiSettings.allNotifications ? 'max-h-96 overflow-y-auto pr-2' : ''}`}>
                 {habits.map((habit: any) => (

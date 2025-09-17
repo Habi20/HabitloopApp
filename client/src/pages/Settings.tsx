@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-// import { GoogleCalendarIntegrationSimple } from "@/components/GoogleCalendarIntegrationSimple";
+import { GoogleCalendarIntegration } from "@/components/GoogleCalendarIntegration";
 import { apiRequest } from "@/lib/queryClient";
 import { Lightbulb } from "lucide-react";
 // AlertTriangle, Trophy,
@@ -323,7 +323,7 @@ export default function Settings() {
                         variant="outline"
                         size="sm"
                         onClick={() => sendTestNotification('insight')}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 whitespace-nowrap min-w-fit w-full sm:w-auto"
                       >
                         <Lightbulb className="w-4 h-4 text-blue-500" />
                         Test AI Insight
@@ -382,8 +382,8 @@ export default function Settings() {
               </CardContent>
             </Card>
 
-            {/* Google Calendar Integration - Temporarily disabled */}
-            {/* <GoogleCalendarIntegrationSimple /> */}
+            {/* Google Calendar Integration */}
+            <GoogleCalendarIntegration />
 
             {/* Save Button */}
             <div className="flex justify-end">

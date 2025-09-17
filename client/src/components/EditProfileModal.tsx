@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { getMobileModalHeader, getMobileModalBody, getMobileModalFooter, getMobileButtonClasses } from '@/lib/utils';
+import { useScreenSize } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -40,6 +42,7 @@ interface ProfileFormData {
 export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
   const { user, refreshUserData } = useAuth();
   const { toast } = useToast();
+  const { isMobile } = useScreenSize();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<ProfileFormData>({
     firstName: '',
@@ -121,9 +124,13 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-              <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto mx-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+      <DialogContent 
+        className="overflow-hidden"
+        mobileVariant="bottom-sheet"
+      >
+        {/* Header - Mobile optimized */}
+        <DialogHeader className={getMobileModalHeader(isMobile)}>
+          <DialogTitle className={`${isMobile ? "text-lg" : "text-xl"} font-semibold text-gray-900 dark:text-gray-100`}>
             Edit Profile
           </DialogTitle>
           <DialogDescription className="text-gray-600">
@@ -131,7 +138,9 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Content - Scrollable body */}
+        <div className={getMobileModalBody(isMobile)}>
+          <form onSubmit={handleSubmit} className={isMobile ? "space-y-5" : "space-y-6"}>
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
@@ -322,12 +331,23 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
             <Button
               type="submit"
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className={getMobileButtonClasses('primary', isMobile)}
             >
               {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
-        </form>
+          </form>
+        </div>
+
+        {/* Footer - Mobile optimized */}
+        <div className={getMobileModalFooter(isMobile)}>
+          <Button
+            onClick={onClose}
+            className={getMobileButtonClasses('outline', isMobile)}
+          >
+            Cancel
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

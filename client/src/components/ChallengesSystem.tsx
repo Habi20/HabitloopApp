@@ -161,6 +161,36 @@ export function ChallengesSystem() {
     return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
   };
 
+  const getChallengeStatusColor = (challenge: Challenge) => {
+    if (challenge.isCompleted && challenge.isActive) {
+      return "bg-green-100 text-green-800 border-green-200";
+    } else if (challenge.isCompleted && !challenge.isActive) {
+      return "bg-gray-100 text-gray-600 border-gray-200";
+    } else {
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    }
+  };
+
+  const getChallengeStatusText = (challenge: Challenge) => {
+    if (challenge.isCompleted && challenge.isActive) {
+      return "Available to Claim";
+    } else if (challenge.isCompleted && !challenge.isActive) {
+      return "Already Claimed";
+    } else {
+      return "In Progress";
+    }
+  };
+
+  const getChallengeStatusIcon = (challenge: Challenge) => {
+    if (challenge.isCompleted && challenge.isActive) {
+      return "fas fa-gift";
+    } else if (challenge.isCompleted && !challenge.isActive) {
+      return "fas fa-check-circle";
+    } else {
+      return "fas fa-clock";
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Challenge Overview Header */}
@@ -255,7 +285,11 @@ export function ChallengesSystem() {
               <Card 
                 key={challenge.id} 
                 className={`transition-all duration-200 hover:shadow-md ${
-                  challenge.isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
+                  challenge.isCompleted && challenge.isActive 
+                    ? 'ring-2 ring-green-200 bg-green-50' 
+                    : challenge.isCompleted && !challenge.isActive
+                    ? 'ring-2 ring-gray-200 bg-gray-50'
+                    : 'ring-2 ring-orange-200 bg-orange-50'
                 }`}
               >
                 <CardHeader className="pb-3">
@@ -272,12 +306,10 @@ export function ChallengesSystem() {
                       <Badge className={getCategoryColor(challenge.type)}>
                         {challenge.xpReward} XP
                       </Badge>
-                      {challenge.isCompleted && (
-                        <Badge className="bg-green-100 text-green-800 border-green-200">
-                          <i className="fas fa-check mr-1"></i>
-                          Completed
-                        </Badge>
-                      )}
+                      <Badge className={getChallengeStatusColor(challenge)}>
+                        <i className={`${getChallengeStatusIcon(challenge)} mr-1`}></i>
+                        {getChallengeStatusText(challenge)}
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -297,8 +329,18 @@ export function ChallengesSystem() {
                     />
                     
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>
-                        {challenge.isCompleted ? 'Challenge completed!' : `${Math.round((challenge.progress / challenge.target) * 100)}% complete`}
+                      <span className="flex items-center">
+                        {challenge.isCompleted ? (
+                          <>
+                            <i className="fas fa-check-circle text-green-500 mr-1"></i>
+                            Challenge completed!
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-clock text-orange-500 mr-1"></i>
+                            {Math.round((challenge.progress / challenge.target) * 100)}% complete
+                          </>
+                        )}
                       </span>
                       <span>
                         Expires: {new Date(challenge.expiresAt).toLocaleDateString()}
@@ -308,11 +350,11 @@ export function ChallengesSystem() {
                     {challenge.isCompleted && (
                       <Button
                         onClick={() => claimRewardMutation.mutate(challenge.id)}
-                        disabled={claimRewardMutation.isPending}
+                        disabled={claimRewardMutation.isPending || !challenge.isActive}
                         className={`w-full transition-all duration-200 ${
                           challenge.isActive 
-                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg' 
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transform hover:scale-105' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
                         }`}
                       >
                         {claimRewardMutation.isPending ? (
@@ -320,10 +362,15 @@ export function ChallengesSystem() {
                             <i className="fas fa-spinner fa-spin mr-2"></i>
                             Claiming...
                           </>
-                        ) : (
+                        ) : challenge.isActive ? (
                           <>
                             <i className="fas fa-gift mr-2"></i>
                             Claim {challenge.xpReward} XP
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-check-circle mr-2"></i>
+                            Already Claimed
                           </>
                         )}
                       </Button>
