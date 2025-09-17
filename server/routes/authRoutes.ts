@@ -10,31 +10,42 @@ import { adminLog } from '../utils/adminLogger';
 
 const router = express.Router();
 
-// HabitLoop user signin
+// HabitLoop user signin (supports both userId and email)
 router.post('/habitloop/signin', async (req, res) => {
   try {
-    const { userId, password } = req.body;
+    const { userId, email, password } = req.body;
       
-      if (!userId) {
+    if (!userId && !email) {
       return res.status(400).json({
         success: false, 
-        error: 'Missing userId',
-        message: 'userId is required'
+        error: 'Missing credentials',
+        message: 'userId or email is required'
       });
     }
 
-    // Get user from database
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    // Get user from database by userId or email
+    let userResult;
+    if (email) {
+      // Login by email
+      userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+    } else {
+      // Login by userId (legacy)
+      userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+    }
 
     if (userResult.length === 0) {
         return res.status(401).json({ 
           success: false, 
         error: 'Invalid credentials',
-        message: 'Invalid userId or password'
+        message: 'Invalid email/password or user not found'
       });
     }
 
@@ -282,97 +293,8 @@ router.post('/habitloop/signup', async (req, res) => {
   }
 });
 
-// Guest authentication
-router.post('/guest/auth', async (req, res) => {
-    try {
-    const { guestId } = req.body;
-
-    if (!guestId) {
-        return res.status(400).json({
-          success: false,
-        error: 'Missing guestId',
-        message: 'guestId is required'
-      });
-    }
-
-    // Check if guest user exists, create if not
-    let user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, guestId))
-      .limit(1);
-
-    if (user.length === 0) {
-      // Create guest user
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          id: guestId,
-          email: 'guest@guest.local',
-          firstName: 'Guest',
-          lastName: 'User',
-          level: 1,
-          xp: 0,
-          role: 'guest',
-          isGuest: true
-        })
-        .returning();
-      
-      user = [newUser];
-    }
-
-    const guestUser = user[0];
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        userId: guestUser.id,
-        email: guestUser.email,
-        role: guestUser.role,
-        isGuest: true
-      },
-      typedEnv.jwtSecret,
-      { expiresIn: '24h' }
-    );
-
-    // Create session
-    const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
-    const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
-    
-    await sessionManager.createSession(
-      guestUser.id,
-      token,
-      deviceInfo,
-      ipAddress,
-      req.headers['user-agent']
-    );
-
-    adminLog.log(`Guest user ${guestUser.id} authenticated`);
-
-      res.json({
-        success: true,
-      user: {
-        id: guestUser.id,
-        email: guestUser.email,
-        firstName: guestUser.firstName,
-        lastName: guestUser.lastName,
-        level: guestUser.level,
-        xp: guestUser.xp,
-        role: guestUser.role,
-        isGuest: true
-      },
-      token,
-      message: 'Guest session created successfully'
-    });
-  } catch (error) {
-    adminLog.error('Guest auth error:', error);
-      res.status(500).json({
-        success: false,
-      error: 'Guest authentication failed',
-      message: 'An error occurred during guest authentication'
-      });
-    }
-  });
+// Guest authentication is now handled by guestRoutes.ts
+// This route has been moved to /api/guest/auth in guestRoutes.ts
 
 // Get current user
 router.get('/user', requireAuth, async (req: any, res) => {
@@ -536,6 +458,43 @@ router.get('/session/status', requireAuth, async (req: any, res) => {
     }
 
     const token = authHeader.substring(7);
+    
+    // For guest users, do a simpler validation
+    if (req.user.isGuest) {
+      // Just verify the JWT token is still valid (not expired)
+      try {
+        const decoded = jwt.verify(token, typedEnv.jwtSecret) as any;
+        const now = Math.floor(Date.now() / 1000);
+        
+        if (decoded.exp && decoded.exp < now) {
+          return res.status(401).json({
+            success: false,
+            error: 'Session expired',
+            message: 'Guest session has expired'
+          });
+        }
+
+        // For guests, return basic session info without database validation
+        res.json({
+          success: true,
+          session: {
+            valid: true,
+            expiresAt: new Date(decoded.exp * 1000).toISOString(),
+            timeoutMinutes: 1440, // 24 hours
+            hasOtherDevice: false // Guests don't have multi-device restrictions
+          }
+        });
+        return;
+      } catch (jwtError) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid token',
+          message: 'Guest session token is invalid'
+        });
+      }
+    }
+
+    // For regular users, do full session validation
     const sessionValidation = await sessionManager.validateSession(token);
 
     if (!sessionValidation.valid) {
@@ -756,6 +715,64 @@ router.delete('/delete-account', requireAuth, async (req: any, res) => {
 
 
 
+// Get user profile for login preview by email (public endpoint)
+router.get('/habitloop/user-profile-email/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing email',
+        message: 'email is required'
+      });
+    }
+
+    const userResult = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      level: users.level,
+      xp: users.xp,
+      difficulty: users.difficulty,
+      profileImageUrl: users.profileImageUrl,
+      role: users.role
+    }).from(users).where(eq(users.email, email)).limit(1);
+
+    if (userResult.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: 'User does not exist'
+      });
+    }
+
+    const user = userResult[0];
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        level: user.level,
+        xp: user.xp,
+        difficulty: user.difficulty,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user profile by email:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to fetch user profile'
+    });
+  }
+});
+
 // Get user profile for login preview (public endpoint)
 router.get('/habitloop/user-profile/:userId', async (req, res) => {
   try {
@@ -925,8 +942,8 @@ router.get('/habitloop/next-user-id', async (_req, res) => {
     // Format as user-XXXXXX (6 digits with leading zeros)
     const nextUserId = `user-${nextNumber.toString().padStart(6, '0')}`;
     
-    res.json({
-      success: true,
+      res.json({
+        success: true,
       nextUserId
       });
     } catch (error) {
@@ -972,7 +989,7 @@ router.put('/user/settings', requireAuth, async (req: any, res) => {
     });
   } catch (error) {
     adminLog.error('Update settings error:', error);
-    res.status(500).json({
+      res.status(500).json({
       success: false,
       error: 'Update failed',
       message: 'An error occurred while updating settings'
@@ -1040,9 +1057,9 @@ router.put('/user/:userId', requireAuth, async (req: any, res) => {
       success: false,
       error: 'Update failed',
       message: 'An error occurred while updating profile'
-    });
-  }
-});
+      });
+    }
+  });
 
 // Test endpoint to check database structure
 router.get('/test-db-structure', async (_req, res) => {

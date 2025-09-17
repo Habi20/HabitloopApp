@@ -3,6 +3,7 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "./middlewareRoutes";
 import { storage } from "../storage";
 import { getDailyHabitStatus } from "../utils/habitCompletionManager.js";
+import { TimezoneUtils } from "../utils/timezone.js";
 
 export function challengeRoutes() {
   const router = Router();
@@ -99,9 +100,9 @@ const CHALLENGE_DEFINITIONS = {
       const habits = await storage.getUserHabits(userId);
       const allCompletions = await storage.getHabitCompletions(userId);
       const last7Days = Array.from({length: 7}, (_, i) => {
-        const date = new Date();
+        const date = TimezoneUtils.getCurrentSriLankaDate();
         date.setDate(date.getDate() - i);
-        return date.toISOString().split('T')[0];
+        return TimezoneUtils.toDateString(date);
       }).reverse();
 
       const activeHabits = habits.filter(h => h.isActive);
@@ -188,8 +189,9 @@ const CHALLENGE_DEFINITIONS = {
     xpReward: 100,
     checkCompletion: async (userId: string) => {
       const habits = await storage.getUserHabits(userId);
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+      const currentDate = TimezoneUtils.getCurrentSriLankaDate();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
       
       const habitsThisMonth = habits.filter(habit => {
         const habitDate = new Date(habit.createdAt || new Date());
@@ -215,8 +217,9 @@ const CHALLENGE_DEFINITIONS = {
       const habits = await storage.getUserHabits(userId);
       const allCompletions = await storage.getHabitCompletions(userId);
       
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+      const currentDate = TimezoneUtils.getCurrentSriLankaDate();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
       const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
       
       const activeHabits = habits.filter(h => h.isActive);
@@ -255,8 +258,8 @@ async function generateUserChallenges(userId: string) {
   for (const [, definition] of Object.entries(CHALLENGE_DEFINITIONS)) {
     const completion = await definition.checkCompletion(userId);
     
-    // Calculate expiration date
-    let expiresAt = new Date();
+    // Calculate expiration date using Sri Lanka timezone
+    let expiresAt = TimezoneUtils.getCurrentSriLankaDate();
     switch (definition.type) {
       case "daily":
         expiresAt.setHours(23, 59, 59, 999);
@@ -322,7 +325,7 @@ async function claimChallengeReward(userId: string, challengeId: string) {
   }
 
   // Check if challenge was already claimed and hasn't reset yet
-  const today = new Date().toISOString().split('T')[0];
+  const today = TimezoneUtils.getCurrentDateString(); // Use Sri Lanka timezone
   const existingClaim = await storage.getChallengeCompletion(userId, challengeId);
   
   if (existingClaim && existingClaim.resetAt && existingClaim.resetAt > today) {

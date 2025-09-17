@@ -28,6 +28,12 @@ const envSchema = z.object({
      // SENDGRID_FROM_EMAIL: z.string().default("noreply@habitloop.com"),
    SENDGRID_FROM_EMAIL: z.string().default("habitloop-report@em6056.techversehublk.site"), // Domain authenticated
    // GMAIL_TEST_EMAIL: z.string().default("habitloop-report@em6056.techversehublk.site"),
+   // Google Calendar Integration
+   GOOGLE_CLIENT_ID: z.string().optional(),
+   GOOGLE_CLIENT_SECRET: z.string().optional(),
+   GOOGLE_REDIRECT_URI: z.string().default("http://localhost:5173/auth/google/callback"),
+   // Production redirect URI (will be set in production environment)
+   GOOGLE_REDIRECT_URI_PROD: z.string().optional(),
    GMAIL_TEST_EMAIL: z.string().default("habitloop-report@em6056.techversehublk.site"), // Domain authenticated
   GMAIL_TEST_PASSWORD: z.string().default("password123"),
 });
@@ -70,6 +76,12 @@ export const typedEnv = {
   // Test Email (for development)
   gmailTestEmail: env.GMAIL_TEST_EMAIL,
   gmailTestPassword: env.GMAIL_TEST_PASSWORD,
+  
+  // Google Calendar Integration
+  GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID || "",
+  GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET || "",
+  GOOGLE_REDIRECT_URI: env.GOOGLE_REDIRECT_URI,
+  GOOGLE_REDIRECT_URI_PROD: env.GOOGLE_REDIRECT_URI_PROD || "https://techversehublk.site/callback",
   
   // Timezone Configuration
   timezone: env.TIMEZONE,

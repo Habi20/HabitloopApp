@@ -12,6 +12,7 @@ import { guestRoutes } from "./guestRoutes";
 import { healthRoutes } from "./healthRoutes";
 // import { enhancedNotificationRoutes } from "./enhancedNotificationRoutes";
 import { notificationRoutes } from "./notificationRoutes";
+import { googleCalendarRoutes } from "./googleCalendarRoutes";
 import emailRoutes from "./emailRoutes";
 import { storage } from "../storage";
 import { env, isOpenAIEnabled } from "../env";
@@ -26,6 +27,7 @@ export async function registerRoutes(app: express.Application) {
   app.use("/api/ml", mlPredictionRoutes());
   app.use("/api/email", emailRoutes);
   app.use("/api/guest", guestRoutes());
+  app.use("/api/google-calendar", googleCalendarRoutes());
   app.use("/api/admin", adminRoutes);
   app.use("/api/analytics", analyticsRoutes());
   app.use("/api/challenges", challengeRoutes());
@@ -33,6 +35,9 @@ export async function registerRoutes(app: express.Application) {
   // Temporarily disable enhanced routes due to schema mismatch
   // app.use("/api", enhancedNotificationRoutes());
   app.use("/api", notificationRoutes());
+  
+  // Add Google Calendar callback route for OAuth2
+  app.use("/auth/google", googleCalendarRoutes());
 
   // Add missing routes for frontend compatibility
   app.use("/api/completions", completionsRoutes());
