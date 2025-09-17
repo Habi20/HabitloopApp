@@ -7,6 +7,7 @@ import { fromZodError } from "zod-validation-error";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { typedEnv } from "../env";
+import { SessionManager } from "../services/sessionManager";
 
 export function guestRoutes() {
   const router = Router();
@@ -15,6 +16,7 @@ export function guestRoutes() {
   router.post('/auth', async (req, res) => {
     try {
       const { identifier, password } = req.body;
+      console.log('🔍 Guest auth request:', { identifier, hasPassword: !!password });
 
       // If no identifier provided, auto-generate a guest user
       if (!identifier) {
@@ -46,7 +48,7 @@ export function guestRoutes() {
             role: guestUser.role
           },
           jwtSecret,
-          { expiresIn: '24h' }
+          { expiresIn: '2h' }
         );
 
         return res.json({
@@ -68,20 +70,45 @@ export function guestRoutes() {
       }
 
       // If identifier provided, try to find existing user
+      console.log('🔍 Looking for user with identifier:', identifier);
       let guestUser = await storage.getUser(identifier);
+      console.log('🔍 Found by ID:', !!guestUser);
+      
       if (!guestUser) {
         guestUser = await storage.getUserByEmail(identifier);
+        console.log('🔍 Found by email:', !!guestUser);
+        if (guestUser) {
+          console.log('🔍 User found by email:', { id: guestUser.id, email: guestUser.email, isGuest: guestUser.isGuest });
+        }
       }
 
       if (!guestUser) {
+        console.log('❌ No user found for identifier:', identifier);
         return res.status(404).json({ error: "Guest account not found. Try: user-001, guest-001, or leave empty for auto-generation" });
+      }
+
+      // Check if this is actually a guest user
+      const isGuestEmail = guestUser.email?.includes('@guest.local') || guestUser.email?.includes('temp-guest-');
+      const isGuestId = guestUser.id.startsWith('guest-') || guestUser.id.startsWith('temp-guest-');
+      
+      if (!isGuestEmail && !isGuestId && !guestUser.isGuest && guestUser.role !== 'guest') {
+        console.log('❌ User found but not a guest user:', { id: guestUser.id, email: guestUser.email, isGuest: guestUser.isGuest, role: guestUser.role });
+        return res.status(403).json({ error: "This account is not a guest account. Please use the regular login." });
       }
 
       // Determine if this is actually a guest user
       const isActuallyGuest = guestUser.isGuest || 
                              guestUser.role === 'guest' || 
-                             identifier.startsWith('guest-') ||
-                             guestUser.email?.includes('@guest.local');
+                             isGuestId || isGuestEmail;
+
+      console.log('🔍 User details:', { 
+        id: guestUser.id, 
+        email: guestUser.email, 
+        isGuest: guestUser.isGuest, 
+        role: guestUser.role,
+        isActuallyGuest,
+        hasPassword: !!guestUser.passwordHash
+      });
 
       // Simple password logic - if no password set, allow login
       if (!guestUser.passwordHash) {
@@ -95,7 +122,7 @@ export function guestRoutes() {
             role: guestUser.role
           },
           jwtSecret,
-          { expiresIn: '24h' }
+          { expiresIn: '2h' }
         );
 
         return res.json({
@@ -133,7 +160,7 @@ export function guestRoutes() {
             role: guestUser.role
           },
           jwtSecret,
-          { expiresIn: '24h' }
+          { expiresIn: '2h' }
         );
 
         return res.json({
@@ -207,7 +234,7 @@ export function guestRoutes() {
   });
 
   // Create new temporary guest user (for quick mode) - MUST BE BEFORE PARAMETERIZED ROUTES
-  router.post('/create', async (_req, res) => {
+  router.post('/create', async (req, res) => {
     try {
       const guestUser = await storage.createUser({
         id: `temp-guest-${Date.now()}`,
@@ -236,8 +263,28 @@ export function guestRoutes() {
           role: guestUser.role
         },
         jwtSecret,
-        { expiresIn: '24h' }
+        { expiresIn: '2h' }
       );
+
+        // Create session for guest user
+        console.log('🔍 Creating session for guest user:', guestUser.id);
+        const sessionManager = SessionManager.getInstance();
+        const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+        const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown IP';
+        
+        try {
+          await sessionManager.createSession(
+            guestUser.id,
+            token,
+            deviceInfo,
+            ipAddress,
+            req.headers['user-agent']
+          );
+          console.log('✅ Session created successfully for guest user:', guestUser.id);
+        } catch (sessionError) {
+          console.error('❌ Failed to create session for guest user:', sessionError);
+          // Continue anyway - session creation failure shouldn't block login
+        }
 
       res.json({
         success: true,
