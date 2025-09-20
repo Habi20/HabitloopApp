@@ -1212,8 +1212,25 @@ export class DatabaseStorage implements IStorage {
   // Save user settings to database
   async saveUserSettings(userId: string, settings: any): Promise<void> {
     try {
+      // Get existing settings to merge with new ones
+      const existingSettings = await this.getUserSettings(userId);
+      const mergedSettings = {
+        ...existingSettings,
+        ...settings
+      };
+      
+      console.log('🔍 Merging user settings:', {
+        userId,
+        hasExistingSettings: !!existingSettings,
+        existingKeys: existingSettings ? Object.keys(existingSettings) : 'null',
+        newKeys: Object.keys(settings),
+        mergedKeys: Object.keys(mergedSettings),
+        hasGoogleCalendar: !!mergedSettings.googleCalendar,
+        fullMergedSettings: mergedSettings
+      });
+      
       await this.updateUser(userId, {
-        userSettings: settings
+        userSettings: mergedSettings
       });
       console.log('User settings saved for user:', userId);
     } catch (error) {

@@ -12,6 +12,7 @@ export interface HabitCompletionStatus {
   completionDate: string | null;
   canUncomplete: boolean;
   xpEarned: number;
+  isAvailableToday: boolean;
 }
 
 export interface DailyHabitStatus {
@@ -25,6 +26,7 @@ export interface DailyHabitStatus {
   canUncomplete: boolean;
   isOverdue: boolean;
   reminderTime?: string;
+  isAvailableToday: boolean;
 }
 
 /**
@@ -44,11 +46,36 @@ export class HabitCompletionManager {
   private static readonly UNCOMPLETE_WINDOW_HOURS = 24; // Can uncomplete within 24 hours
 
   /**
+   * Check if a habit should be available for completion today based on its recurrence pattern
+   */
+  static isHabitAvailableToday(habit: any): boolean {
+    if (!habit.recurrencePattern || habit.recurrencePattern === 'daily') {
+      return true;
+    }
+    
+    if (habit.recurrencePattern === 'weekly' && habit.selectedDays) {
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const googleDays = habit.selectedDays.map((day: number) => day === 7 ? 0 : day);
+      return googleDays.includes(dayOfWeek);
+    }
+    
+    if (habit.recurrencePattern === 'monthly' && habit.selectedDays) {
+      const today = new Date();
+      const dayOfMonth = today.getDate();
+      return habit.selectedDays.includes(dayOfMonth);
+    }
+    
+    return true; // Fallback to available
+  }
+
+  /**
    * Get completion status for a specific habit
    */
   static async getHabitCompletionStatus(
     habitId: number, 
-    userId: string
+    userId: string,
+    habit?: any
   ): Promise<HabitCompletionStatus> {
     const today = getCurrentDateString(); // Uses Sri Lanka timezone
     const yesterday = new Date();
@@ -90,6 +117,7 @@ export class HabitCompletionManager {
       completionDate: todayCompletion?.completedAt || null,
       canUncomplete,
       xpEarned,
+      isAvailableToday: habit ? this.isHabitAvailableToday(habit) : true,
     };
   }
 
@@ -125,6 +153,7 @@ export class HabitCompletionManager {
         canUncomplete,
         isOverdue: false, // TODO: Implement overdue logic
         reminderTime: habit.reminderTime || undefined,
+        isAvailableToday: this.isHabitAvailableToday(habit),
       });
     }
 

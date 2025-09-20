@@ -7,6 +7,7 @@ import { typedEnv } from '../env';
 import { requireAuth } from './middlewareRoutes';
 import { sessionManager } from '../services/sessionManager';
 import { adminLog } from '../utils/adminLogger';
+import { storage } from '../storage';
 
 const router = express.Router();
 
@@ -50,6 +51,50 @@ router.post('/habitloop/signin', async (req, res) => {
     }
 
     const user = userResult[0];
+
+    // Handle super-admin authentication securely
+    if (user.role === 'super_admin') {
+      const bcrypt = await import('bcryptjs');
+      
+      // Verify password against stored hash
+      if (!password || !user.passwordHash || !bcrypt.default.compareSync(password, user.passwordHash)) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Invalid credentials',
+          message: 'Invalid password for super-admin'
+        });
+      }
+
+      const token = jwt.sign(
+        { 
+          userId: user.id, 
+          role: user.role,
+          isSuperAdmin: true
+        }, 
+        typedEnv.jwtSecret, 
+        { expiresIn: '24h' }
+      );
+
+      adminLog.log(`Super-admin ${user.id} signed in successfully`);
+
+      return res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          level: user.level,
+          xp: user.xp,
+          role: user.role,
+          isGuest: user.isGuest,
+          difficulty: user.difficulty,
+          userSettings: user.userSettings
+        },
+        token,
+        message: 'Super-admin authenticated successfully'
+      });
+    }
 
     // Check password if provided
     if (password && user.passwordHash) {
@@ -204,7 +249,7 @@ router.post('/habitloop/signup', async (req, res) => {
                   level: 1,
                   xp: 0,
                   role: 'user',
-                  isGuest: false,
+        isGuest: false,
                   profileImageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
                   createdAt: new Date(),
                   updatedAt: new Date()
@@ -264,8 +309,8 @@ router.post('/habitloop/signup', async (req, res) => {
 
         adminLog.log(`New user ${newUser.id} signed up successfully${newUser.aiRecommendations ? ` with ${Array.isArray(newUser.aiRecommendations) ? newUser.aiRecommendations.length : 'AI recommendations'}` : ''}`);
 
-    res.json({
-      success: true,
+      res.json({
+        success: true,
       user: {
         id: newUser.id,
         email: newUser.email,
@@ -284,14 +329,14 @@ router.post('/habitloop/signup', async (req, res) => {
   } catch (error) {
     adminLog.error('HabitLoop signup error:', error);
     console.error('Detailed signup error:', error);
-    res.status(500).json({
-      success: false,
+      res.status(500).json({
+        success: false,
       error: 'Signup failed',
       message: 'An error occurred during signup',
       details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
+      });
+    }
+  });
 
 // Guest authentication is now handled by guestRoutes.ts
 // This route has been moved to /api/guest/auth in guestRoutes.ts
@@ -381,7 +426,7 @@ router.post('/logout', requireAuth, async (req: any, res) => {
   } catch (error) {
     adminLog.error('Logout error:', error);
       res.status(500).json({
-        success: false,
+          success: false,
       error: 'Logout failed',
       message: 'An error occurred during logout'
       });
@@ -417,7 +462,7 @@ router.put('/users/:userId', requireAuth, async (req: any, res) => {
     adminLog.log(`User ${userId} profile updated`);
 
       res.json({
-      success: true,
+        success: true,
       user: {
         id: updatedUser.id,
         firstName: updatedUser.firstName,
@@ -439,14 +484,14 @@ router.put('/users/:userId', requireAuth, async (req: any, res) => {
 
 // Check session status
 router.get('/session/status', requireAuth, async (req: any, res) => {
-  try {
+    try {
     if (!req.user) {
-      return res.status(401).json({
+        return res.status(401).json({
           success: false,
         error: 'User not found',
         message: 'User information not available'
-      });
-    }
+        });
+      }
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -467,15 +512,15 @@ router.get('/session/status', requireAuth, async (req: any, res) => {
         const now = Math.floor(Date.now() / 1000);
         
         if (decoded.exp && decoded.exp < now) {
-          return res.status(401).json({
-            success: false,
+        return res.status(401).json({
+          success: false,
             error: 'Session expired',
             message: 'Guest session has expired'
-          });
-        }
+        });
+      }
 
         // For guests, return basic session info without database validation
-        res.json({
+      res.json({
           success: true,
           session: {
             valid: true,
@@ -517,7 +562,7 @@ router.get('/session/status', requireAuth, async (req: any, res) => {
         hasOtherDevice
       }
     });
-  } catch (error) {
+    } catch (error) {
     adminLog.error('Session status error:', error);
       res.status(500).json({
         success: false,
@@ -608,7 +653,7 @@ router.get('/export-data', requireAuth, async (req: any, res) => {
   } catch (error) {
     adminLog.error('Export data error:', error);
     res.status(500).json({
-      success: false,
+          success: false,
       error: 'Export failed',
       message: 'An error occurred while exporting data'
     });
@@ -722,7 +767,7 @@ router.get('/habitloop/user-profile-email/:email', async (req, res) => {
 
     if (!email) {
       return res.status(400).json({
-        success: false,
+          success: false,
         error: 'Missing email',
         message: 'email is required'
       });
@@ -766,7 +811,7 @@ router.get('/habitloop/user-profile-email/:email', async (req, res) => {
   } catch (error) {
     console.error('Error fetching user profile by email:', error);
     res.status(500).json({
-      success: false,
+          success: false,
       error: 'Internal server error',
       message: 'Failed to fetch user profile'
     });
@@ -893,8 +938,8 @@ router.post('/habitloop/signup', async (req, res) => {
 
     adminLog.log(`New HabitLoop user created: ${userId}`);
 
-    res.json({
-      success: true,
+      res.json({
+        success: true,
       message: 'Account created successfully',
       user: {
         id: newUser.id,
@@ -907,7 +952,7 @@ router.post('/habitloop/signup', async (req, res) => {
         profileImageUrl: newUser.profileImageUrl,
         role: newUser.role
       },
-      token
+        token
     });
   } catch (error) {
     adminLog.error('Signup error:', error);
@@ -948,33 +993,50 @@ router.get('/habitloop/next-user-id', async (_req, res) => {
       });
     } catch (error) {
     adminLog.error('Next user ID generation error:', error);
-    res.status(500).json({
-      success: false,
+      res.status(500).json({
+        success: false,
       error: 'ID generation failed',
       message: 'An error occurred while generating next user ID'
-    });
-  }
-});
+      });
+    }
+  });
 
 // Update user settings
 router.put('/user/settings', requireAuth, async (req: any, res) => {
-  try {
+    try {
     const userId = req.user.id;
     const settings = req.body;
 
-    if (!userId) {
+      if (!userId) {
       return res.status(401).json({
-        success: false,
+          success: false,
         error: 'User not authenticated',
         message: 'User information not available'
       });
     }
 
-    // Update user settings in database
+    // Get existing settings to merge with new ones (preserve Google Calendar credentials)
+    const existingSettings = await storage.getUserSettings(userId);
+    const mergedSettings = {
+      ...existingSettings,
+      ...settings
+    };
+
+    console.log('🔍 Merging user settings in /user/settings:', {
+      userId,
+      hasExistingSettings: !!existingSettings,
+      existingKeys: existingSettings ? Object.keys(existingSettings) : 'null',
+      newKeys: Object.keys(settings),
+      mergedKeys: Object.keys(mergedSettings),
+      hasGoogleCalendar: !!mergedSettings.googleCalendar,
+      fullMergedSettings: mergedSettings
+    });
+
+    // Update user settings in database with merged settings
     const [updatedUser] = await db
       .update(users)
       .set({ 
-        userSettings: settings,
+        userSettings: mergedSettings,
         updatedAt: new Date()
       })
       .where(eq(users.id, userId))
@@ -990,7 +1052,7 @@ router.put('/user/settings', requireAuth, async (req: any, res) => {
   } catch (error) {
     adminLog.error('Update settings error:', error);
       res.status(500).json({
-      success: false,
+          success: false,
       error: 'Update failed',
       message: 'An error occurred while updating settings'
     });
@@ -1072,20 +1134,20 @@ router.get('/test-db-structure', async (_req, res) => {
     
     console.log('Database structure test - User fields:', Object.keys(testUser[0] || {}));
     
-    res.json({
-      success: true,
+      res.json({
+        success: true,
       userFields: testUser[0] ? Object.keys(testUser[0]) : [],
       hasPasswordHash: testUser[0] ? 'passwordHash' in testUser[0] : false,
       sampleUser: testUser[0] || null
     });
-  } catch (error) {
+    } catch (error) {
     console.error('Database structure test error:', error);
-    res.status(500).json({
-      success: false,
+      res.status(500).json({
+        success: false,
       error: 'Database test failed',
       details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
+      });
+    }
+  });
 
 export default router;
