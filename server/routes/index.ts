@@ -159,6 +159,17 @@ function completionsRoutes() {
 
       const result = await completeHabit(habitId, userId, value);
 
+      // Sync completion to Google Calendar if enabled
+      if (result.success) {
+        try {
+          const { syncCompletionToCalendar } = await import("../utils/calendarCompletionSync");
+          await syncCompletionToCalendar(userId, habitId, true);
+        } catch (syncError) {
+          console.error("Calendar sync failed (non-critical):", syncError);
+          // Don't fail the completion if calendar sync fails
+        }
+      }
+
       res.json({
         success: result.success,
         data: result,
@@ -182,6 +193,17 @@ function completionsRoutes() {
       const { uncompleteHabit } = await import("../utils/habitCompletionManager.js");
 
       const result = await uncompleteHabit(habitId, userId);
+
+      // Sync uncompletion to Google Calendar if enabled
+      if (result.success) {
+        try {
+          const { syncCompletionToCalendar } = await import("../utils/calendarCompletionSync");
+          await syncCompletionToCalendar(userId, habitId, false);
+        } catch (syncError) {
+          console.error("Calendar sync failed (non-critical):", syncError);
+          // Don't fail the uncompletion if calendar sync fails
+        }
+      }
 
       // If the operation was successful, return success even if there were minor issues
       if (result.success) {

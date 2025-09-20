@@ -24,7 +24,7 @@ export const sessions = pgTable(
     sess: jsonb("sess").notNull(),
     expire: timestamp("expire").notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)]
+  (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
 // User storage table.
@@ -44,32 +44,30 @@ export const sessions = pgTable(
 //   createdAt: timestamp("created_at").defaultNow(),
 //   updatedAt: timestamp("updated_at").defaultNow(),
 // });
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey(),
-  email: varchar("email").unique(),
-  passwordHash: varchar("password_hash"), // ← Added
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").default("user"), // ← Added - This fixes the TypeScript errors
-  level: integer("level").default(1),
-  xp: integer("xp").default(0),
-  isGuest: boolean("is_guest").default(false),
-  questionnaire: jsonb("questionnaire"),
-  aiRecommendations: jsonb("ai_recommendations"), // ← Added for AI recommendations
-  emailSettings: jsonb("email_settings"),
-  userSettings: jsonb("user_settings"), // ← Added for UI settings
-  difficulty: varchar("difficulty").default("medium"), // ← Added
-  supabaseAuthId: uuid("supabase_auth_id"), // ← Added for Supabase Auth integration
-  createdAt: timestamp("created_at"),
-  updatedAt: timestamp("updated_at"),
+export const users = pgTable('users', {
+  id: varchar('id').primaryKey(),
+  email: varchar('email').unique(),
+  passwordHash: varchar('password_hash'), // ← Added
+  firstName: varchar('first_name'),
+  lastName: varchar('last_name'),
+  profileImageUrl: varchar('profile_image_url'),
+  role: varchar('role').default('user'), // ← Added - This fixes the TypeScript errors
+  level: integer('level').default(1),
+  xp: integer('xp').default(0),
+  isGuest: boolean('is_guest').default(false),
+  questionnaire: jsonb('questionnaire'),
+  aiRecommendations: jsonb('ai_recommendations'), // ← Added for AI recommendations
+  emailSettings: jsonb('email_settings'),
+  userSettings: jsonb('user_settings'), // ← Added for UI settings
+  difficulty: varchar('difficulty').default('medium'), // ← Added
+  supabaseAuthId: uuid('supabase_auth_id'), // ← Added for Supabase Auth integration
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at'),
 });
 
 export const habits = pgTable("habits", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   title: varchar("title").notNull(),
   description: text("description"),
   category: varchar("category").notNull(),
@@ -77,6 +75,8 @@ export const habits = pgTable("habits", {
   unit: varchar("unit").default("times"),
   reminderTime: varchar("reminder_time"),
   frequency: varchar("frequency").default("daily"), // daily, weekly, custom
+  recurrencePattern: varchar("recurrence_pattern").default("daily"), // daily, weekly, monthly
+  selectedDays: jsonb("selected_days"), // For weekly: [1,3,5] (Mon,Wed,Fri), For monthly: [1,15] (1st, 15th)
   isActive: boolean("is_active").default(true),
   color: varchar("color").default("#6366F1"),
   icon: varchar("icon").default("fas fa-check"),
@@ -86,12 +86,8 @@ export const habits = pgTable("habits", {
 
 export const habitCompletions = pgTable("habit_completions", {
   id: serial("id").primaryKey(),
-  habitId: integer("habit_id")
-    .notNull()
-    .references(() => habits.id),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  habitId: integer("habit_id").notNull().references(() => habits.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   completedAt: date("completed_at").notNull(),
   value: integer("value").default(1),
   createdAt: timestamp("created_at"),
@@ -99,12 +95,8 @@ export const habitCompletions = pgTable("habit_completions", {
 
 export const streaks = pgTable("streaks", {
   id: serial("id").primaryKey(),
-  habitId: integer("habit_id")
-    .notNull()
-    .references(() => habits.id),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  habitId: integer("habit_id").notNull().references(() => habits.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   currentStreak: integer("current_streak").default(0),
   longestStreak: integer("longest_streak").default(0),
   lastCompletedAt: date("last_completed_at"),
@@ -114,9 +106,7 @@ export const streaks = pgTable("streaks", {
 // Challenge completions table
 export const challengeCompletions = pgTable("challenge_completions", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   challengeId: varchar("challenge_id").notNull(),
   xpAwarded: integer("xp_awarded").notNull(),
   completedAt: date("completed_at").notNull(),
@@ -127,9 +117,7 @@ export const challengeCompletions = pgTable("challenge_completions", {
 // Challenge progress tracking table
 export const challengeProgress = pgTable("challenge_progress", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   challengeId: varchar("challenge_id").notNull(),
   progressValue: integer("progress_value").default(0),
   lastUpdated: date("last_updated").notNull(),
@@ -139,9 +127,7 @@ export const challengeProgress = pgTable("challenge_progress", {
 // ML predictions table
 export const mlPredictions = pgTable("ml_predictions", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   habitId: integer("habit_id").references(() => habits.id),
   predictionPercentage: integer("prediction_percentage").notNull(),
   confidenceLevel: varchar("confidence_level").default("low"),
@@ -152,9 +138,7 @@ export const mlPredictions = pgTable("ml_predictions", {
 
 export const aiInsights = pgTable("ai_insights", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   type: varchar("type").notNull(), // suggestion, motivation, tip, coaching, celebration
   title: varchar("title").notNull(),
   content: text("content").notNull(),
@@ -167,9 +151,7 @@ export const aiInsights = pgTable("ai_insights", {
 
 export const coachingMessages = pgTable("coaching_messages", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   habitId: integer("habit_id").references(() => habits.id),
   messageType: varchar("message_type").notNull(), // 'encouragement', 'streak_celebration', 'comeback', 'tip', 'milestone'
   title: varchar("title").notNull(),
@@ -193,9 +175,7 @@ export const notificationTypes = pgTable("notification_types", {
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   type: varchar("type").notNull(), // 'inactivity', 'achievement', 'reminder', 'insight'
   title: varchar("title").notNull(),
   message: text("message").notNull(),
@@ -206,17 +186,14 @@ export const notifications = pgTable("notifications", {
   typeId: integer("type_id").references(() => notificationTypes.id),
   expiresAt: timestamp("expires_at"),
   priority: integer("priority").default(2),
-  metadata: jsonb("metadata").default("{}"),
+  metadata: jsonb("metadata").default('{}'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id)
-    .unique(),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
   emailEnabled: boolean("email_enabled").default(true),
   pushEnabled: boolean("push_enabled").default(true),
   inAppEnabled: boolean("in_app_enabled").default(true),
@@ -228,21 +205,21 @@ export const notificationPreferences = pgTable("notification_preferences", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const rolePermissions = pgTable("role_permissions", {
-  id: serial("id").primaryKey(),
-  role: varchar("role").notNull(),
-  permission: varchar("permission").notNull(),
+export const rolePermissions = pgTable('role_permissions', {
+  id: serial('id').primaryKey(),
+  role: varchar('role').notNull(),
+  permission: varchar('permission').notNull(),
 });
 
-export const userPermissions = pgTable("user_permissions", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  permission: varchar("permission").notNull(),
-  grantedAt: timestamp("granted_at").defaultNow(),
-  grantedBy: varchar("granted_by").references(() => users.id),
+export const userPermissions = pgTable('user_permissions', {
+  id: serial('id').primaryKey(),
+  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  permission: varchar('permission').notNull(),
+  grantedAt: timestamp('granted_at').defaultNow(),
+  grantedBy: varchar('granted_by').references(() => users.id),
 });
+
+
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -261,19 +238,16 @@ export const habitsRelations = relations(habits, ({ one, many }) => ({
   streak: one(streaks),
 }));
 
-export const habitCompletionsRelations = relations(
-  habitCompletions,
-  ({ one }) => ({
-    habit: one(habits, {
-      fields: [habitCompletions.habitId],
-      references: [habits.id],
-    }),
-    user: one(users, {
-      fields: [habitCompletions.userId],
-      references: [users.id],
-    }),
-  })
-);
+export const habitCompletionsRelations = relations(habitCompletions, ({ one }) => ({
+  habit: one(habits, {
+    fields: [habitCompletions.habitId],
+    references: [habits.id],
+  }),
+  user: one(users, {
+    fields: [habitCompletions.userId],
+    references: [users.id],
+  }),
+}));
 
 export const streaksRelations = relations(streaks, ({ one }) => ({
   habit: one(habits, {
@@ -293,27 +267,21 @@ export const aiInsightsRelations = relations(aiInsights, ({ one }) => ({
   }),
 }));
 
-export const coachingMessagesRelations = relations(
-  coachingMessages,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [coachingMessages.userId],
-      references: [users.id],
-    }),
-    habit: one(habits, {
-      fields: [coachingMessages.habitId],
-      references: [habits.id],
-    }),
-  })
-);
+export const coachingMessagesRelations = relations(coachingMessages, ({ one }) => ({
+  user: one(users, {
+    fields: [coachingMessages.userId],
+    references: [users.id],
+  }),
+  habit: one(habits, {
+    fields: [coachingMessages.habitId],
+    references: [habits.id],
+  }),
+}));
 
 // Notification relations
-export const notificationTypesRelations = relations(
-  notificationTypes,
-  ({ many }) => ({
-    notifications: many(notifications),
-  })
-);
+export const notificationTypesRelations = relations(notificationTypes, ({ many }) => ({
+  notifications: many(notifications),
+}));
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   user: one(users, {
@@ -326,30 +294,25 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
-export const notificationPreferencesRelations = relations(
-  notificationPreferences,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [notificationPreferences.userId],
-      references: [users.id],
-    }),
-  })
-);
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+}));
 
 // Add relations for RBAC
-export const userPermissionsRelations = relations(
-  userPermissions,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [userPermissions.userId],
-      references: [users.id],
-    }),
-    grantedByUser: one(users, {
-      fields: [userPermissions.grantedBy],
-      references: [users.id],
-    }),
-  })
-);
+export const userPermissionsRelations = relations(userPermissions, ({ one }) => ({
+  user: one(users, {
+    fields: [userPermissions.userId],
+    references: [users.id],
+  }),
+  grantedByUser: one(users, {
+    fields: [userPermissions.grantedBy],
+    references: [users.id],
+  }),
+}));
+
 
 // Schema types
 export type UpsertUser = typeof users.$inferInsert;
@@ -363,9 +326,7 @@ export const insertHabitSchema = createInsertSchema(habits).omit({
 export type InsertHabit = z.infer<typeof insertHabitSchema>;
 export type Habit = typeof habits.$inferSelect;
 
-export const insertHabitCompletionSchema = createInsertSchema(
-  habitCompletions
-).omit({
+export const insertHabitCompletionSchema = createInsertSchema(habitCompletions).omit({
   id: true,
   createdAt: true,
 });
@@ -387,10 +348,8 @@ export type NotificationType = typeof notificationTypes.$inferSelect;
 export type InsertNotificationType = typeof notificationTypes.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
-export type NotificationPreferences =
-  typeof notificationPreferences.$inferSelect;
-export type InsertNotificationPreferences =
-  typeof notificationPreferences.$inferInsert;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreferences = typeof notificationPreferences.$inferInsert;
 
 export const questionnaireSchema = z.object({
   focusAreas: z.array(z.string()),
