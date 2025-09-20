@@ -14,6 +14,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+// Helper function to format recurrence pattern display
+const formatRecurrencePattern = (habit: any): string => {
+  if (!habit.recurrencePattern || habit.recurrencePattern === 'daily') {
+    return 'Daily';
+  }
+  
+  if (habit.recurrencePattern === 'weekly' && habit.selectedDays && habit.selectedDays.length > 0) {
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const selectedDayNames = habit.selectedDays
+      .map((day: number) => dayNames[day - 1]) // Convert 1-7 to 0-6 for array index
+      .filter(Boolean);
+    
+    if (selectedDayNames.length === 0) return 'Weekly';
+    if (selectedDayNames.length === 1) return `Weekly (${selectedDayNames[0]})`;
+    if (selectedDayNames.length <= 3) return `Weekly (${selectedDayNames.join(', ')})`;
+    return `Weekly (${selectedDayNames.length} days)`;
+  }
+  
+  if (habit.recurrencePattern === 'monthly' && habit.selectedDays && habit.selectedDays.length > 0) {
+    const sortedDays = [...habit.selectedDays].sort((a, b) => a - b);
+    if (sortedDays.length === 0) return 'Monthly';
+    if (sortedDays.length === 1) return `Monthly (${sortedDays[0]}${getOrdinalSuffix(sortedDays[0])})`;
+    if (sortedDays.length <= 3) return `Monthly (${sortedDays.map(d => d + getOrdinalSuffix(d)).join(', ')})`;
+    return `Monthly (${sortedDays.length} days)`;
+  }
+  
+  return 'Daily'; // Fallback
+};
+
+// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
+const getOrdinalSuffix = (num: number): string => {
+  const j = num % 10;
+  const k = num % 100;
+  if (j === 1 && k !== 11) return 'st';
+  if (j === 2 && k !== 12) return 'nd';
+  if (j === 3 && k !== 13) return 'rd';
+  return 'th';
+};
+
 export default function Habits() {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -291,7 +330,7 @@ export default function Habits() {
                                 Target: {habit.targetValue} {habit.unit}
                               </span>
                               <span className="capitalize">
-                                {habit.frequency}
+                                {formatRecurrencePattern(habit)}
                               </span>
                             </div>
                           </CardContent>

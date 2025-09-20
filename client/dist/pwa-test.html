@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Test - HabitLoop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .success { background: rgba(34, 197, 94, 0.3); }
+        .warning { background: rgba(251, 191, 36, 0.3); }
+        .error { background: rgba(239, 68, 68, 0.3); }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover { background: #2563eb; }
+        .icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">HL</div>
+        <h1>🚀 HabitLoop PWA Test</h1>
+        <p>This page helps you test the PWA installation features.</p>
+        
+        <div id="status" class="status">
+            <h3>PWA Status Check</h3>
+            <div id="checks"></div>
+        </div>
+        
+        <div class="status">
+            <h3>Installation Instructions</h3>
+            <h4>🖥️ Desktop (Chrome/Edge):</h4>
+            <ul>
+                <li>Look for install icon in address bar (⬇️ or ➕)</li>
+                <li>Or click menu (⋮) → "Install HabitLoop"</li>
+            </ul>
+            
+            <h4>📱 Mobile (Android):</h4>
+            <ul>
+                <li>Tap menu (⋮) → "Add to Home Screen"</li>
+            </ul>
+            
+            <h4>🍎 Mobile (iOS):</h4>
+            <ul>
+                <li>Tap share button (□↗) → "Add to Home Screen"</li>
+            </ul>
+        </div>
+        
+        <div class="status">
+            <h3>Test Actions</h3>
+            <button onclick="checkPWAStatus()">Check PWA Status</button>
+            <button onclick="testServiceWorker()">Test Service Worker</button>
+            <button onclick="testOffline()">Test Offline Mode</button>
+            <button onclick="requestNotification()">Test Notifications</button>
+        </div>
+        
+        <div id="results" class="status" style="display: none;">
+            <h3>Test Results</h3>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        
+        // Check PWA status
+        function checkPWAStatus() {
+            const checks = document.getElementById('checks');
+            const results = [];
+            
+            // Check if service worker is supported
+            if ('serviceWorker' in navigator) {
+                results.push('✅ Service Worker supported');
+            } else {
+                results.push('❌ Service Worker not supported');
+            }
+            
+            // Check if app is already installed
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                results.push('✅ App is installed (standalone mode)');
+            } else if (window.navigator.standalone === true) {
+                results.push('✅ App is installed (iOS standalone)');
+            } else {
+                results.push('⚠️ App not installed');
+            }
+            
+            // Check if installable
+            if (deferredPrompt) {
+                results.push('✅ App is installable');
+            } else {
+                results.push('⚠️ Install prompt not available');
+            }
+            
+            // Check manifest
+            if (document.querySelector('link[rel="manifest"]')) {
+                results.push('✅ Web manifest found');
+            } else {
+                results.push('❌ Web manifest not found');
+            }
+            
+            // Check HTTPS
+            if (location.protocol === 'https:' || location.hostname === 'localhost') {
+                results.push('✅ HTTPS or localhost (required for PWA)');
+            } else {
+                results.push('❌ HTTPS required for PWA');
+            }
+            
+            checks.innerHTML = results.map(result => `<div>${result}</div>`).join('');
+        }
+        
+        // Test service worker
+        async function testServiceWorker() {
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                showResult('✅ Service Worker registered successfully');
+            } catch (error) {
+                showResult('❌ Service Worker registration failed: ' + error.message);
+            }
+        }
+        
+        // Test offline mode
+        function testOffline() {
+            if (navigator.onLine) {
+                showResult('⚠️ You are online. Turn off internet to test offline mode.');
+            } else {
+                showResult('✅ Offline mode detected. App should work without internet.');
+            }
+        }
+        
+        // Test notifications
+        async function requestNotification() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    new Notification('HabitLoop Test', {
+                        body: 'PWA notifications are working!',
+                        icon: '/icons/icon-192x192.png'
+                    });
+                    showResult('✅ Notifications working');
+                } else {
+                    showResult('❌ Notification permission denied');
+                }
+            } else {
+                showResult('❌ Notifications not supported');
+            }
+        }
+        
+        // Show test results
+        function showResult(message) {
+            const results = document.getElementById('results');
+            const content = document.getElementById('resultContent');
+            content.innerHTML += '<div>' + message + '</div>';
+            results.style.display = 'block';
+        }
+        
+        // Listen for install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showResult('✅ Install prompt is available! Look for install button in browser.');
+        });
+        
+        // Listen for app installed
+        window.addEventListener('appinstalled', () => {
+            showResult('🎉 App installed successfully!');
+        });
+        
+        // Check status on load
+        window.addEventListener('load', () => {
+            checkPWAStatus();
+        });
+    </script>
+</body>
+</html>

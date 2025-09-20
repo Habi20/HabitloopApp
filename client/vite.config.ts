@@ -4,6 +4,11 @@ import path from "path"
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Enable PWA features
+    __PWA_ENABLED__: true,
+  },
+  publicDir: 'public',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -14,26 +19,26 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        // Railway Backend (Production)
-        target: "https://habitloopapp-development.up.railway.app",
+        // Local Backend (Development)
+        target: "http://localhost:5000",
         changeOrigin: true,
-        secure: true,
+        secure: false,
         
-        // Local Backend (Development) - Uncomment to switch back
-        // target: "http://localhost:5000",
+        // Railway Backend (Production) - Uncomment to switch to production
+        // target: "https://habitloopapp-development.up.railway.app",
         // changeOrigin: true,
-        // secure: false,
+        // secure: true,
       },
       "/auth": {
-        // Railway Backend (Production)
-        target: "https://habitloopapp-development.up.railway.app",
+        // Local Backend (Development)
+        target: "http://localhost:5000",
         changeOrigin: true,
-        secure: true,
+        secure: false,
         
-        // Local Backend (Development) - Uncomment to switch back
-        // target: "http://localhost:5000",
+        // Railway Backend (Production) - Uncomment to switch to production
+        // target: "https://habitloopapp-development.up.railway.app",
         // changeOrigin: true,
-        // secure: false,
+        // secure: true,
       },
     },
   },

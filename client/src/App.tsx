@@ -5,6 +5,8 @@ import { Toaster } from './components/ui/toaster';
 import { useAuth } from './contexts/AuthContext';
 import { useEnhancedSessionMonitor } from './hooks/useEnhancedSessionMonitor';
 import { SessionTimeoutModal } from './components/SessionTimeoutModal';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { ConnectionStatus } from './components/ConnectionStatus';
 
 // Pages
 import Landing from './pages/Landing';
@@ -100,6 +102,12 @@ function App() {
           type={modalType}
           timeRemaining={timeRemaining}
         />
+
+        {/* PWA Install Prompt */}
+        <PWAInstallPrompt />
+
+        {/* Connection Status Indicator */}
+        <ConnectionStatus />
 
         <Toaster />
       </div>

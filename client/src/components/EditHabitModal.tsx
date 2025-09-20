@@ -45,8 +45,19 @@ const habitSchema = z.object({
   unit: z.string().min(1, "Unit is required"),
   reminderTime: z.string().optional(),
   frequency: z.string().default("daily"),
+  recurrencePattern: z.enum(["daily", "weekly", "monthly"]).default("daily"),
+  selectedDays: z.array(z.number()).optional(),
   color: z.string().default("#6366F1"),
   icon: z.string().default("fas fa-check"),
+}).refine((data) => {
+  // Require selectedDays for weekly and monthly patterns
+  if (data.recurrencePattern === "weekly" || data.recurrencePattern === "monthly") {
+    return data.selectedDays && data.selectedDays.length > 0;
+  }
+  return true;
+}, {
+  message: "Please select at least one day",
+  path: ["selectedDays"],
 });
 
 type HabitFormData = z.infer<typeof habitSchema>;
@@ -74,6 +85,8 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
       unit: "times",
       reminderTime: "",
       frequency: "daily",
+      recurrencePattern: "daily",
+      selectedDays: [],
       color: "#6366F1",
       icon: "fas fa-check",
     },
@@ -89,6 +102,8 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
       form.setValue("unit", habit.unit || "times");
       form.setValue("reminderTime", habit.reminderTime || "");
       form.setValue("frequency", habit.frequency || "daily");
+      form.setValue("recurrencePattern", (habit.recurrencePattern as "daily" | "weekly" | "monthly") || "daily");
+      form.setValue("selectedDays", habit.selectedDays || []);
       form.setValue("color", habit.color || "#6366F1");
       form.setValue("icon", habit.icon || "fas fa-check");
     }
@@ -242,61 +257,61 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
 
         {/* Form Content - Scrollable body */}
         <div className={getMobileModalBody(isMobile)}>
-          <Form {...form}>
+        <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className={isMobile ? "space-y-5" : "space-y-4"}>
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
                     <ResponsiveFormField
                       label="Habit Title"
                       required
                       error={form.formState.errors.title?.message}
                       variant={isMobile && isTouchDevice ? "floating" : "default"}
                     >
-                      <FormControl>
+                  <FormControl>
                         <ResponsiveInput
                           placeholder="e.g., Drink water"
                           floatingLabel={isMobile && isTouchDevice}
                           icon={<i className="fas fa-check text-sm" />}
                           {...field}
                         />
-                      </FormControl>
+                  </FormControl>
                     </ResponsiveFormField>
-                  </FormItem>
-                )}
-              />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
                     <ResponsiveFormField
                       label="Description"
                       error={form.formState.errors.description?.message}
                       variant={isMobile && isTouchDevice ? "floating" : "default"}
                     >
-                      <FormControl>
+                  <FormControl>
                         <ResponsiveTextarea
-                          placeholder="Optional description of your habit"
+                      placeholder="Optional description of your habit"
                           rows={isMobile ? 3 : 2}
                           floatingLabel={isMobile && isTouchDevice}
                           icon={<i className="fas fa-align-left text-sm" />}
-                          {...field}
-                        />
-                      </FormControl>
+                      {...field}
+                    />
+                  </FormControl>
                     </ResponsiveFormField>
-                  </FormItem>
-                )}
-              />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
                     <ResponsiveFormField
                       label="Category"
                       required
@@ -304,50 +319,50 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
                       variant={isMobile && isTouchDevice ? "floating" : "default"}
                     >
                       <FormControl>
-                        <Select
-                          onValueChange={handleCategoryChange}
-                          value={field.value}
-                        >
+                  <Select
+                    onValueChange={handleCategoryChange}
+                    value={field.value}
+                  >
                           <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
                               <SelectItem 
                                 key={category.value} 
                                 value={category.value}
                                 className={isMobile ? "py-3" : "py-2"}
                               >
-                                <div className="flex items-center">
-                                  <i
-                                    className={`${category.icon} mr-2`}
-                                    style={{ color: category.color }}
-                                  ></i>
+                          <div className="flex items-center">
+                            <i
+                              className={`${category.icon} mr-2`}
+                              style={{ color: category.color }}
+                            ></i>
                                   <span className={isMobile ? "text-base" : "text-sm"}>{category.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                       </FormControl>
                     </ResponsiveFormField>
-                  </FormItem>
-                )}
-              />
+                </FormItem>
+              )}
+            />
 
               <ResponsiveGrid cols={isMobile ? 1 : 2} gap="md">
-                <FormField
-                  control={form.control}
-                  name="targetValue"
-                  render={({ field }) => (
-                    <FormItem>
+              <FormField
+                control={form.control}
+                name="targetValue"
+                render={({ field }) => (
+                  <FormItem>
                       <ResponsiveFormField
                         label="Target"
                         required
                         error={form.formState.errors.targetValue?.message}
                         variant={isMobile && isTouchDevice ? "floating" : "default"}
                       >
-                        <FormControl>
+                    <FormControl>
                           <div className="flex items-center space-x-2">
                             <Button
                               type="button"
@@ -387,17 +402,17 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
                               +
                             </Button>
                           </div>
-                        </FormControl>
+                    </FormControl>
                       </ResponsiveFormField>
-                    </FormItem>
-                  )}
-                />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="unit"
-                  render={({ field }) => (
-                    <FormItem>
+              <FormField
+                control={form.control}
+                name="unit"
+                render={({ field }) => (
+                  <FormItem>
                       <ResponsiveFormField
                         label="Unit"
                         required
@@ -405,81 +420,219 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
                         variant={isMobile && isTouchDevice ? "floating" : "default"}
                       >
                         <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {units.map((unit) => (
+                          <SelectValue />
+                        </SelectTrigger>
+                      <SelectContent>
+                        {units.map((unit) => (
                                 <SelectItem 
                                   key={unit.value} 
                                   value={unit.value}
                                   className={isMobile ? "py-3" : "py-2"}
                                 >
                                   <span className={isMobile ? "text-base" : "text-sm"}>{unit.label}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                         </FormControl>
                       </ResponsiveFormField>
-                    </FormItem>
-                  )}
-                />
+                  </FormItem>
+                )}
+              />
               </ResponsiveGrid>
 
-              <FormField
-                control={form.control}
-                name="reminderTime"
-                render={({ field }) => (
-                  <FormItem>
+            <FormField
+              control={form.control}
+              name="reminderTime"
+              render={({ field }) => (
+                <FormItem>
                     <ResponsiveFormField
                       label="Reminder Time"
                       error={form.formState.errors.reminderTime?.message}
                       variant={isMobile && isTouchDevice ? "floating" : "default"}
                     >
                       <FormControl>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                           <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
-                            <SelectValue placeholder="Select reminder time" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {timeSlots.map((time) => (
+                        <SelectValue placeholder="Select reminder time" />
+                      </SelectTrigger>
+                    <SelectContent>
+                      {timeSlots.map((time) => (
                               <SelectItem 
                                 key={time} 
                                 value={time}
                                 className={isMobile ? "py-3" : "py-2"}
                               >
                                 <span className={isMobile ? "text-base" : "text-sm"}>{time}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                       </FormControl>
                     </ResponsiveFormField>
                   </FormItem>
                 )}
               />
+
+              {/* Recurrence Pattern Selector */}
+              <FormField
+                control={form.control}
+                name="recurrencePattern"
+                render={({ field }) => (
+                  <FormItem>
+                    <ResponsiveFormField
+                      label="How Often?"
+                      required
+                      error={form.formState.errors.recurrencePattern?.message}
+                      variant={isMobile && isTouchDevice ? "floating" : "default"}
+                    >
+                      <FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">
+                              <div className="flex items-center space-x-2">
+                                <i className="fas fa-calendar-day text-blue-500"></i>
+                                <span>Daily</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="weekly">
+                              <div className="flex items-center space-x-2">
+                                <i className="fas fa-calendar-week text-green-500"></i>
+                                <span>Weekly</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="monthly">
+                              <div className="flex items-center space-x-2">
+                                <i className="fas fa-calendar-alt text-purple-500"></i>
+                                <span>Monthly</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </ResponsiveFormField>
+                </FormItem>
+              )}
+            />
+
+              {/* Selected Days Selector - Only show for weekly/monthly */}
+              {form.watch("recurrencePattern") === "weekly" && (
+                <FormField
+                  control={form.control}
+                  name="selectedDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ResponsiveFormField
+                        label="Select Days"
+                        required
+                        error={form.formState.errors.selectedDays?.message}
+                        variant={isMobile && isTouchDevice ? "floating" : "default"}
+                      >
+                        <FormControl>
+                          <div className="grid grid-cols-7 gap-2">
+                            {[
+                              { value: 1, label: "Mon", short: "M" },
+                              { value: 2, label: "Tue", short: "T" },
+                              { value: 3, label: "Wed", short: "W" },
+                              { value: 4, label: "Thu", short: "T" },
+                              { value: 5, label: "Fri", short: "F" },
+                              { value: 6, label: "Sat", short: "S" },
+                              { value: 7, label: "Sun", short: "S" },
+                            ].map((day) => (
+                              <button
+                                key={day.value}
+                                type="button"
+                                onClick={() => {
+                                  const currentDays = field.value || [];
+                                  const newDays = currentDays.includes(day.value)
+                                    ? currentDays.filter((d: number) => d !== day.value)
+                                    : [...currentDays, day.value];
+                                  field.onChange(newDays);
+                                }}
+                                className={`p-2 rounded-lg text-sm font-medium transition-colors ${
+                                  field.value?.includes(day.value)
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                }`}
+                              >
+                                <div className="hidden sm:block">{day.label}</div>
+                                <div className="sm:hidden">{day.short}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </FormControl>
+                      </ResponsiveFormField>
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {form.watch("recurrencePattern") === "monthly" && (
+                <FormField
+                  control={form.control}
+                  name="selectedDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ResponsiveFormField
+                        label="Select Days of Month"
+                        required
+                        error={form.formState.errors.selectedDays?.message}
+                        variant={isMobile && isTouchDevice ? "floating" : "default"}
+                      >
+                        <FormControl>
+                          <div className="grid grid-cols-7 gap-2 max-h-40 overflow-y-auto">
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  const currentDays = field.value || [];
+                                  const newDays = currentDays.includes(day)
+                                    ? currentDays.filter((d: number) => d !== day)
+                                    : [...currentDays, day];
+                                  field.onChange(newDays);
+                                }}
+                                className={`p-2 rounded-lg text-sm font-medium transition-colors ${
+                                  field.value?.includes(day)
+                                    ? "bg-purple-500 text-white"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        </FormControl>
+                      </ResponsiveFormField>
+                    </FormItem>
+                  )}
+                />
+              )}
             </form>
           </Form>
         </div>
 
         {/* Footer - Fixed at bottom with mobile optimization */}
         <div className={getMobileModalFooter(isMobile)}>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
             className={getMobileButtonClasses('outline', isMobile)}
             disabled={updateHabitMutation.isPending}
-          >
-            Cancel
-          </Button>
+              >
+                Cancel
+              </Button>
           
-          <Button
-            type="submit"
+              <Button
+                type="submit"
             onClick={form.handleSubmit(onSubmit)}
-            disabled={updateHabitMutation.isPending}
+                disabled={updateHabitMutation.isPending}
             className={getMobileButtonClasses('primary', isMobile)}
           >
             {updateHabitMutation.isPending ? (
@@ -493,8 +646,8 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
                 {isMobile ? "Update Habit" : "Update Habit"}
               </>
             )}
-          </Button>
-        </div>
+              </Button>
+            </div>
       </DialogContent>
     </Dialog>
   );

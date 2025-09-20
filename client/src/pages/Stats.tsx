@@ -102,7 +102,7 @@ export default function Stats() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-4 sm:mb-6 md:mb-8 lg:mb-10">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-base font-medium text-gray-600">
                   Total Habits
                 </CardTitle>
               </CardHeader>
@@ -115,7 +115,7 @@ export default function Stats() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-base font-medium text-gray-600">
                   Total Completions
                 </CardTitle>
               </CardHeader>
@@ -128,7 +128,7 @@ export default function Stats() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-gray-600">
+                <CardTitle className="text-base font-medium text-gray-600">
                   Current Level
                 </CardTitle>
               </CardHeader>
@@ -144,7 +144,7 @@ export default function Stats() {
           {/* Habit Performance */}
           <Card>
             <CardHeader>
-              <CardTitle>Habit Performance (Last 7 Days)</CardTitle>
+              <CardTitle className="text-sm sm:text-base lg:text-lg">Habit Performance (Last 7 Days)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">

@@ -13,6 +13,8 @@ interface Habit {
   targetValue: number;
   unit: string;
   reminderTime?: string;
+  recurrencePattern?: string;
+  selectedDays?: number[];
   color: string;
   icon: string;
 }
@@ -36,6 +38,45 @@ interface HabitPerformanceScore {
   };
   recommendations: string[];
 }
+
+// Helper function to format recurrence pattern display
+const formatRecurrencePattern = (habit: Habit): string => {
+  if (!habit.recurrencePattern || habit.recurrencePattern === 'daily') {
+    return 'Daily';
+  }
+  
+  if (habit.recurrencePattern === 'weekly' && habit.selectedDays) {
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const selectedDayNames = habit.selectedDays
+      .map(day => dayNames[day - 1]) // Convert 1-7 to 0-6 for array index
+      .filter(Boolean);
+    
+    if (selectedDayNames.length === 0) return 'Weekly';
+    if (selectedDayNames.length === 1) return `Weekly (${selectedDayNames[0]})`;
+    if (selectedDayNames.length <= 3) return `Weekly (${selectedDayNames.join(', ')})`;
+    return `Weekly (${selectedDayNames.length} days)`;
+  }
+  
+  if (habit.recurrencePattern === 'monthly' && habit.selectedDays) {
+    const sortedDays = [...habit.selectedDays].sort((a, b) => a - b);
+    if (sortedDays.length === 0) return 'Monthly';
+    if (sortedDays.length === 1) return `Monthly (${sortedDays[0]}${getOrdinalSuffix(sortedDays[0])})`;
+    if (sortedDays.length <= 3) return `Monthly (${sortedDays.map(d => d + getOrdinalSuffix(d)).join(', ')})`;
+    return `Monthly (${sortedDays.length} days)`;
+  }
+  
+  return 'Daily'; // Fallback
+};
+
+// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
+const getOrdinalSuffix = (num: number): string => {
+  const j = num % 10;
+  const k = num % 100;
+  if (j === 1 && k !== 11) return 'st';
+  if (j === 2 && k !== 12) return 'nd';
+  if (j === 3 && k !== 13) return 'rd';
+  return 'th';
+};
 
 export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProps) {
   const { user } = useAuth();
@@ -203,6 +244,27 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
               <p className="text-gray-600 text-xs sm:text-sm md:text-base lg:text-lg mb-2 line-clamp-2">{habit.description}</p>
             )}
             
+            {/* Recurrence Pattern Display */}
+            <div className="mb-2">
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs font-medium",
+                  habit.recurrencePattern === 'daily' && "bg-blue-50 text-blue-700 border-blue-200",
+                  habit.recurrencePattern === 'weekly' && "bg-green-50 text-green-700 border-green-200",
+                  habit.recurrencePattern === 'monthly' && "bg-purple-50 text-purple-700 border-purple-200"
+                )}
+              >
+                <i className={cn(
+                  "fas mr-1",
+                  habit.recurrencePattern === 'daily' && "fa-calendar-day",
+                  habit.recurrencePattern === 'weekly' && "fa-calendar-week",
+                  habit.recurrencePattern === 'monthly' && "fa-calendar-alt"
+                )}></i>
+                {formatRecurrencePattern(habit)}
+              </Badge>
+            </div>
+            
             <div className="flex flex-col space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm md:text-base lg:text-lg text-gray-500">
                 {habit.reminderTime && (
@@ -246,17 +308,6 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
                 </div>
               </div>
             )}
-t            
-            {/* Quick Add to Calendar Button */}
-            <div className="mt-2">
-              <button
-                onClick={() => window.location.href = '/settings'}
-                className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                <i className="fas fa-calendar-plus"></i>
-                <span>Add to Calendar</span>
-              </button>
-            </div>
             {loadingScore && (
               <div className="mt-2 p-2 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-2">
