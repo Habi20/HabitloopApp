@@ -9,6 +9,8 @@ export interface Habit {
   targetValue: number;
   unit: string;
   frequency: string;
+  recurrencePattern?: string;
+  selectedDays?: number[];
   isActive: boolean;
   color: string;
   icon: string;

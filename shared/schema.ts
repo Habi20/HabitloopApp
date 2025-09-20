@@ -75,6 +75,8 @@ export const habits = pgTable("habits", {
   unit: varchar("unit").default("times"),
   reminderTime: varchar("reminder_time"),
   frequency: varchar("frequency").default("daily"), // daily, weekly, custom
+  recurrencePattern: varchar("recurrence_pattern").default("daily"), // daily, weekly, monthly
+  selectedDays: jsonb("selected_days"), // For weekly: [1,3,5] (Mon,Wed,Fri), For monthly: [1,15] (1st, 15th)
   isActive: boolean("is_active").default(true),
   color: varchar("color").default("#6366F1"),
   icon: varchar("icon").default("fas fa-check"),

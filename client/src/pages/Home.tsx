@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUISettings } from "@/hooks/useUISettings";
+import { useScreenSize } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { getCurrentDateString, getTimezoneWarning } from "@/lib/timezone";
@@ -30,6 +31,7 @@ export default function Home() {
   const { user, refreshUserData, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { settings: uiSettings, isLoaded: uiSettingsLoaded } = useUISettings();
+  const { isMobile } = useScreenSize();
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddHabit, setShowAddHabit] = useState(false);
@@ -171,11 +173,12 @@ export default function Home() {
       window.activeRequests.add(requestKey);
       
       try {
-                 if (!isCompleted) {
-           const response = await apiRequest("completions/complete", "POST", {
-             habitId,
-             value: 1,
-           });
+        if (!isCompleted) {
+          // Habit is not completed, so complete it
+          const response = await apiRequest("completions/complete", "POST", {
+            habitId,
+            value: 1,
+          });
           const result = await response.json();
           
           if (result.success && result.data.xpEarned > 0) {
@@ -185,10 +188,11 @@ export default function Home() {
             });
           }
           return result;
-                 } else {
-           const response = await apiRequest("completions/uncomplete", "POST", {
-             habitId,
-           });
+        } else {
+          // Habit is completed, so uncomplete it
+          const response = await apiRequest("completions/uncomplete", "POST", {
+            habitId,
+          });
           const result = await response.json();
           
           if (result.success && result.data.xpLost > 0) {
@@ -343,81 +347,121 @@ export default function Home() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           {/* Welcome Section */}
-          <div className="bg-gradient-to-r from-primary to-purple-600 text-white p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
+          <div className="bg-gradient-to-r from-primary to-purple-600 text-white p-3 sm:p-6 md:p-8 lg:p-10 xl:p-12">
             <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                 <div>
-                  <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold mb-2">
+                  <h2 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold mb-1 sm:mb-2">
                     Good morning, {user.firstName || "there"}! 🌅
                   </h2>
-                  <p className="text-indigo-100 text-sm sm:text-base md:text-lg lg:text-xl">
+                  <p className="text-indigo-100 text-xs sm:text-base md:text-lg lg:text-xl">
                     You're doing great! Keep up the momentum.
                   </p>
                 </div>
-                <div className="mt-4 sm:mt-0 bg-white/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 md:p-5 lg:p-6 text-center">
-                  <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{currentStreak}</div>
+                <div className="mt-2 sm:mt-0 bg-white/20 backdrop-blur-sm rounded-xl p-2 sm:p-4 md:p-5 lg:p-6 text-center">
+                  <div className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold">{currentStreak}</div>
                   <div className="text-xs sm:text-sm md:text-base text-indigo-100">Day Streak</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
+          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-3 sm:px-6 md:px-8 lg:px-10 xl:px-12">
             {showTimezoneWarning}
             
-            {/* Stats Cards - Moved to top */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Habits</CardTitle>
-                  <i className="fas fa-list text-muted-foreground"></i>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{habits?.length || 0}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Active habits
-                  </p>
-                </CardContent>
-              </Card>
+            {/* Stats Cards - Compact on mobile, grid on desktop */}
+            <div className="mt-3 sm:mt-8 mb-3 sm:mb-6">
+              {isMobile ? (
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <Card className="h-16">
+                  <CardContent className="p-2 flex flex-col justify-center">
+                    <div className="text-base font-bold">{habits?.length || 0}</div>
+                    <div className="text-xs text-muted-foreground">Habits</div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="h-16">
+                  <CardContent className="p-2 flex flex-col justify-center">
+                    <div className="text-base font-bold">{completedToday.length}/{habits?.length || 0}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% done
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="h-16">
+                  <CardContent className="p-2 flex flex-col justify-center">
+                    <div className="text-base font-bold">{currentStreak}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {longestStreak} max
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="h-16">
+                  <CardContent className="p-2 flex flex-col justify-center">
+                    <div className="text-base font-bold">L{user?.level || 1}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {user?.xp || 0} XP
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+                <Card className="hover:shadow-lg transition-shadow duration-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base font-medium text-gray-600">Total Habits</CardTitle>
+                    <i className="fas fa-list text-gray-400"></i>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="text-3xl font-bold text-gray-900">{habits?.length || 0}</div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Active habits
+                    </p>
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Progress</CardTitle>
-                  <i className="fas fa-chart-line text-muted-foreground"></i>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{completedToday.length}/{habits?.length || 0}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% completed
-                  </p>
-                </CardContent>
-              </Card>
+                <Card className="hover:shadow-lg transition-shadow duration-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base font-medium text-gray-600">Today's Progress</CardTitle>
+                    <i className="fas fa-chart-line text-gray-400"></i>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="text-3xl font-bold text-gray-900">{completedToday.length}/{habits?.length || 0}</div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% completed
+                    </p>
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-                  <i className="fas fa-fire text-muted-foreground"></i>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{currentStreak}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Longest: {longestStreak} days
-                  </p>
-                </CardContent>
-              </Card>
+                <Card className="hover:shadow-lg transition-shadow duration-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base font-medium text-gray-600">Current Streak</CardTitle>
+                    <i className="fas fa-fire text-gray-400"></i>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="text-3xl font-bold text-gray-900">{currentStreak}</div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Longest: {longestStreak} days
+                    </p>
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Level & XP</CardTitle>
-                  <i className="fas fa-star text-muted-foreground"></i>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">Level {user?.level || 1}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {user?.xp || 0} XP • {100 - ((user?.xp || 0) % 100)} more XP
-                  </p>
-                </CardContent>
-              </Card>
+                <Card className="hover:shadow-lg transition-shadow duration-200">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base font-medium text-gray-600">Level & XP</CardTitle>
+                    <i className="fas fa-star text-gray-400"></i>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="text-3xl font-bold text-gray-900">Level {user?.level || 1}</div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {user?.xp || 0} XP • {100 - ((user?.xp || 0) % 100)} more XP
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
             </div>
 
             {/* Debug Section - Data Consistency Check */}
@@ -518,9 +562,9 @@ export default function Home() {
             )}
 
             {/* Today's Habits - Moved up after stats */}
-            <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
-                <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
+            <div className="mb-3 sm:mb-8 md:mb-10 lg:mb-12">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-6 space-y-2 sm:space-y-0">
+                <h3 className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
                   Today's Habits
                 </h3>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
@@ -546,10 +590,10 @@ export default function Home() {
 
               {/* Instructions for habit completion */}
               {habits.length > 0 && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-2 sm:mb-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-start space-x-2">
-                    <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
-                    <div className="text-sm text-blue-700">
+                    <i className="fas fa-info-circle text-blue-500 mt-0.5 text-xs sm:text-sm"></i>
+                    <div className="text-xs sm:text-sm text-blue-700">
                       <p className="font-medium mb-1">How to complete habits:</p>
                       <p className="text-xs">
                         • Click the circular button on the left of each habit

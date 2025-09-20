@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getMobileModalHeader, getMobileModalBody, getMobileModalFooter, getMobileButtonClasses } from '@/lib/utils';
+import { getMobileModalHeader, getMobileModalBody, getMobileButtonClasses } from '@/lib/utils';
 import { useScreenSize } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -337,16 +337,6 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
             </Button>
           </div>
           </form>
-        </div>
-
-        {/* Footer - Mobile optimized */}
-        <div className={getMobileModalFooter(isMobile)}>
-          <Button
-            onClick={onClose}
-            className={getMobileButtonClasses('outline', isMobile)}
-          >
-            Cancel
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

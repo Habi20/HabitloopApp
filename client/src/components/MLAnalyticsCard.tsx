@@ -109,126 +109,107 @@ export default function MLAnalyticsCard({ user }: MLAnalyticsCardProps) {
   }
 
   return (
-    <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-purple-900">
+    <Card className="bg-gradient-to-br from-purple-50 to-pink-100 border-purple-200 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-purple-900 text-sm">
           <i className="fas fa-brain text-purple-600"></i>
           AI-Powered Analytics
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         
         {/* Consistency Score */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">Consistency Score</span>
-            <span className={`text-lg font-bold ${getConsistencyColor(mlAnalytics.consistencyScore)}`}>
+            <span className="text-xs font-medium text-gray-700">Consistency Score</span>
+            <span className={`text-sm font-bold ${getConsistencyColor(mlAnalytics.consistencyScore)}`}>
               {mlAnalytics.consistencyScore}%
             </span>
           </div>
           <Progress 
             value={mlAnalytics.consistencyScore} 
-            className="h-2 bg-gray-200"
+            className="h-1.5 bg-gray-200"
           />
-          <p className="text-xs text-gray-500">
-            Based on habit completion patterns
-          </p>
         </div>
 
         {/* Motivation Level */}
-        <div className="space-y-2">
-          <span className="text-sm font-medium text-gray-700">Motivation Level</span>
-          <Badge className={getMotivationColor(mlAnalytics.motivationLevel)}>
-            <i className="fas fa-fire mr-1"></i>
-            {mlAnalytics.motivationLevel}
-          </Badge>
-          <p className="text-xs text-gray-500">
-            Clustered from behavioral patterns
-          </p>
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium text-gray-700">Motivation Level</span>
+            <Badge className={`${getMotivationColor(mlAnalytics.motivationLevel)} text-xs px-2 py-0.5`}>
+              <i className="fas fa-fire mr-1"></i>
+              {mlAnalytics.motivationLevel}
+            </Badge>
+          </div>
         </div>
 
         {/* Engagement Level */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">Current Engagement</span>
-            <span className="text-lg font-bold text-blue-600">
+            <span className="text-xs font-medium text-gray-700">Current Engagement</span>
+            <span className="text-sm font-bold text-blue-600">
               {mlAnalytics.engagementLevel}%
             </span>
           </div>
           <Progress 
             value={mlAnalytics.engagementLevel} 
-            className="h-2 bg-gray-200"
+            className="h-1.5 bg-gray-200"
           />
         </div>
 
         {/* Optimal Times */}
-        <div className="space-y-2">
-          <span className="text-sm font-medium text-gray-700">Optimal Times</span>
-          {mlAnalytics.optimalTimes.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {mlAnalytics.optimalTimes.map((time: string, index: number) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  <i className="fas fa-clock mr-1"></i>
-                  {time}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-2">
-              <p className="text-xs text-gray-500">
-                No habits added yet
-              </p>
-            </div>
-          )}
-          <p className="text-xs text-gray-500">
-            Best times for habit completion
-          </p>
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium text-gray-700">Optimal Times</span>
+            {mlAnalytics.optimalTimes.length > 0 ? (
+              <div className="flex gap-1">
+                {mlAnalytics.optimalTimes.slice(0, 2).map((time: string, index: number) => (
+                  <Badge key={index} variant="outline" className="text-xs px-1.5 py-0.5">
+                    <i className="fas fa-clock mr-1"></i>
+                    {time}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-gray-500">No data</span>
+            )}
+          </div>
         </div>
 
         {/* Performance Categories */}
-        <div className="space-y-2">
-          <span className="text-sm font-medium text-gray-700">You Excel At</span>
-          {mlAnalytics.performanceCategories.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {mlAnalytics.performanceCategories.map((category: string, index: number) => (
-                <Badge key={index} className="bg-indigo-100 text-indigo-800 border-indigo-200 text-xs">
-                  <i className="fas fa-star mr-1"></i>
-                  {category}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <i className="fas fa-plus-circle text-gray-300 text-2xl mb-2"></i>
-              <p className="text-xs text-gray-500">
-                No habits added yet. Add your first habit to see your achievements!
-              </p>
-            </div>
-          )}
+        <div className="space-y-1">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium text-gray-700">You Excel At</span>
+            {mlAnalytics.performanceCategories.length > 0 ? (
+              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200 text-xs px-2 py-0.5">
+                <i className="fas fa-star mr-1"></i>
+                {mlAnalytics.performanceCategories[0]}
+              </Badge>
+            ) : (
+              <span className="text-xs text-gray-500">No data</span>
+            )}
+          </div>
         </div>
 
         {/* Weekly Forecast */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700">Weekly Forecast</span>
-            <span className="text-lg font-bold text-purple-600">
+            <span className="text-xs font-medium text-gray-700">Weekly Forecast</span>
+            <span className="text-sm font-bold text-purple-600">
               {mlAnalytics.weeklyForecast}%
             </span>
           </div>
           <Progress 
             value={mlAnalytics.weeklyForecast} 
-            className="h-2 bg-gray-200"
+            className="h-1.5 bg-gray-200"
           />
-          <p className="text-xs text-gray-500">
-            Predicted success rate for next week
-          </p>
         </div>
 
         {/* ML Confidence */}
         <div className="pt-2 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">ML Confidence</span>
-            <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+            <Badge className="bg-green-100 text-green-800 border-green-200 text-xs px-2 py-0.5">
               <i className="fas fa-check-circle mr-1"></i>
               {mlAnalytics.confidenceLevel}
             </Badge>

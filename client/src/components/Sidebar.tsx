@@ -22,7 +22,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
       {open && (
         <div className={getResponsiveOverlayClasses()} onClick={onClose} aria-hidden="true" />
       )}
-      
+
       {/* Sidebar */}
       <aside className={sidebarClasses}>
         {/* Header with Logo */}
@@ -35,8 +35,8 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
           </Link>
           
           {/* Close button - only show on mobile/tablet */}
-          <button
-            onClick={onClose}
+            <button 
+              onClick={onClose}
             className={cn(
               "lg:hidden p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors",
               getTouchButtonClasses(isTouchDevice ? 'md' : 'sm')
@@ -44,9 +44,9 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
             aria-label="Close menu"
           >
             <i className="fas fa-times w-5 h-5 flex items-center justify-center"></i>
-          </button>
+            </button>
         </div>
-
+        
         {/* Navigation */}
         <nav className="p-4 sm:p-6 flex-1 overflow-y-auto">
           <div className="space-y-2">
@@ -55,11 +55,10 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               href="/"
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
-                "hover:bg-gray-100 hover:text-primary group",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 location === "/" 
-                  ? "bg-primary text-white hover:bg-primary-dark" 
-                  : "text-gray-700 hover:text-primary"
+                  ? "bg-primary text-white hover:bg-primary-dark group" 
+                  : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
               )}
               role="button"
               tabIndex={0}
@@ -82,11 +81,10 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               href="/stats"
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
-                "hover:bg-gray-100 hover:text-primary group",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 location === "/stats" 
-                  ? "bg-primary text-white hover:bg-primary-dark" 
-                  : "text-gray-700 hover:text-primary"
+                  ? "bg-primary text-white hover:bg-primary-dark group" 
+                  : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
               )}
               role="button"
               tabIndex={0}
@@ -109,11 +107,10 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               href="/habits"
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
-                "hover:bg-gray-100 hover:text-primary group",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 location === "/habits" 
-                  ? "bg-primary text-white hover:bg-primary-dark" 
-                  : "text-gray-700 hover:text-primary"
+                  ? "bg-primary text-white hover:bg-primary-dark group" 
+                  : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
               )}
               role="button"
               tabIndex={0}
@@ -136,11 +133,10 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               href="/challenges"
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
-                "hover:bg-gray-100 hover:text-primary group",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 location === "/challenges" 
-                  ? "bg-primary text-white hover:bg-primary-dark" 
-                  : "text-gray-700 hover:text-primary"
+                  ? "bg-primary text-white hover:bg-primary-dark group" 
+                  : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
               )}
               role="button"
               tabIndex={0}
@@ -163,11 +159,10 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               href="/profile"
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
-                "hover:bg-gray-100 hover:text-primary group",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 location === "/profile" 
-                  ? "bg-primary text-white hover:bg-primary-dark" 
-                  : "text-gray-700 hover:text-primary"
+                  ? "bg-primary text-white hover:bg-primary-dark group" 
+                  : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
               )}
               role="button"
               tabIndex={0}
@@ -184,18 +179,17 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
                 location === "/profile" ? "text-white" : "text-gray-500 group-hover:text-primary"
               )}></i>
               <span className="font-medium">Profile</span>
-            </Link>
+                </Link>
 
-                         <Link
-               href="/settings"
-               className={cn(
-                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
-                 "hover:bg-gray-100 hover:text-primary group",
-                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                 location === "/settings" 
-                   ? "bg-primary text-white hover:bg-primary-dark" 
-                   : "text-gray-700 hover:text-primary"
-               )}
+            <Link
+              href="/settings"
+              className={cn(
+                "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
+                "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                location === "/settings" 
+                  ? "bg-primary text-white hover:bg-primary-dark group" 
+                  : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
+              )}
                role="button"
                tabIndex={0}
                aria-label="Go to Settings page"
@@ -211,7 +205,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
                  location === "/settings" ? "text-white" : "text-gray-500 group-hover:text-primary"
                )}></i>
                <span className="font-medium">Settings</span>
-             </Link>
+                  </Link>
            </div>
 
            {/* Sign Out Button - Bottom of sidebar */}
@@ -237,8 +231,8 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
                <i className="fas fa-sign-out-alt w-5 h-5 flex items-center justify-center text-gray-500 group-hover:text-red-600"></i>
                <span className="font-medium">Sign Out</span>
              </button>
-           </div>
-         </nav>
+          </div>
+        </nav>
       </aside>
     </>
   );

@@ -18,7 +18,21 @@ import {
   EyeOff,
   RefreshCw,
   AlertTriangle,
-
+  Settings,
+  TestTube,
+  Bug,
+  Terminal,
+  Zap,
+  BarChart3,
+  FileText,
+  Download,
+  Trash2,
+  Play,
+  Pause,
+  RotateCcw,
+  Calendar,
+  Mail,
+  Bell
 } from 'lucide-react';
 import { setFrontendLogStatus } from '../utils/frontendLogger';
 
@@ -83,8 +97,9 @@ const Admin: React.FC = () => {
   const [logsEnabled, setLogsEnabled] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
 
-  // Check if user is admin
+  // Check if user is admin or super-admin
   const isAdmin = user?.role === 'admin' || user?.role === 'super_user';
+  const isSuperAdmin = user?.id === 'admin-001' || user?.role === 'super_admin' || user?.userSettings?.superAdmin === true;
 
   useEffect(() => {
     // If admin_token exists in localStorage, treat admin as authenticated for the admin panel
@@ -325,6 +340,358 @@ const Admin: React.FC = () => {
     }
   };
 
+  // Super-Admin Testing Functions
+  const testCalendarIntegration = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/google-calendar/status'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🧪 Calendar Integration Test:', data);
+      alert(`Calendar Integration Test: ${data.connected ? '✅ Connected' : '❌ Not Connected'}`);
+    } catch (error) {
+      console.error('Calendar test failed:', error);
+      alert('❌ Calendar Integration Test Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testMLSystem = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/ml/predictions'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🧪 ML System Test:', data);
+      alert(`ML System Test: ${data.success ? '✅ Online' : '❌ Offline'}`);
+    } catch (error) {
+      console.error('ML test failed:', error);
+      alert('❌ ML System Test Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testDatabaseConnection = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/health'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🧪 Database Test:', data);
+      alert(`Database Test: ${data.database ? '✅ Connected' : '❌ Disconnected'}`);
+    } catch (error) {
+      console.error('Database test failed:', error);
+      alert('❌ Database Test Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testEmailService = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/email/test'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ test: true })
+      });
+      const data = await response.json();
+      console.log('🧪 Email Service Test:', data);
+      alert(`Email Service Test: ${data.success ? '✅ Working' : '❌ Failed'}`);
+    } catch (error) {
+      console.error('Email test failed:', error);
+      alert('❌ Email Service Test Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testAICoaching = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/ai/coach/test'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ test: true })
+      });
+      const data = await response.json();
+      console.log('🧪 AI Coaching Test:', data);
+      alert(`AI Coaching Test: ${data.success ? '✅ Working' : '❌ Failed'}`);
+    } catch (error) {
+      console.error('AI Coaching test failed:', error);
+      alert('❌ AI Coaching Test Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testNotificationSystem = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/notifications/test'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ test: true })
+      });
+      const data = await response.json();
+      console.log('🧪 Notification System Test:', data);
+      alert(`Notification System Test: ${data.success ? '✅ Working' : '❌ Failed'}`);
+    } catch (error) {
+      console.error('Notification test failed:', error);
+      alert('❌ Notification System Test Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const debugUserSessions = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/debug/sessions'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🐛 User Sessions Debug:', data);
+      alert(`User Sessions Debug: Found ${data.sessions?.length || 0} active sessions`);
+    } catch (error) {
+      console.error('Sessions debug failed:', error);
+      alert('❌ Sessions Debug Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const debugHabitSync = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/google-calendar/debug-habits'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🐛 Habit Sync Debug:', data);
+      alert(`Habit Sync Debug: ${data.habits?.length || 0} habits found`);
+    } catch (error) {
+      console.error('Habit sync debug failed:', error);
+      alert('❌ Habit Sync Debug Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const debugXPCalculation = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/debug/xp'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🐛 XP Calculation Debug:', data);
+      alert(`XP Calculation Debug: ${data.users?.length || 0} users analyzed`);
+    } catch (error) {
+      console.error('XP debug failed:', error);
+      alert('❌ XP Calculation Debug Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const debugDatabaseQueries = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/debug/queries'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🐛 Database Queries Debug:', data);
+      alert(`Database Queries Debug: ${data.queries?.length || 0} queries analyzed`);
+    } catch (error) {
+      console.error('Database queries debug failed:', error);
+      alert('❌ Database Queries Debug Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportAllData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/export/all'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `habitloop-full-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      alert('✅ All data exported successfully');
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('❌ Export Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cleanupOrphanedData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/cleanup'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      console.log('🧹 Cleanup Results:', data);
+      alert(`Cleanup Complete: ${data.cleaned || 0} orphaned records removed`);
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      alert('❌ Cleanup Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetUserData = async () => {
+    if (!confirm('⚠️ This will reset ALL user data. Are you sure?')) return;
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/reset-users'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      console.log('🔄 Reset Results:', data);
+      alert(`Reset Complete: ${data.reset || 0} users reset`);
+    } catch (error) {
+      console.error('Reset failed:', error);
+      alert('❌ Reset Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validateDataIntegrity = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/validate'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('🛡️ Validation Results:', data);
+      alert(`Data Validation: ${data.valid ? '✅ All data valid' : '❌ Issues found'}`);
+    } catch (error) {
+      console.error('Validation failed:', error);
+      alert('❌ Validation Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restartServices = async () => {
+    if (!confirm('⚠️ This will restart all services. Continue?')) return;
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/restart'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      console.log('🔄 Restart Results:', data);
+      alert('✅ Services restart initiated');
+    } catch (error) {
+      console.error('Restart failed:', error);
+      alert('❌ Restart Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pauseServices = async () => {
+    if (!confirm('⚠️ This will pause all services. Continue?')) return;
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/pause'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      console.log('⏸️ Pause Results:', data);
+      alert('✅ Services paused');
+    } catch (error) {
+      console.error('Pause failed:', error);
+      alert('❌ Pause Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearCache = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/clear-cache'), {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      console.log('🗑️ Cache Clear Results:', data);
+      alert('✅ Cache cleared successfully');
+    } catch (error) {
+      console.error('Cache clear failed:', error);
+      alert('❌ Cache Clear Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSystemReport = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl('/admin/report'), {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      console.log('📊 System Report:', data);
+      alert(`System Report Generated: ${data.report ? '✅ Available' : '❌ Failed'}`);
+    } catch (error) {
+      console.error('Report generation failed:', error);
+      alert('❌ Report Generation Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Show access denied for non-admin users
   if (isAuthenticated && !isAdmin) {
     return (
@@ -419,6 +786,7 @@ const Admin: React.FC = () => {
           <TabsTrigger value="backup">Backup</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="ml">ML System</TabsTrigger>
+          {isSuperAdmin && <TabsTrigger value="testing">🧪 Testing</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -739,6 +1107,245 @@ const Admin: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isSuperAdmin && (
+          <TabsContent value="testing" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Technical Testing Tools */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TestTube className="h-5 w-5" />
+                    Technical Testing Tools
+                  </CardTitle>
+                  <CardDescription>
+                    Advanced testing and debugging tools for super-admin users
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => testCalendarIntegration()}
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Test Calendar
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => testMLSystem()}
+                    >
+                      <Brain className="h-4 w-4" />
+                      Test ML System
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => testDatabaseConnection()}
+                    >
+                      <Database className="h-4 w-4" />
+                      Test Database
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => testEmailService()}
+                    >
+                      <Mail className="h-4 w-4" />
+                      Test Email
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => testAICoaching()}
+                    >
+                      <Zap className="h-4 w-4" />
+                      Test AI Coaching
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => testNotificationSystem()}
+                    >
+                      <Bell className="h-4 w-4" />
+                      Test Notifications
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* System Debugging */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bug className="h-5 w-5" />
+                    System Debugging
+                  </CardTitle>
+                  <CardDescription>
+                    Debug and troubleshoot system issues
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => debugUserSessions()}
+                    >
+                      <Users className="h-4 w-4" />
+                      Debug Sessions
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => debugHabitSync()}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Debug Habit Sync
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => debugXPCalculation()}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Debug XP Calc
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => debugDatabaseQueries()}
+                    >
+                      <Terminal className="h-4 w-4" />
+                      Debug Queries
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Data Management */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Data Management
+                  </CardTitle>
+                  <CardDescription>
+                    Advanced data operations and maintenance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => exportAllData()}
+                    >
+                      <Download className="h-4 w-4" />
+                      Export All Data
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => cleanupOrphanedData()}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Cleanup Data
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => resetUserData()}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Reset User Data
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => validateDataIntegrity()}
+                    >
+                      <Shield className="h-4 w-4" />
+                      Validate Data
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* System Control */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    System Control
+                  </CardTitle>
+                  <CardDescription>
+                    System maintenance and control operations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => restartServices()}
+                    >
+                      <Play className="h-4 w-4" />
+                      Restart Services
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => pauseServices()}
+                    >
+                      <Pause className="h-4 w-4" />
+                      Pause Services
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => clearCache()}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Clear Cache
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => generateSystemReport()}
+                    >
+                      <FileText className="h-4 w-4" />
+                      System Report
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Testing Results */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Terminal className="h-5 w-5" />
+                  Testing Results
+                </CardTitle>
+                <CardDescription>
+                  Real-time output from testing operations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm h-64 overflow-y-auto">
+                  <div className="space-y-1">
+                    <div>🔧 Super-Admin Testing Console</div>
+                    <div>Ready for testing operations...</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -36,7 +36,7 @@ const defaultSettings: UISettings = {
   showAIQuestionnaire: true,
   advancedFeatures: false,
   showHabitCarousel: true,
-  allNotifications: true,
+  allNotifications: false, // ← Changed to false by default
   dailyEmailReports: false,
   weeklyEmailReports: false,
   monthlyEmailReports: false,
@@ -51,18 +51,7 @@ export function useUISettings() {
   useEffect(() => {
     let loadedSettings = { ...defaultSettings };
     
-    // First, try to load from user data (database settings)
-    if (user?.userSettings?.settings) {
-      try {
-        const userSettings = user.userSettings.settings;
-        loadedSettings = { ...loadedSettings, ...userSettings };
-        console.log('✅ Loaded settings from user data:', userSettings);
-      } catch (error) {
-        console.error('Error loading settings from user data:', error);
-      }
-    }
-    
-    // Then, try to load from localStorage (local overrides)
+    // First, try to load from localStorage (for immediate UI updates)
     const savedSettings = localStorage.getItem('habitloop_ui_settings');
     if (savedSettings) {
       try {
@@ -71,6 +60,21 @@ export function useUISettings() {
         console.log('✅ Loaded settings from localStorage:', parsedSettings);
       } catch (error) {
         console.error('Error loading UI settings from localStorage:', error);
+      }
+    }
+    
+    // Then, override with user data (database settings) - this takes precedence
+    if (user?.userSettings?.settings) {
+      try {
+        const userSettings = user.userSettings.settings;
+        loadedSettings = { ...loadedSettings, ...userSettings };
+        console.log('✅ Loaded settings from user data (database):', userSettings);
+        
+        // Update localStorage to match database settings
+        localStorage.setItem('habitloop_ui_settings', JSON.stringify(loadedSettings));
+        console.log('✅ Updated localStorage to match database settings');
+      } catch (error) {
+        console.error('Error loading settings from user data:', error);
       }
     }
     

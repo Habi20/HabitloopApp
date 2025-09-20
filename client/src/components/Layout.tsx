@@ -131,7 +131,7 @@ export function Layout({
           
           {/* Center: Page Title (Desktop only) */}
           <div className="hidden lg:flex items-center justify-center flex-1">
-            <h1 className="text-xl font-bold text-gray-900">{pageTitle}</h1>
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">{pageTitle}</h1>
           </div>
           
           {/* Right: Spacer for centering */}

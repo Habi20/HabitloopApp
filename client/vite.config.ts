@@ -4,6 +4,11 @@ import path from "path"
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Enable PWA features
+    __PWA_ENABLED__: true,
+  },
+  publicDir: 'public',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
