@@ -39,6 +39,11 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(userData: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
+  
+  // Password reset operations
+  generatePasswordResetToken(userId: string): Promise<string>;
+  validatePasswordResetToken(token: string): Promise<string | null>;
+  resetPassword(token: string, newPassword: string): Promise<boolean>;
 
   // RBAC operations
   getUserPermissions(userId: string): Promise<string[]>;
@@ -243,6 +248,102 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  // Password reset operations
+  async generatePasswordResetToken(userId: string): Promise<string> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Generate a secure random token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Store token in user settings with expiration (1 hour)
+      const resetToken = {
+        token,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+        createdAt: new Date().toISOString()
+      };
+
+      const currentSettings = user.userSettings || {};
+      const updatedSettings = {
+        ...currentSettings,
+        passwordResetToken: resetToken
+      };
+
+      await this.updateUser(userId, { userSettings: updatedSettings });
+      
+      console.log(`🔐 Password reset token generated for user ${userId}`);
+      return token;
+    } catch (error) {
+      console.error('Error generating password reset token:', error);
+      throw error;
+    }
+  }
+
+  async validatePasswordResetToken(token: string): Promise<string | null> {
+    try {
+      const allUsers = await this.getAllUsers();
+      
+      for (const user of allUsers) {
+        const userSettings = user.userSettings as any;
+        const resetToken = userSettings?.passwordResetToken;
+        if (resetToken && resetToken.token === token) {
+          // Check if token is expired
+          const expiresAt = new Date(resetToken.expiresAt);
+          if (expiresAt > new Date()) {
+            return user.id;
+          } else {
+            // Token expired, remove it
+            const updatedSettings = { ...(userSettings || {}) };
+            delete updatedSettings.passwordResetToken;
+            await this.updateUser(user.id, { userSettings: updatedSettings });
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error validating password reset token:', error);
+      return null;
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    try {
+      const userId = await this.validatePasswordResetToken(token);
+      if (!userId) {
+        return false;
+      }
+
+      // Hash the new password
+      const bcrypt = await import('bcrypt');
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      // Update user password and remove reset token
+      const user = await this.getUser(userId);
+      if (!user) return false;
+
+      const userSettings = user.userSettings as any;
+      const updatedSettings = { ...(userSettings || {}) };
+      delete updatedSettings.passwordResetToken;
+
+      await this.updateUser(userId, {
+        passwordHash: hashedPassword,
+        userSettings: updatedSettings
+      });
+
+      console.log(`✅ Password reset successfully for user ${userId}`);
+      return true;
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      return false;
+    }
   }
 
   // RBAC operations
