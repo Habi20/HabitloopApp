@@ -1,9 +1,9 @@
 // HabitLoop Service Worker
-// Version 1.0.0
+// Version 1.0.3
 
-const CACHE_NAME = 'habitloop-v1.0.0';
-const STATIC_CACHE = 'habitloop-static-v1.0.0';
-const DYNAMIC_CACHE = 'habitloop-dynamic-v1.0.0';
+const CACHE_NAME = 'habitloop-v1.0.3';
+const STATIC_CACHE = 'habitloop-static-v1.0.3';
+const DYNAMIC_CACHE = 'habitloop-dynamic-v1.0.3';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
@@ -285,13 +285,11 @@ self.addEventListener('push', (event) => {
     actions: [
       {
         action: 'open',
-        title: 'Open HabitLoop',
-        icon: '/icons/action-open.png'
+        title: 'Open HabitLoop'
       },
       {
         action: 'dismiss',
-        title: 'Dismiss',
-        icon: '/icons/action-dismiss.png'
+        title: 'Dismiss'
       }
     ]
   };

@@ -204,9 +204,9 @@ export default function Profile() {
                         <div className="text-sm text-gray-600">{user?.xp || 0} XP</div>
                       </div>
                       <div className="flex-1">
-                        <div className="flex justify-between text-xs text-gray-600 mb-2">
+                        <div className="flex justify-between items-center text-xs text-gray-600 mb-2">
                           <span>Progress to Level {(user?.level || 1) + 1}</span>
-                          <span className="font-medium">{((user?.xp || 0) % 100)}%</span>
+                          <span className="font-medium ml-2">{((user?.xp || 0) % 100)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                           <div 

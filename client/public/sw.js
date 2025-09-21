@@ -1,9 +1,9 @@
 // HabitLoop Service Worker
-// Version 1.0.0
+// Version 1.0.2
 
-const CACHE_NAME = 'habitloop-v1.0.0';
-const STATIC_CACHE = 'habitloop-static-v1.0.0';
-const DYNAMIC_CACHE = 'habitloop-dynamic-v1.0.0';
+const CACHE_NAME = 'habitloop-v1.0.2';
+const STATIC_CACHE = 'habitloop-static-v1.0.2';
+const DYNAMIC_CACHE = 'habitloop-dynamic-v1.0.2';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
