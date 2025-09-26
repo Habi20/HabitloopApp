@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildApiUrl } from "@/config/api";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
+import { ResetPasswordModal } from "./ResetPasswordModal";
 
 interface HabitLoopLoginModalProps {
   open: boolean;
@@ -45,6 +46,7 @@ export function HabitLoopLoginModal({
     xp: number;
     difficulty: string;
   } | null>(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -160,7 +162,7 @@ export function HabitLoopLoginModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
             Welcome to HabitLoop!
@@ -282,6 +284,17 @@ export function HabitLoopLoginModal({
                   {loading ? "Logging in..." : "Login"}
                 </Button>
               </form>
+
+              {/* Forgot Password Link */}
+              <div className="text-center mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </CardContent>
           </Card>
 
@@ -300,6 +313,16 @@ export function HabitLoopLoginModal({
           </div>
         </div>
       </DialogContent>
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal
+        isOpen={showResetPassword}
+        onClose={() => setShowResetPassword(false)}
+        onSuccess={() => {
+          setShowResetPassword(false);
+          onSuccess();
+        }}
+      />
     </Dialog>
   );
 }

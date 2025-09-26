@@ -286,35 +286,51 @@ export default function Settings() {
                         {/* Email Notifications - Compact */}
                         <div className="pt-4 border-t border-gray-200">
                           <h4 className="font-medium text-gray-900 mb-3">Email Reports</h4>
+                          <p className="text-xs text-gray-500 mb-3">Select one frequency for email reports</p>
                           
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-gray-800">Daily</span>
                               <Switch
                                 checked={settings.dailyEmailReports || false}
-                       onCheckedChange={(checked) =>
-                                  handleSettingChange("dailyEmailReports", checked)
-                       }
-                     />
-                   </div>
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    // Turn off others when this is enabled
+                                    handleSettingChange("weeklyEmailReports", false);
+                                    handleSettingChange("monthlyEmailReports", false);
+                                  }
+                                  handleSettingChange("dailyEmailReports", checked);
+                                }}
+                              />
+                            </div>
 
-                   <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-gray-800">Weekly</span>
-                     <Switch
+                              <Switch
                                 checked={settings.weeklyEmailReports || false}
-                       onCheckedChange={(checked) =>
-                                  handleSettingChange("weeklyEmailReports", checked)
-                       }
-                     />
-                   </div>
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    // Turn off others when this is enabled
+                                    handleSettingChange("dailyEmailReports", false);
+                                    handleSettingChange("monthlyEmailReports", false);
+                                  }
+                                  handleSettingChange("weeklyEmailReports", checked);
+                                }}
+                              />
+                            </div>
 
-                   <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-gray-800">Monthly</span>
                               <Switch
                                 checked={settings.monthlyEmailReports || false}
-                                onCheckedChange={(checked) =>
-                                  handleSettingChange("monthlyEmailReports", checked)
-                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    // Turn off others when this is enabled
+                                    handleSettingChange("dailyEmailReports", false);
+                                    handleSettingChange("weeklyEmailReports", false);
+                                  }
+                                  handleSettingChange("monthlyEmailReports", checked);
+                                }}
                               />
                             </div>
                           </div>
@@ -357,6 +373,46 @@ export default function Settings() {
                      </div>
                    </div>
                  )}
+            </CardContent>
+          </Card>
+
+          {/* Legal & Privacy */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Legal & Privacy</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-gray-900">Terms of Service</h4>
+                  <p className="text-sm text-gray-600">
+                    Read our terms and conditions
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.open('/terms-of-service.html', '_blank')}
+                >
+                  <i className="fas fa-external-link-alt mr-2"></i>
+                  View Terms
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-gray-900">Privacy Policy</h4>
+                  <p className="text-sm text-gray-600">
+                    Learn how we protect your data
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.open('/privacy-policy.html', '_blank')}
+                >
+                  <i className="fas fa-external-link-alt mr-2"></i>
+                  View Privacy
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

@@ -3,7 +3,8 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { getResponsiveSidebarClasses, getResponsiveOverlayClasses, getTouchButtonClasses } from "@/lib/utils";
 import { useIsTouchDevice } from "@/hooks/use-mobile";
-import { useAuth } from "@/contexts/AuthContext";
+// import { useAuth } from "@/contexts/AuthContext";
+import { useLogoutProtection } from "@/hooks/useLogoutProtection";
 
 interface SidebarProps {
   open?: boolean;
@@ -13,8 +14,14 @@ interface SidebarProps {
 export function Sidebar({ open = true, onClose }: SidebarProps) {
   const [location] = useLocation();
   const isTouchDevice = useIsTouchDevice();
-  const { logout } = useAuth();
+  const { logout } = useLogoutProtection();
   const sidebarClasses = getResponsiveSidebarClasses(open);
+  
+  // Debug location for troubleshooting
+  console.log('Sidebar location:', location);
+  
+  // More robust location checking
+  const isTodayPage = location === "/" || location === "" || location === "/home";
 
   return (
     <>
@@ -56,7 +63,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                location === "/" 
+                isTodayPage 
                   ? "bg-primary text-white hover:bg-primary-dark group" 
                   : "text-gray-700 hover:bg-gray-100 hover:text-primary group"
               )}
@@ -72,7 +79,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
             >
               <i className={cn(
                 "fas fa-home w-5 h-5 flex items-center justify-center",
-                location === "/" ? "text-white" : "text-gray-500 group-hover:text-primary"
+                isTodayPage ? "text-white" : "text-gray-500 group-hover:text-primary"
               )}></i>
               <span className="font-medium">Today</span>
             </Link>

@@ -283,6 +283,24 @@ export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrati
           title: "Calendar Connected",
           description: "Google Calendar integration is active and ready to sync!",
         });
+        
+        // Sync existing completions when calendar is connected
+        try {
+          console.log('🔄 Syncing existing completions to calendar...');
+          const syncResponse = await apiRequest('google-calendar/sync-completions', 'POST');
+          if (syncResponse.ok) {
+            console.log('✅ Existing completions synced to calendar');
+          } else {
+            console.log('⚠️ Failed to sync existing completions, but calendar is connected');
+          }
+        } catch (syncError) {
+          console.log('⚠️ Error syncing existing completions:', syncError);
+        }
+        
+        // Add delay to prevent UI crash
+        console.log('⏳ Adding 5-second delay to prevent UI crash...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log('✅ Delay completed, UI should be stable now');
       } else {
         console.log('❌ Google Calendar is not connected');
       }
@@ -568,12 +586,21 @@ export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrati
         console.error('Validation failed:', errorData);
         
         // Handle different error scenarios
-        if (errorData.error?.includes('Not Found') || errorData.error?.includes('not found')) {
+        if (errorData.needsReconnect) {
+          console.log('🔌 Google Calendar needs reconnection');
+          toast({
+            title: "Reconnection Required",
+            description: errorData.error || "Please reconnect your Google Calendar",
+            className: "bg-amber-50 border-amber-200 text-amber-800",
+          });
+          setIsConnected(false);
+          return;
+        } else if (errorData.error?.includes('Not Found') || errorData.error?.includes('not found')) {
           console.log('🗑️ Calendar was deleted, will create a new one');
           toast({
             title: "Calendar Deleted",
             description: "Your HabitLoop calendar was deleted. Creating a new one...",
-            variant: "destructive",
+            className: "bg-amber-50 border-amber-200 text-amber-800",
           });
           
           // Create a new HabitLoop calendar
@@ -582,7 +609,7 @@ export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrati
           toast({
             title: "Validation Failed",
             description: errorData.error || "Failed to validate calendar sync",
-            variant: "destructive",
+            className: "bg-amber-50 border-amber-200 text-amber-800",
           });
         }
         return;

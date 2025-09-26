@@ -119,18 +119,16 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
   const handleToggle = () => {
     if (loading) return;
     
-    if (!completed) {
-      setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 2000);
-    }
+    // Trigger animation for both completion and uncompletion
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 800);
     
     onToggle(!completed);
   };
 
   const getProgressPercentage = () => {
     if (completed) return 100;
-    // For demo purposes, showing partial progress for some habits
-    if (habit.title.includes("Water")) return 63;
+    // Only show 0% for incomplete habits - no partial progress
     return 0;
   };
 
@@ -146,16 +144,6 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
     return colors[category] || "bg-gray-100 text-gray-800";
   };
 
-  const buttonClasses = cn(
-    "w-12 h-12 rounded-full flex items-center justify-center hover:scale-105 transition-all duration-200",
-    completed 
-      ? "bg-success text-white"
-      : getProgressPercentage() > 0 && getProgressPercentage() < 100
-        ? "bg-warning text-white animate-pulse"
-        : "bg-gray-200 text-gray-400 hover:bg-primary hover:text-white",
-    isAnimating && "animate-bounce",
-    loading && "opacity-50 cursor-not-allowed"
-  );
 
   const progressPercentage = getProgressPercentage();
 
@@ -163,85 +151,121 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start space-x-3 sm:space-x-4 md:space-x-5 lg:space-x-6">
-          <div className="flex flex-col items-center space-y-1">
+          <div className="flex flex-col items-center space-y-1 min-h-[100px] justify-start">
             <div className="relative">
-              {/* Progress ring for in-progress habits */}
-              {progressPercentage > 0 && progressPercentage < 100 && !completed && (
-                <div className="absolute inset-0 rounded-full">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-gray-200"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="text-primary"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      fill="none"
-                      strokeDasharray={`${progressPercentage}, 100`}
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                </div>
-              )}
-              
-              <button 
-                onClick={handleToggle}
-                disabled={loading}
-                className={cn(
-                  buttonClasses, 
-                  "flex-shrink-0 w-14 h-14 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18",
-                  "relative overflow-hidden transition-all duration-300",
-                  "hover:scale-105 active:scale-95",
-                  "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                  completed ? "shadow-lg shadow-green-200" : "shadow-md hover:shadow-lg"
-                )}
-              >
-              {completed ? (
-                <div className="flex items-center justify-center w-full h-full">
-                  <i className="fas fa-check text-sm sm:text-base md:text-lg lg:text-xl"></i>
-                </div>
-              ) : progressPercentage > 0 && progressPercentage < 100 ? (
-                <div className="flex items-center justify-center w-full h-full">
-                  <i className="fas fa-play text-sm sm:text-base md:text-lg lg:text-xl"></i>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center w-full h-full">
-                  <i className="fas fa-circle text-sm sm:text-base md:text-lg lg:text-xl"></i>
-                </div>
-              )}
-              
-                {/* Completion animation overlay */}
-                {isAnimating && (
-                  <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
-                    <i className="fas fa-check text-green-500 text-lg animate-bounce"></i>
+              {/* Gamified Completion Button */}
+              <div className="relative flex-shrink-0">
+                <button 
+                  onClick={handleToggle}
+                  disabled={loading}
+                  className={cn(
+                    "relative w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full transition-all duration-300",
+                    "hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                    "flex items-center justify-center overflow-hidden",
+                    completed 
+                      ? "bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 text-white shadow-xl shadow-green-200/50" 
+                      : "bg-gradient-to-br from-slate-100 via-gray-200 to-slate-300 text-slate-600 hover:from-slate-200 hover:via-gray-300 hover:to-slate-400 shadow-lg hover:shadow-xl"
+                  )}
+                >
+                  {/* Background Pattern for Incomplete State */}
+                  {!completed && (
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="w-full h-full rounded-full border-2 border-dashed border-slate-400"></div>
+                    </div>
+                  )}
+                  
+                  {/* Completion State - Animated Check */}
+                  {completed && (
+                    <div className="relative">
+                      <i className="fas fa-check text-lg sm:text-xl font-bold animate-pulse"></i>
+                      {/* Sparkle Effect */}
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping"></div>
+                      <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
+                    </div>
+                  )}
+                  
+                  {/* Incomplete State - Progress Indicator */}
+                  {!completed && (
+                    <div className="relative">
+                      {loading ? (
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent"></div>
+                      ) : progressPercentage > 0 && progressPercentage < 100 ? (
+                        <div className="relative">
+                          <i className="fas fa-play text-sm sm:text-base"></i>
+                          {/* Progress Ring */}
+                          <div className="absolute -inset-2">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                              <path
+                                className="text-primary/30"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              />
+                              <path
+                                className="text-primary transition-all duration-500"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                strokeDasharray={`${progressPercentage}, 100`}
+                                strokeLinecap="round"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      ) : (
+                        <i className="fas fa-circle text-sm sm:text-base"></i>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Completion Animation Overlay */}
+                  {isAnimating && (
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center">
+                      <div className="relative">
+                        <i className="fas fa-check text-2xl text-emerald-500 animate-bounce"></i>
+                        {/* Celebration Particles */}
+                        <div className="absolute -top-2 -right-2 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
+                        <div className="absolute -bottom-2 -left-2 w-2 h-2 bg-pink-400 rounded-full animate-ping" style={{ animationDelay: '0.3s' }}></div>
+                        <div className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '0.6s' }}></div>
+                      </div>
+                    </div>
+                  )}
+                </button>
+                
+                {/* XP Badge - Only show in incomplete state with animation */}
+                {!completed && (
+                  <div className="absolute -top-1 -right-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full shadow-lg animate-bounce">
+                    +12
                   </div>
                 )}
-              </button>
+              </div>
             </div>
             
-            {/* Clear completion status text */}
-            <span className={cn(
-              "text-xs font-medium transition-colors duration-200",
-              completed ? "text-green-600" : "text-gray-500"
-            )}>
-              {completed ? "Done!" : "Tap to complete"}
-            </span>
+            {/* Gamified completion status text */}
+            <div className="w-[80px] h-[20px] flex items-center justify-center">
+              <span className={cn(
+                "text-xs font-bold transition-all duration-200 text-center",
+                completed 
+                  ? "text-emerald-600 animate-pulse" 
+                  : "text-slate-500 hover:text-slate-700"
+              )}>
+                {completed ? "🎉 Done!" : "Tap to complete"}
+              </span>
+            </div>
           </div>
           
           <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-1 space-y-1 sm:space-y-0">
-              <h4 className="font-semibold text-gray-900 text-sm sm:text-base md:text-lg lg:text-xl truncate">{habit.title}</h4>
-              <Badge className={cn(getCategoryColor(habit.category), "text-xs sm:text-sm w-fit")}>
+            <div className="flex flex-col xs:flex-row xs:items-center xs:space-x-2 mb-1 space-y-1 xs:space-y-0">
+              <h4 className="font-semibold text-gray-900 text-xs xs:text-sm sm:text-base md:text-lg truncate">{habit.title}</h4>
+              <Badge className={cn(getCategoryColor(habit.category), "text-xs w-fit")}>
                 {habit.category}
               </Badge>
             </div>
             
             {habit.description && (
-              <p className="text-gray-600 text-xs sm:text-sm md:text-base lg:text-lg mb-2 line-clamp-2">{habit.description}</p>
+              <p className="text-gray-600 text-xs xs:text-sm sm:text-sm mb-2 line-clamp-2 break-words">{habit.description}</p>
             )}
             
             {/* Recurrence Pattern Display */}
@@ -265,30 +289,26 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
               </Badge>
             </div>
             
-            <div className="flex flex-col space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs sm:text-sm md:text-base lg:text-lg text-gray-500">
-                {habit.reminderTime && (
-                  <span className="flex items-center space-x-1">
-                    <i className="fas fa-clock"></i>
-                    <span className="truncate">{habit.reminderTime}</span>
-                  </span>
-                )}
-                {completed && (
-                  <span className="flex items-center space-x-1 text-success">
-                    <i className="fas fa-check-circle"></i>
-                    <span>Completed today</span>
-                  </span>
-                )}
-              </div>
-              
-            </div>
+            {/* Removed reminder time from here - moved to right side stats */}
             
-            {/* Consistency Score */}
+          </div>
+          
+          {/* Right Side Stats */}
+          <div className="text-right space-y-1">
+            {/* Reminder Time */}
+            {habit.reminderTime && (
+              <div className="flex items-center justify-end space-x-1 text-gray-500 text-xs">
+                <i className="fas fa-clock text-xs"></i>
+                <span className="truncate">{habit.reminderTime}</span>
+              </div>
+            )}
+            
+            {/* Performance Stats */}
             {performanceScore && (
-              <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0 text-xs">
-                <div className="flex items-center space-x-2">
-                  <i className="fas fa-chart-line text-blue-600"></i>
-                  <span className="text-gray-600">Consistency:</span>
+              <div className="space-y-0.5 text-xs">
+                <div className="flex items-center justify-end space-x-1">
+                  <i className="fas fa-chart-line text-blue-600 text-xs"></i>
+                  <span className="text-gray-600 text-xs">Hype:</span>
                   <span className={cn(
                     "font-semibold",
                     performanceScore.performance_score >= 80 ? "text-green-600" :
@@ -297,59 +317,26 @@ export function HabitCard({ habit, completed, onToggle, loading }: HabitCardProp
                     {performanceScore.performance_score}%
                   </span>
                 </div>
-                <div className="flex items-center space-x-1 text-gray-500">
-                  <i className="fas fa-fire text-orange-500"></i>
-                  <span>
+                <div className="flex items-center justify-end space-x-1 text-gray-500">
+                  <i className="fas fa-fire text-orange-500 text-xs"></i>
+                  <span className="text-xs">
                     {performanceScore.metrics.current_streak > 0 ? 
-                      `${performanceScore.metrics.current_streak}d streak` : 
-                      'No streak'
+                      `${performanceScore.metrics.current_streak}d` : 
+                      '0d'
                     }
                   </span>
                 </div>
               </div>
             )}
+            
             {loadingScore && (
-              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-2">
+              <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-end space-x-2">
                   <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                  <span className="text-xs text-gray-500">Calculating performance...</span>
+                  <span className="text-xs text-gray-500">Calculating...</span>
                 </div>
               </div>
             )}
-          </div>
-          
-          <div className="text-right">
-            <div className="w-16 h-16 relative">
-              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
-                <path 
-                  className="text-gray-200" 
-                  stroke="currentColor" 
-                  strokeWidth="3" 
-                  fill="none" 
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path 
-                  className={cn(
-                    completed ? "text-success" : 
-                    progressPercentage > 0 ? "text-warning" : "text-primary"
-                  )}
-                  stroke="currentColor" 
-                  strokeWidth="3" 
-                  fill="none" 
-                  strokeDasharray={`${progressPercentage}, 100`}
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className={cn(
-                  "text-xs font-semibold",
-                  completed ? "text-success" : 
-                  progressPercentage > 0 ? "text-warning" : "text-gray-400"
-                )}>
-                  {completed ? "✓" : `${progressPercentage}%`}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </CardContent>

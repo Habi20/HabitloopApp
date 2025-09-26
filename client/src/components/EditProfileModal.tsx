@@ -37,6 +37,7 @@ interface ProfileFormData {
   profileImageUrl: string;
   avatarStyle: string;
   avatarSeed: string;
+  difficulty: string;
 }
 
 export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
@@ -51,6 +52,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
     profileImageUrl: '',
     avatarStyle: 'avataaars',
     avatarSeed: 'HabitLoop',
+    difficulty: 'easy',
   });
 
   // Initialize form data when user data is available
@@ -63,6 +65,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
         profileImageUrl: user.profileImageUrl || '',
         avatarStyle: 'avataaars',
         avatarSeed: (user.firstName || 'HabitLoop') + (user.lastName ? ' ' + user.lastName : ''),
+        difficulty: user.difficulty || 'easy',
       });
     }
   }, [user]);
@@ -96,6 +99,7 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
             lastName: formData.lastName,
             email: formData.email,
             profileImageUrl: generateAvatarUrl(formData.avatarStyle, formData.avatarSeed),
+            difficulty: formData.difficulty,
           }),
         });
 
@@ -187,6 +191,42 @@ export function EditProfileModal({ open, onClose }: EditProfileModalProps) {
                 </p>
               </div>
             )}
+
+            {/* Difficulty Level */}
+            <div>
+              <Label htmlFor="difficulty">Difficulty Level</Label>
+              <Select
+                value={formData.difficulty}
+                onValueChange={(value) => handleInputChange('difficulty', value)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select difficulty level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                      <span>Easy</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="medium">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                      <span>Medium</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="hard">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                      <span>Hard</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Choose your preferred difficulty level for habit recommendations
+              </p>
+            </div>
 
             {userType === 'habitloop' && (
               <div>

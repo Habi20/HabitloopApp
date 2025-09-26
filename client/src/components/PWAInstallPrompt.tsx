@@ -71,6 +71,7 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
       setIsInstalled(true);
       setShowPrompt(false);
       setDeferredPrompt(null);
+      localStorage.setItem('pwa-prompt-seen', 'true');
       toast({
         title: "🎉 HabitLoop Installed!",
         description: "You can now access HabitLoop from your home screen for quick habit tracking.",
@@ -98,16 +99,11 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
 
     // Check if user has previously dismissed the prompt
     const dismissed = localStorage.getItem('pwa-prompt-dismissed');
-    if (dismissed) {
-      const dismissTime = parseInt(dismissed);
-      const daysSinceDismiss = (Date.now() - dismissTime) / (1000 * 60 * 60 * 24);
-      
-      // Show prompt again after 7 days
-      if (daysSinceDismiss > 7) {
-        setShowPrompt(true);
-      }
-    } else if (!isInstalled) {
-      // Show prompt for first-time users
+    const hasSeenPrompt = localStorage.getItem('pwa-prompt-seen');
+    
+    // Only show if never seen before and not installed
+    if (!dismissed && !hasSeenPrompt && !isInstalled) {
+      // Show prompt for first-time users only
       setTimeout(() => setShowPrompt(true), 5000);
     }
 
@@ -148,6 +144,7 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
   const handleDismiss = () => {
     setShowPrompt(false);
     localStorage.setItem('pwa-prompt-dismissed', Date.now().toString());
+    localStorage.setItem('pwa-prompt-seen', 'true');
     onDismiss?.();
   };
 
