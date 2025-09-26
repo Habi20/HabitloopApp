@@ -7,7 +7,25 @@ import { questionnaireSchema } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { storage } from '../storage';
-import { generateHabitRecommendations, generatePersonalizedInsight, generateAIRecommendations } from '../openaiService';
+import { generateHabitRecommendations, generateAIRecommendations } from '../openaiService';
+
+// Format coach response to ensure proper 4-line structure
+function formatCoachResponse(response: string): string {
+  const lines = response.trim().split('\n').filter(line => line.trim());
+  
+  if (lines.length === 4) {
+    return response;
+  }
+  
+  // Fallback: wrap response in 4-section template
+  const firstLine = lines[0] || 'Great progress on your habits!';
+  return [
+    `🏆 Win: ${firstLine}`,
+    `🧠 Insight: Keep stacking progress - every small action builds momentum.`,
+    `➡️ Challenge: Stay consistent tomorrow with your most important habit.`,
+    `💡 Identity: You're proving who you are becoming through daily action.`
+  ].join('\n');
+}
 
 const router = express.Router();
 
@@ -44,6 +62,7 @@ router.post('/questionnaire', async (req, res) => {
     
     // Get user context for better AI personalization
     let userContext = null;
+    let customCategories: any[] = [];
     if (userId && req.user && !req.user?.isGuest) {
       
       try {
@@ -54,12 +73,16 @@ router.post('/questionnaire', async (req, res) => {
           existingHabitsCount: (await storage.getUserHabits(userId)).length,
           completionRate: 75 // Could be calculated from historical data
         };
+        
+        // Fetch custom categories for this user
+        customCategories = await storage.getCustomCategories(userId);
+        console.log("Fetched custom categories for AI recommendations:", customCategories.length);
       } catch (error) {
         console.log("Could not get user context for AI enhancement:", error);
       }
     }
 
-    const recommendations = await generateHabitRecommendations(questionnaire, userContext);
+    const recommendations = await generateHabitRecommendations(questionnaire, userContext, customCategories);
     console.log("Generated recommendations:", recommendations.length);
     
     // Save recommendations to database if user is authenticated
@@ -124,59 +147,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Generate AI insights (requires authentication)
-router.post('/generate', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    
-    if (!userId) {
-      return res.status(401).json({ message: "User not authenticated" });
-    }
-    
-    // Ensure user is not a guest
-    if (req.user?.isGuest) {
-      return res.status(403).json({ message: "Guest users cannot generate insights" });
-    }
-    
-    console.log(`Generating insight for user: ${userId}`);
-    
-    const habits = await storage.getUserHabits(userId);
-    const completions = await storage.getHabitCompletions(userId);
-    
-    console.log(`Found ${habits.length} habits and ${completions.length} completions`);
-    
-    const insight = await generatePersonalizedInsight(habits, completions);
-    console.log("Generated insight:", insight);
-
-    const createdInsight = await storage.createAIInsight(
-      userId,
-      insight.type,
-      insight.title,
-      insight.content
-    );
-
-    console.log("Created insight in database:", createdInsight.id);
-    
-    return res.json({
-      insight: insight.content,
-      title: insight.title,
-      type: insight.type,
-      id: createdInsight.id
-    });
-  } catch (error) {
-    console.error("Error generating insight:", error);
-    
-    if (error instanceof Error) {
-      return res.status(500).json({ 
-        message: "Failed to generate insight", 
-        error: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    } else {
-      return res.status(500).json({ message: "Failed to generate insight" });
-    }
-  }
-});
+// OLD ROUTE REMOVED - Using /insights/generate instead with sophisticated prompts
 
 // Mark insight as read (no auth required)
 router.put('/:id/read', async (req, res) => {
@@ -213,7 +184,18 @@ router.post('/recommendations', async (req, res) => {
       return res.status(400).json({ error: 'Questionnaire data required' });
     }
 
-    const recommendations = await generateAIRecommendations(questionnaireData);
+    // Fetch custom categories if user is authenticated
+    let customCategories: any[] = [];
+    if (userId && req.user && !req.user?.isGuest) {
+      try {
+        customCategories = await storage.getCustomCategories(userId);
+        console.log("Fetched custom categories for recommendations:", customCategories.length);
+      } catch (error) {
+        console.log("Could not fetch custom categories:", error);
+      }
+    }
+
+    const recommendations = await generateAIRecommendations(questionnaireData, customCategories);
     res.json({
       success: true,
       recommendations,
@@ -292,12 +274,97 @@ router.post('/ask', requireAuth, async (req, res) => {
     
     console.log(`Context: ${habits.length} habits, ${completions.length} completions`);
     
-    // Generate personalized response using OpenAI
-    const response = await generatePersonalizedInsight(habits, completions);
-    console.log("Generated coach response:", response);
+    // Generate personalized response using the same sophisticated prompt
+    const { default: OpenAI } = await import('openai');
+    const { env } = await import('../env');
+    
+    const openai = new OpenAI({
+      apiKey: env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
+    });
+
+    const userLevel = req.user?.level || 1;
+    const totalXP = (req.user as any)?.totalXP || 0;
+
+    // Calculate real performance data
+    console.log('🔍 DEBUG: Ask Coach Data Received:');
+    console.log('- Habits count:', habits.length);
+    console.log('- Completions count:', completions.length);
+    console.log('- User Level:', userLevel, 'Total XP:', totalXP);
+    
+    const habitPerformance = habits.map((habit: any) => {
+      const habitCompletions = completions.filter((c: any) => c.habitId === habit.id);
+      const last7Days = habitCompletions.filter((c: any) => {
+        const completionDate = new Date(c.completedAt);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return completionDate >= sevenDaysAgo;
+      });
+      const completionRate = Math.round((last7Days.length / 7) * 100);
+      console.log(`- ${habit.title}: ${completionRate}% (${last7Days.length}/7 days)`);
+      return `${habit.title}: ${completionRate}% (${last7Days.length}/7 days)`;
+    });
+    
+    console.log('🔍 DEBUG: Final performance data:', habitPerformance.join(', '));
+
+    const prompt = `You are a professional Habit Coach with over 20 years of experience in behavioral psychology, fitness, productivity, and personal growth. You speak like a trusted mentor who has guided thousands of people toward sustainable transformation.
+
+🎯 USER DATA:
+- Level: ${userLevel} (${totalXP} XP)
+- Active habits: ${habits.length}
+- Habits: ${habits.map((h: Habit) => `• ${h.title} [${h.category}] - Target: ${h.targetValue} ${h.unit}, Frequency: ${h.frequency}, Reminder: ${h.reminderTime || "none"}`).join('\n')}
+- Total completions: ${completions.length}
+- REAL PERFORMANCE (Last 7 Days): ${habitPerformance.join(', ')}
+
+USER'S SPECIFIC QUESTION: "${question}"
+
+🧠 COACHING PRINCIPLES:
+1. **Celebrate Wins** → Recognize specific completions, reinforcing momentum
+2. **Explain Why It Matters** → Share a quick insight grounded in psychology or habit science
+3. **Set a Next Step** → Suggest a tiny, achievable challenge scaled to their situation
+4. **Reinforce Identity** → Frame progress as proof of who they are becoming
+5. **Be Human** → Sound like a seasoned coach, not a robot
+
+📌 RESPONSE STYLE:
+- Deliver in **4 crisp lines**, point-form style
+- Start each line with a **meaningful emoji + keyword**:
+  - 🏆 Win - 🧠 Insight - ➡️ Challenge - 💡 Identity
+- Use **context-relevant emojis** based on their habits and question
+- Keep tone **authentic, wise, and motivating**
+- Address their specific question directly
+- Be practical and empathetic
+
+🚀 OUTPUT TEMPLATE:
+🏆 Win: [Acknowledge their progress or situation]
+🧠 Insight: [Address their specific question with wisdom]
+➡️ Challenge: [Practical next step related to their question]
+💡 Identity: [Reinforce who they are becoming]`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Create inspiring, engaging responses that boost motivation and provide clear next steps."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 600,
+      temperature: 0.8
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from OpenAI');
+    }
+
+    // Format the coach response to ensure proper structure
+    const formattedResponse = formatCoachResponse(content);
 
     return res.json({
-      response: response.content || "I'm here to help with your habit journey!",
+      response: formattedResponse,
       type: "coach_response",
       timestamp: new Date().toISOString()
     });
@@ -317,9 +384,9 @@ router.post('/ask', requireAuth, async (req, res) => {
 });
 
 // Generate general insights
-router.post('/insights/generate', requireAuth, async (req, res) => {
+router.post('/generate', requireAuth, async (req, res) => {
   try {
-    const { habits, completions, userLevel, totalXP } = req.body;
+    const { habits, completions, userLevel, totalXP, serviceType } = req.body;
     
     if (!habits || !completions) {
       return res.status(400).json({ error: 'Habits and completions data required' });
@@ -333,46 +400,132 @@ router.post('/insights/generate', requireAuth, async (req, res) => {
       apiKey: env.OPENAI_API_KEY || "sk-placeholder-key-for-development",
     });
     
-    // Create a comprehensive prompt with user data
-    const prompt = `
-As an AI habit coach, analyze this user's data and provide personalized insights:
+    // Calculate real performance data
+    console.log('🔍 DEBUG: AI Coach Data Received:');
+    console.log('- Habits count:', habits.length);
+    console.log('- Completions count:', completions.length);
+    console.log('- User Level:', userLevel, 'Total XP:', totalXP);
+    console.log('- Service Type:', serviceType);
+    
+    const habitPerformance = habits.map((habit: any) => {
+      const habitCompletions = completions.filter((c: any) => c.habitId === habit.id);
+      const last7Days = habitCompletions.filter((c: any) => {
+        const completionDate = new Date(c.completedAt);
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return completionDate >= sevenDaysAgo;
+      });
+      const completionRate = Math.round((last7Days.length / 7) * 100);
+      console.log(`- ${habit.title}: ${completionRate}% (${last7Days.length}/7 days)`);
+      return `${habit.title}: ${completionRate}% (${last7Days.length}/7 days)`;
+    });
+    
+    console.log('🔍 DEBUG: Final performance data:', habitPerformance.join(', '));
 
-HABITS: ${habits.map((h: Habit) => `${h.title} (${h.frequency})`).join(', ')}
+    // Create section-specific prompts using the sophisticated coaching template
+    const getSectionPrompt = (serviceType: string) => {
+      const formatInstructions: Record<string, string> = {
+        progress_analysis: '🏆 Win, 🧠 Insight, ➡️ Challenge, 💡 Identity',
+        motivation_boost: '🎯 Energy, 💪 Momentum, 🌟 Identity',
+        habit_optimization: '🔍 Analysis, ⚙️ Optimization, 🎯 Action, 📈 Results',
+        weekly_planning: '📅 Plan, 🎯 Goals, ⚡ Energy, 🏆 Success',
+        obstacle_solving: '🚧 Problem, 💡 Solution, 🛠️ Action, 🎯 Prevention'
+      };
 
-COMPLETIONS: ${completions.length} total completions
-USER LEVEL: ${userLevel || 1}
-TOTAL XP: ${totalXP || 0}
+      const coachingModes: Record<string, string> = {
+        progress_analysis: `
+📊 PROGRESS ANALYSIS MODE:
+- Analyze their actual performance data (completion rates, streaks, patterns)
+- Highlight specific metrics and trends from their habit data
+- Provide data-driven insights about what's working and what needs attention`,
+        
+        motivation_boost: `
+🔥 MOTIVATION BOOST MODE:
+- Focus on energy, momentum, and identity reinforcement
+- Use high-energy, inspiring language that gets them excited
+- Emphasize their progress and potential`,
 
-Provide a JSON response with:
-1. A brief analysis of their habit patterns
-2. One specific suggestion for improvement
-3. A motivational message
-4. A personalized tip
+        habit_optimization: `
+⚙️ HABIT OPTIMIZATION MODE:
+- Focus on timing, bundling, environment, and triggers
+- Provide specific, actionable habit modifications
+- Suggest concrete improvements to their routine`,
 
-Respond with JSON:
-{
-  "analysis": "Brief analysis of patterns",
-  "suggestion": "One specific improvement",
-  "motivation": "Motivational message",
-  "tip": "Personalized tip"
-}
+        weekly_planning: `
+📅 WEEKLY PLANNING MODE:
+- Focus on weekly structure, priorities, and energy management
+- Provide clear weekly strategy with specific targets
+- Help them plan their upcoming week effectively`,
+
+        obstacle_solving: `
+🚧 OBSTACLE SOLVING MODE:
+- Focus on fatigue, procrastination, time clashes, motivation dips
+- Provide practical solutions for specific obstacles
+- Help them overcome barriers to habit success`
+      };
+
+      const baseData = `
+🎯 USER DATA:
+- Level: ${userLevel || 1} (${totalXP || 0} XP)
+- Active habits: ${habits.length}
+- Habits: ${habits.map((h: Habit) => `• ${h.title} [${h.category}] - Target: ${h.targetValue} ${h.unit}, Frequency: ${h.frequency}, Reminder: ${h.reminderTime || "none"}`).join('\n')}
+- Total completions: ${completions.length}
+- REAL PERFORMANCE (Last 7 Days): ${habitPerformance.join(', ')}
 `;
 
+      const basePrompt = `
+You are a professional Habit Coach with over 20 years of experience in behavioral psychology, fitness, productivity, and personal growth. You speak like a trusted mentor who has guided thousands of people toward sustainable transformation. Your communication is:
+- Practical - Empathetic - Encouraging - Rooted in long-term wisdom
+
+${baseData}
+
+🧠 COACHING PRINCIPLES:
+1. **Celebrate Wins** → Recognize specific completions, reinforcing momentum
+2. **Explain Why It Matters** → Share a quick insight grounded in psychology or habit science
+3. **Set a Next Step** → Suggest a tiny, achievable challenge scaled to the habit's frequency & category
+4. **Reinforce Identity** → Frame progress as proof of who they are becoming, not just what they did
+5. **Be Human** → Sound like a seasoned coach, not a robot or generic AI
+
+📌 RESPONSE STYLE:
+- Use **context-relevant emojis** mapped to habit categories (Health, Learning, Productivity, Mindfulness)
+- Keep tone **authentic, wise, and motivating**, like a veteran coach texting a client
+- Avoid sparkles ✨, robots 🤖, or "AI-sounding" fluff
+- Output should be plain text (no JSON)
+- Adapt your response format based on the service type requested
+`;
+
+      if (coachingModes[serviceType]) {
+        return `${basePrompt}
+
+${coachingModes[serviceType]}
+- Use the format: ${formatInstructions[serviceType]}`;
+      }
+
+      return `${basePrompt}
+
+🧠 GENERAL COACHING MODE:
+- Reflect on overall habit journey
+- Highlight progress, identity, and next steps
+- Use a balanced, motivational tone
+`;
+    };
+
+    const prompt = getSectionPrompt(serviceType || 'general');
+
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a helpful AI habit coach. Always respond with valid JSON as requested."
+          content: "You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Create inspiring, engaging responses that boost motivation and provide clear next steps."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      response_format: { type: "json_object" },
-      max_tokens: 400,
-      temperature: 0.7
+      max_tokens: 600,
+      temperature: 0.8
     });
 
     const content = response.choices[0]?.message?.content;
@@ -380,8 +533,15 @@ Respond with JSON:
       throw new Error('No response from OpenAI');
     }
 
-    const insights = JSON.parse(content);
-    res.json({ insights });
+    // Format the coach response to ensure proper structure
+    const formattedResponse = formatCoachResponse(content);
+
+    // Return the content directly as a string response
+    res.json({ 
+      response: formattedResponse,
+      type: "coach_response",
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Error generating insights:', error);
     res.status(500).json({ 

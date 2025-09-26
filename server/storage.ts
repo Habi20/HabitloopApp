@@ -11,6 +11,7 @@ import {
   challengeCompletions,
   challengeProgress,
   mlPredictions,
+  customCategories,
   type User,
   type UpsertUser,
   type Habit,
@@ -25,6 +26,8 @@ import {
   type ChallengeCompletion,
   type ChallengeProgress,
   type MLPrediction,
+  type CustomCategory,
+  type InsertCustomCategory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -44,6 +47,12 @@ export interface IStorage {
   generatePasswordResetToken(userId: string): Promise<string>;
   validatePasswordResetToken(token: string): Promise<string | null>;
   resetPassword(token: string, newPassword: string): Promise<boolean>;
+
+  // Custom category operations
+  getCustomCategories(userId: string): Promise<CustomCategory[]>;
+  createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
+  updateCustomCategory(id: number, updates: Partial<InsertCustomCategory>): Promise<CustomCategory>;
+  deleteCustomCategory(id: number): Promise<boolean>;
 
   // RBAC operations
   getUserPermissions(userId: string): Promise<string[]>;
@@ -492,7 +501,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteHabit(id: number): Promise<void> {
-    await this.db.update(habits).set({ isActive: false }).where(eq(habits.id, id));
+    try {
+      // Delete all related data in the correct order (child tables first)
+      await this.db.delete(habitCompletions).where(eq(habitCompletions.habitId, id));
+      await this.db.delete(streaks).where(eq(streaks.habitId, id));
+      await this.db.delete(mlPredictions).where(eq(mlPredictions.habitId, id));
+      await this.db.delete(coachingMessages).where(eq(coachingMessages.habitId, id));
+      
+      // Finally delete the habit itself
+      await this.db.delete(habits).where(eq(habits.id, id));
+      
+      console.log(`🗑️ Habit ${id} and all related data deleted successfully`);
+    } catch (error) {
+      console.error(`❌ Error deleting habit ${id}:`, error);
+      throw error;
+    }
   }
 
   // Habit completion operations
@@ -1404,6 +1427,69 @@ export class DatabaseStorage implements IStorage {
 
   async getLastQueryTime(): Promise<string> {
     return new Date().toISOString();
+  }
+
+  // Custom category methods
+  async getCustomCategories(userId: string): Promise<CustomCategory[]> {
+    try {
+      const result = await this.db
+        .select()
+        .from(customCategories)
+        .where(eq(customCategories.userId, userId))
+        .orderBy(desc(customCategories.createdAt));
+      
+      return result;
+    } catch (error) {
+      console.error('Error getting custom categories:', error);
+      throw error;
+    }
+  }
+
+  async createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory> {
+    try {
+      const result = await this.db
+        .insert(customCategories)
+        .values(category)
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error('Error creating custom category:', error);
+      throw error;
+    }
+  }
+
+  async updateCustomCategory(id: number, updates: Partial<InsertCustomCategory>): Promise<CustomCategory> {
+    try {
+      const result = await this.db
+        .update(customCategories)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(customCategories.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Custom category not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error('Error updating custom category:', error);
+      throw error;
+    }
+  }
+
+  async deleteCustomCategory(id: number): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(customCategories)
+        .where(eq(customCategories.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting custom category:', error);
+      throw error;
+    }
   }
 }
 

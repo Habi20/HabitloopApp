@@ -12,6 +12,34 @@ import { z } from 'zod';
 
 const router = express.Router();
 
+// Check if email exists
+router.post('/habitloop/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid email required'
+      });
+    }
+
+    // Check if email exists in database
+    const existingUser = await storage.getUserByEmail(email);
+    
+    res.json({
+      success: true,
+      exists: !!existingUser
+    });
+  } catch (error) {
+    console.error('Error checking email:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check email'
+    });
+  }
+});
+
 // HabitLoop user signin (supports both userId and email)
 router.post('/habitloop/signin', async (req, res) => {
   try {
@@ -383,7 +411,8 @@ router.get('/user', requireAuth, async (req: any, res) => {
         profileImageUrl: user.profileImageUrl,
         difficulty: user.difficulty,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
+        aiRecommendations: user.aiRecommendations || []
       }
     });
   } catch (error) {

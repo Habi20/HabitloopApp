@@ -449,16 +449,31 @@ export function mlPredictionRoutes() {
         motivationLevel = "Low";
       }
 
-      // Calculate engagement level for users with habits
+      // Calculate engagement level for users with habits - more responsive to immediate activity
       const baseEngagement = Math.min(90, Math.max(30, Math.floor((totalHabits * 10) + (userXP / 10))));
       
-      // Apply recent activity bonus/penalty
+      // Apply recent activity bonus/penalty with immediate completion boost
       let engagementBonus = 0;
-      if (recentCompletionCount >= 5) engagementBonus = 15;
-      else if (recentCompletionCount >= 3) engagementBonus = 10;
-      else if (recentCompletionCount >= 1) engagementBonus = 5;
-      else if (daysSinceLastCompletion > 7) engagementBonus = -20;
-      else if (daysSinceLastCompletion > 3) engagementBonus = -10;
+      
+      // Immediate completion boost (today's completions)
+      const todayCompletions = completions?.filter(c => {
+        const completionDate = new Date(c.completedAt);
+        const today = new Date();
+        return completionDate.toDateString() === today.toDateString();
+      }).length || 0;
+      
+      if (todayCompletions >= 3) engagementBonus = 20; // High immediate boost
+      else if (todayCompletions >= 2) engagementBonus = 15;
+      else if (todayCompletions >= 1) engagementBonus = 10;
+      
+      // Recent activity bonus (last 7 days)
+      if (recentCompletionCount >= 5) engagementBonus += 15;
+      else if (recentCompletionCount >= 3) engagementBonus += 10;
+      else if (recentCompletionCount >= 1) engagementBonus += 5;
+      
+      // Inactivity penalty
+      if (daysSinceLastCompletion > 7) engagementBonus -= 20;
+      else if (daysSinceLastCompletion > 3) engagementBonus -= 10;
       
       const engagementLevel = Math.max(20, Math.min(95, baseEngagement + engagementBonus));
 
@@ -474,9 +489,9 @@ export function mlPredictionRoutes() {
       
       const weeklyForecast = Math.max(15, Math.min(85, baseForecast + forecastAdjustment));
 
-      // Determine optimal times - return empty array for users with no habits
+      // Determine optimal times - deduplicate and return unique times
       const optimalTimes = habits?.length > 0 
-        ? habits.map(h => h.reminderTime || "09:00").slice(0, 3)
+        ? [...new Set(habits.map(h => h.reminderTime || "09:00"))].slice(0, 3)
         : [];
 
       // Determine performance categories - return empty array for users with no habits
@@ -727,8 +742,17 @@ export function mlPredictionRoutes() {
         });
       }
 
+      // Fetch custom categories for this user
+      let customCategories: any[] = [];
+      try {
+        customCategories = await storage.getCustomCategories(userId);
+        console.log("Fetched custom categories for ML analytics:", customCategories.length);
+      } catch (error) {
+        console.log("Could not fetch custom categories for ML analytics:", error);
+      }
+
       // Analyze patterns
-      const patterns = analyzeHabitPatterns(habits);
+      const patterns = analyzeHabitPatterns(habits, customCategories);
 
       res.json({
         success: true,
@@ -747,13 +771,13 @@ export function mlPredictionRoutes() {
   // Predict optimal timing (no auth required)
   router.post('/predict/optimal-timing', async (req: Request, res: Response) => {
     try {
-      const { habitData, questionnaireData } = req.body;
+      const { habitData, questionnaireData, customCategories = [] } = req.body;
 
       if (!questionnaireData || !habitData) {
         return res.status(400).json({ error: 'Habit and questionnaire data required' });
       }
 
-      const optimalTiming = predictOptimalTiming(habitData, questionnaireData);
+      const optimalTiming = predictOptimalTiming(habitData, questionnaireData, customCategories);
 
       res.json({
         success: true,
@@ -834,48 +858,73 @@ export function mlPredictionRoutes() {
 }
 
 // Helper functions
-function analyzeHabitPatterns(habits: any[]) {
+function analyzeHabitPatterns(habits: any[], customCategories: any[] = []) {
   const patterns: {
     category_distribution: { [key: string]: number };
     frequency_distribution: { [key: string]: number };
     difficulty_distribution: { [key: string]: number };
     completion_rates: { [key: string]: number };
     time_patterns: { [key: string]: number };
+    custom_categories: { [key: string]: any };
   } = {
     category_distribution: {},
     frequency_distribution: {},
     difficulty_distribution: {},
     completion_rates: {},
-    time_patterns: {}
+    time_patterns: {},
+    custom_categories: {}
   };
+
+  // Create a map of custom categories for quick lookup
+  const customCategoryMap = customCategories.reduce((acc, cat) => {
+    acc[cat.name] = cat;
+    return acc;
+  }, {} as Record<string, any>);
 
   // Analyze category distribution
   habits.forEach(habit => {
     patterns.category_distribution[habit.category] = (patterns.category_distribution[habit.category] || 0) + 1;
     patterns.frequency_distribution[habit.frequency] = (patterns.frequency_distribution[habit.frequency] || 0) + 1;
+    
+    // Check if this is a custom category
+    if (customCategoryMap[habit.category]) {
+      patterns.custom_categories[habit.category] = customCategoryMap[habit.category];
+    }
   });
 
   return patterns;
 }
 
-function predictOptimalTiming(habitData: any, questionnaireData: any) {
+function predictOptimalTiming(habitData: any, questionnaireData: any, customCategories: any[] = []) {
   const { motivation_time } = questionnaireData;
   const { category, difficulty } = habitData;
 
+  // Check if this is a custom category
+  const customCategory = customCategories.find(cat => cat.name === category);
+  
   // Simple timing prediction logic
   let optimalTime = motivation_time;
+  let reasoning = `Based on your ${motivation_time} motivation and ${category} category`;
   
-  if (category === 'Health' && difficulty === 'hard') {
-    optimalTime = 'Morning';
-  } else if (category === 'Productivity') {
-    optimalTime = 'Morning';
-  } else if (category === 'Learning') {
-    optimalTime = 'Afternoon';
+  if (customCategory) {
+    // For custom categories, use a more generic approach
+    optimalTime = motivation_time;
+    reasoning = `Based on your ${motivation_time} motivation and custom ${category} category`;
+  } else {
+    // Use predefined category logic
+    if (category === 'Health' && difficulty === 'hard') {
+      optimalTime = 'Morning';
+    } else if (category === 'Productivity') {
+      optimalTime = 'Morning';
+    } else if (category === 'Learning') {
+      optimalTime = 'Afternoon';
+    }
   }
 
   return {
     optimal_time: optimalTime,
-    reasoning: `Based on your ${motivation_time} motivation and ${category} category`,
-    confidence: 0.85
+    reasoning,
+    confidence: customCategory ? 0.75 : 0.85, // Slightly lower confidence for custom categories
+    is_custom_category: !!customCategory
   };
 }

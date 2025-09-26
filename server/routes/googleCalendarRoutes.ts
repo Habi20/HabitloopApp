@@ -285,9 +285,18 @@ export function googleCalendarRoutes() {
   // Validate calendar sync consistency
   router.get('/validate-sync', requireAuth, async (req: any, res) => {
     try {
-      const { calendar } = await getValidCalendarClient(req.user.id);
       const userSettings = await storage.getUserSettings(req.user.id);
       const calendarSettings = userSettings?.calendarSettings;
+      
+      // Check if user has Google Calendar connected
+      if (!userSettings?.googleCalendar?.accessToken) {
+        return res.status(400).json({ 
+          error: 'Google Calendar not connected',
+          needsReconnect: true 
+        });
+      }
+      
+      const { calendar } = await getValidCalendarClient(req.user.id);
       const habits = await storage.getUserHabits(req.user.id);
       
       console.log('🔍 Validate-sync debug:', {
@@ -398,8 +407,25 @@ export function googleCalendarRoutes() {
         },
         needsSync: inconsistentCount > 0 || missingCount > 0
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error validating calendar sync:', error);
+      
+      // Handle specific error types
+      if (error.message?.includes('not connected') || error.message?.includes('expired')) {
+        return res.status(400).json({ 
+          error: error.message,
+          needsReconnect: true 
+        });
+      }
+      
+      // Handle Google API errors
+      if (error.status === 401 || error.code === 401) {
+        return res.status(400).json({ 
+          error: 'Google Calendar access expired. Please reconnect.',
+          needsReconnect: true 
+        });
+      }
+      
       res.status(500).json({ error: 'Failed to validate calendar sync' });
     }
   });
