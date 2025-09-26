@@ -361,12 +361,38 @@ export function filterHabitsByProfile(questionnaire: Questionnaire): SyntheticHa
   }
 }
 
-export function generatePersonalizedHabits(questionnaire: Questionnaire): SyntheticHabit[] {
+export function generatePersonalizedHabits(questionnaire: Questionnaire, customCategories?: any[]): SyntheticHabit[] {
   try {
     console.log("Generating personalized habits for questionnaire:", JSON.stringify(questionnaire, null, 2));
     
     const baseHabits = filterHabitsByProfile(questionnaire);
     console.log("Filtered habits:", baseHabits.length);
+    
+    // Add custom category habits if available
+    if (customCategories && customCategories.length > 0) {
+      console.log("Adding custom category habits:", customCategories.length);
+      const customHabits = customCategories.map((customCat, index) => ({
+        id: 1000 + index, // Use high IDs to avoid conflicts
+        title: `Custom ${customCat.name} Habit`,
+        description: `A personalized habit in your ${customCat.name} category`,
+        category: customCat.name,
+        targetValue: 1,
+        unit: "time",
+        reminderTime: "09:00",
+        frequency: "daily",
+        color: customCat.color,
+        icon: customCat.icon,
+        tags: [customCat.name.toLowerCase(), "custom", "personalized"],
+        difficulty: "medium" as const,
+        popularityScore: 80,
+        successRate: 75
+      }));
+      
+      // Add 1-2 custom habits to the recommendations
+      const customHabitsToAdd = customHabits.slice(0, Math.min(2, customHabits.length));
+      baseHabits.push(...customHabitsToAdd);
+      console.log("Added custom habits:", customHabitsToAdd.length);
+    }
     
     // Ensure we have at least 10 habits by adding popular ones if needed
     if (baseHabits.length < 10) {

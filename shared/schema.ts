@@ -65,6 +65,16 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at'),
 });
 
+export const customCategories = pgTable("custom_categories", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: varchar("name").notNull(),
+  color: varchar("color").notNull(),
+  icon: varchar("icon").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const habits = pgTable("habits", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
@@ -317,6 +327,9 @@ export const userPermissionsRelations = relations(userPermissions, ({ one }) => 
 // Schema types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+export type CustomCategory = typeof customCategories.$inferSelect;
+export type InsertCustomCategory = typeof customCategories.$inferInsert;
 
 export const insertHabitSchema = createInsertSchema(habits).omit({
   id: true,

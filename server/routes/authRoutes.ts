@@ -8,8 +8,37 @@ import { requireAuth } from './middlewareRoutes';
 import { sessionManager } from '../services/sessionManager';
 import { adminLog } from '../utils/adminLogger';
 import { storage } from '../storage';
+import { z } from 'zod';
 
 const router = express.Router();
+
+// Check if email exists
+router.post('/habitloop/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid email required'
+      });
+    }
+
+    // Check if email exists in database
+    const existingUser = await storage.getUserByEmail(email);
+    
+    res.json({
+      success: true,
+      exists: !!existingUser
+    });
+  } catch (error) {
+    console.error('Error checking email:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check email'
+    });
+  }
+});
 
 // HabitLoop user signin (supports both userId and email)
 router.post('/habitloop/signin', async (req, res) => {
@@ -382,7 +411,8 @@ router.get('/user', requireAuth, async (req: any, res) => {
         profileImageUrl: user.profileImageUrl,
         difficulty: user.difficulty,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
+        aiRecommendations: user.aiRecommendations || []
       }
     });
   } catch (error) {
@@ -1149,5 +1179,163 @@ router.get('/test-db-structure', async (_req, res) => {
       });
     }
   });
+
+// Password reset request endpoint
+router.post('/password-reset/request', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email required',
+        message: 'Please provide your email address'
+      });
+    }
+
+    // Validate email format
+    const emailSchema = z.string().email('Invalid email format');
+    const validationResult = emailSchema.safeParse(email);
+    
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email',
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    // Find user by email
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        success: true,
+        message: 'If an account with this email exists, a password reset link has been sent'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = await storage.generatePasswordResetToken(user.id);
+    
+    // In a real app, you would send this via email
+    // For now, we'll return it in the response for testing
+    console.log(`🔐 Password reset token for ${email}: ${resetToken}`);
+    
+    adminLog.log(`Password reset requested for user ${user.id} (${email})`);
+
+    res.json({
+      success: true,
+      message: 'If an account with this email exists, a password reset link has been sent',
+      // Remove this in production - only for testing
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
+    });
+
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    adminLog.error('Password reset request error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Request failed',
+      message: 'An error occurred while processing your request'
+    });
+  }
+});
+
+// Password reset validation endpoint
+router.post('/password-reset/validate', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'Token required',
+        message: 'Reset token is required'
+      });
+    }
+
+    const userId = await storage.validatePasswordResetToken(token);
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid token',
+        message: 'Reset token is invalid or expired'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Token is valid'
+    });
+
+  } catch (error) {
+    console.error('Password reset validation error:', error);
+    adminLog.error('Password reset validation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Validation failed',
+      message: 'An error occurred while validating the token'
+    });
+  }
+});
+
+// Password reset completion endpoint
+router.post('/password-reset/complete', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing data',
+        message: 'Token and new password are required'
+      });
+    }
+
+    // Validate password strength
+    const passwordSchema = z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(128, 'Password must be less than 128 characters')
+      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
+
+    const validationResult = passwordSchema.safeParse(newPassword);
+    
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid password',
+        message: validationResult.error.errors[0].message
+      });
+    }
+
+    const success = await storage.resetPassword(token, newPassword);
+    
+    if (!success) {
+      return res.status(400).json({
+        success: false,
+        error: 'Reset failed',
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    adminLog.log(`Password reset completed successfully`);
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Password reset completion error:', error);
+    adminLog.error('Password reset completion error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Reset failed',
+      message: 'An error occurred while resetting your password'
+    });
+  }
+});
 
 export default router;

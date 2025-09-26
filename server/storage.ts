@@ -11,6 +11,7 @@ import {
   challengeCompletions,
   challengeProgress,
   mlPredictions,
+  customCategories,
   type User,
   type UpsertUser,
   type Habit,
@@ -25,6 +26,8 @@ import {
   type ChallengeCompletion,
   type ChallengeProgress,
   type MLPrediction,
+  type CustomCategory,
+  type InsertCustomCategory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -39,6 +42,17 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(userData: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User>;
+  
+  // Password reset operations
+  generatePasswordResetToken(userId: string): Promise<string>;
+  validatePasswordResetToken(token: string): Promise<string | null>;
+  resetPassword(token: string, newPassword: string): Promise<boolean>;
+
+  // Custom category operations
+  getCustomCategories(userId: string): Promise<CustomCategory[]>;
+  createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory>;
+  updateCustomCategory(id: number, updates: Partial<InsertCustomCategory>): Promise<CustomCategory>;
+  deleteCustomCategory(id: number): Promise<boolean>;
 
   // RBAC operations
   getUserPermissions(userId: string): Promise<string[]>;
@@ -245,6 +259,102 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  // Password reset operations
+  async generatePasswordResetToken(userId: string): Promise<string> {
+    try {
+      const user = await this.getUser(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Generate a secure random token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Store token in user settings with expiration (1 hour)
+      const resetToken = {
+        token,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+        createdAt: new Date().toISOString()
+      };
+
+      const currentSettings = user.userSettings || {};
+      const updatedSettings = {
+        ...currentSettings,
+        passwordResetToken: resetToken
+      };
+
+      await this.updateUser(userId, { userSettings: updatedSettings });
+      
+      console.log(`🔐 Password reset token generated for user ${userId}`);
+      return token;
+    } catch (error) {
+      console.error('Error generating password reset token:', error);
+      throw error;
+    }
+  }
+
+  async validatePasswordResetToken(token: string): Promise<string | null> {
+    try {
+      const allUsers = await this.getAllUsers();
+      
+      for (const user of allUsers) {
+        const userSettings = user.userSettings as any;
+        const resetToken = userSettings?.passwordResetToken;
+        if (resetToken && resetToken.token === token) {
+          // Check if token is expired
+          const expiresAt = new Date(resetToken.expiresAt);
+          if (expiresAt > new Date()) {
+            return user.id;
+          } else {
+            // Token expired, remove it
+            const updatedSettings = { ...(userSettings || {}) };
+            delete updatedSettings.passwordResetToken;
+            await this.updateUser(user.id, { userSettings: updatedSettings });
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error validating password reset token:', error);
+      return null;
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    try {
+      const userId = await this.validatePasswordResetToken(token);
+      if (!userId) {
+        return false;
+      }
+
+      // Hash the new password
+      const bcrypt = await import('bcrypt');
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      // Update user password and remove reset token
+      const user = await this.getUser(userId);
+      if (!user) return false;
+
+      const userSettings = user.userSettings as any;
+      const updatedSettings = { ...(userSettings || {}) };
+      delete updatedSettings.passwordResetToken;
+
+      await this.updateUser(userId, {
+        passwordHash: hashedPassword,
+        userSettings: updatedSettings
+      });
+
+      console.log(`✅ Password reset successfully for user ${userId}`);
+      return true;
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      return false;
+    }
+  }
+
   // RBAC operations
   async getUserPermissions(userId: string): Promise<string[]> {
     try {
@@ -391,7 +501,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteHabit(id: number): Promise<void> {
-    await this.db.update(habits).set({ isActive: false }).where(eq(habits.id, id));
+    try {
+      // Delete all related data in the correct order (child tables first)
+      await this.db.delete(habitCompletions).where(eq(habitCompletions.habitId, id));
+      await this.db.delete(streaks).where(eq(streaks.habitId, id));
+      await this.db.delete(mlPredictions).where(eq(mlPredictions.habitId, id));
+      await this.db.delete(coachingMessages).where(eq(coachingMessages.habitId, id));
+      
+      // Finally delete the habit itself
+      await this.db.delete(habits).where(eq(habits.id, id));
+      
+      console.log(`🗑️ Habit ${id} and all related data deleted successfully`);
+    } catch (error) {
+      console.error(`❌ Error deleting habit ${id}:`, error);
+      throw error;
+    }
   }
 
   // Habit completion operations
@@ -1303,6 +1427,69 @@ export class DatabaseStorage implements IStorage {
 
   async getLastQueryTime(): Promise<string> {
     return new Date().toISOString();
+  }
+
+  // Custom category methods
+  async getCustomCategories(userId: string): Promise<CustomCategory[]> {
+    try {
+      const result = await this.db
+        .select()
+        .from(customCategories)
+        .where(eq(customCategories.userId, userId))
+        .orderBy(desc(customCategories.createdAt));
+      
+      return result;
+    } catch (error) {
+      console.error('Error getting custom categories:', error);
+      throw error;
+    }
+  }
+
+  async createCustomCategory(category: InsertCustomCategory): Promise<CustomCategory> {
+    try {
+      const result = await this.db
+        .insert(customCategories)
+        .values(category)
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error('Error creating custom category:', error);
+      throw error;
+    }
+  }
+
+  async updateCustomCategory(id: number, updates: Partial<InsertCustomCategory>): Promise<CustomCategory> {
+    try {
+      const result = await this.db
+        .update(customCategories)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(customCategories.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error('Custom category not found');
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error('Error updating custom category:', error);
+      throw error;
+    }
+  }
+
+  async deleteCustomCategory(id: number): Promise<boolean> {
+    try {
+      const result = await this.db
+        .delete(customCategories)
+        .where(eq(customCategories.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting custom category:', error);
+      throw error;
+    }
   }
 }
 

@@ -163,9 +163,39 @@ router.post('/test', requireAuth, async (req, res) => {
     // Allow override from request body if provided
     const email = req.body.email || user.email;
 
+    // Fetch real user statistics for the test email with error handling
+    let habits: any[] = [];
+    let completions: any[] = [];
+    let streaks: any[] = [];
+    
+    try {
+      habits = await storage.getUserHabits(userId) || [];
+      completions = await storage.getHabitCompletions(userId) || [];
+      streaks = await storage.getUserStreaks(userId) || [];
+    } catch (error) {
+      console.log('⚠️ Error fetching user statistics for email, using defaults:', (error as Error).message);
+      // Continue with empty arrays if there's an error
+    }
+    
+    // Calculate real statistics
+    const totalHabits = habits.length;
+    const totalCompletions = completions.length;
+    const currentStreak = streaks.length > 0 ? Math.max(...streaks.map(s => s.currentStreak)) : 0;
+    const longestStreak = streaks.length > 0 ? Math.max(...streaks.map(s => s.longestStreak)) : 0;
+    const completionRate = totalHabits > 0 ? Math.round((totalCompletions / (totalHabits * 7)) * 100) : 0; // Rough weekly estimate
+    
+    // Create enhanced user data with real statistics
+    const enhancedUserData = {
+      ...user,
+      totalHabits,
+      totalCompletions,
+      currentStreak,
+      longestStreak,
+      completionRate,
+      recentHabits: habits.slice(0, 3).map(h => h.title) // Last 3 habits
+    };
 
-
-    const result = await EmailService.sendTestEmail(email, user);
+    const result = await EmailService.sendTestEmail(email, enhancedUserData);
     
     if (result.success) {
       res.json({ success: true, message: 'Test email sent successfully' });

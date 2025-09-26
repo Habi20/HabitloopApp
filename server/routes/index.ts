@@ -14,6 +14,7 @@ import { healthRoutes } from "./healthRoutes";
 import { notificationRoutes } from "./notificationRoutes";
 import { googleCalendarRoutes } from "./googleCalendarRoutes";
 import emailRoutes from "./emailRoutes";
+import customCategoryRoutes from "./customCategoryRoutes";
 import { storage } from "../storage";
 import { env, isOpenAIEnabled } from "../env";
 
@@ -26,6 +27,7 @@ export async function registerRoutes(app: express.Application) {
   app.use("/api/ai", aiRoutes);
   app.use("/api/ml", mlPredictionRoutes());
   app.use("/api/email", emailRoutes);
+  app.use("/api/custom-categories", customCategoryRoutes);
   app.use("/api/guest", guestRoutes());
   app.use("/api/google-calendar", googleCalendarRoutes());
   app.use("/api/admin", adminRoutes);

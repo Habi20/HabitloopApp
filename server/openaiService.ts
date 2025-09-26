@@ -56,12 +56,13 @@ export interface HabitRecommendation {
 
 export async function generateHabitRecommendations(
   questionnaire: Questionnaire,
-  userContext?: { level: number; xp: number; existingHabitsCount: number; completionRate: number } | null
+  userContext?: { level: number; xp: number; existingHabitsCount: number; completionRate: number } | null,
+  customCategories?: any[]
 ): Promise<HabitRecommendation[]> {
   try {
     console.log("Generating recommendations for questionnaire:", JSON.stringify(questionnaire, null, 2));
     
-    const syntheticHabits = generatePersonalizedHabits(questionnaire);
+    const syntheticHabits = generatePersonalizedHabits(questionnaire, customCategories);
     console.log("Generated synthetic habits:", syntheticHabits.length);
     
     if (syntheticHabits.length === 0) {
@@ -123,11 +124,15 @@ export async function generateHabitRecommendations(
       
     if (hasValidOpenAIKey) {
       try {
+        console.log("🤖 Enhancing recommendations with OpenAI...");
         const enhancedRecommendations = await enhanceRecommendationsWithAI(questionnaire, recommendations, userContext);
+        console.log("✅ OpenAI enhancement successful!");
         return enhancedRecommendations;
       } catch (error: any) {
-        console.log("OpenAI enhancement failed, using synthetic recommendations:", error.message);
+        console.log("⚠️ OpenAI enhancement failed, using synthetic recommendations:", error.message);
       }
+    } else {
+      console.log("📝 Using synthetic recommendations (no OpenAI key)");
     }
     
     return recommendations;
@@ -173,9 +178,10 @@ export async function generateHabitRecommendations(
 }
 
 export async function generateAIRecommendations(
-  questionnaire: Questionnaire
+  questionnaire: Questionnaire,
+  customCategories?: any[]
 ): Promise<HabitRecommendation[]> {
-  return generateHabitRecommendations(questionnaire);
+  return generateHabitRecommendations(questionnaire, null, customCategories);
 }
 
 async function enhanceRecommendationsWithAI(
@@ -284,7 +290,7 @@ Create habits that feel CUSTOM-MADE for this specific user, not generic suggesti
       messages: [
         { 
           role: "system",
-          content: "You are an expert habit coach. Enhance habit recommendations with personalized insights while maintaining the JSON structure.",
+          content: "You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Create inspiring, engaging responses that boost motivation and provide clear next steps.",
         },
         { 
           role: "user",
@@ -321,20 +327,41 @@ export async function generatePersonalizedInsight(
   }
 
   try {
-    const habitSummary = habits.map(h => `${h.title} (${h.category})`).join(", ");
+    // const habitSummary = habits.map(h => `${h.title} (${h.category})`).join(", "); // Removed unused variable
     const recentCompletions = completions.slice(-7);
 
-    const prompt = `Based on the user's habit data, generate a personalized insight or suggestion:
+    const prompt = `You are a professional Habit Coach with over 20 years of experience in behavioral psychology, fitness, productivity, and personal growth. You speak like a trusted mentor who has guided thousands of people toward sustainable transformation.
 
-User's Habits: ${habitSummary}
-Recent Completions: ${recentCompletions.length} in the last 7 days
+🎯 USER DATA:
+- Active habits: ${habits.length}
+- Habits: ${habits.map((h: any) => `• ${h.title} [${h.category}] - Target: ${h.targetValue} ${h.unit || 'times'}, Frequency: ${h.frequency || 'daily'}, Reminder: ${h.reminderTime || "none"}`).join('\n')}
+- Recent completions: ${recentCompletions.length} in the last 7 days
+
+🧠 COACHING PRINCIPLES:
+1. **Celebrate Wins** → Recognize specific completions, reinforcing momentum
+2. **Explain Why It Matters** → Share a quick insight grounded in psychology or habit science
+3. **Set a Next Step** → Suggest a tiny, achievable challenge scaled to their situation
+4. **Reinforce Identity** → Frame progress as proof of who they are becoming
+5. **Be Human** → Sound like a seasoned coach, not a robot
+
+📌 RESPONSE STYLE:
+- Deliver in **4 crisp lines**, point-form style
+- Start each line with a **meaningful emoji + keyword**:
+  - 🏆 Win - 🧠 Insight - ➡️ Challenge - 💡 Identity
+- Use **context-relevant emojis** based on their habits
+- Keep tone **authentic, wise, and motivating**
+- Be practical and empathetic
+
+🚀 OUTPUT TEMPLATE:
+🏆 Win: [Acknowledge their progress or situation]
+🧠 Insight: [Address their specific situation with wisdom]
+➡️ Challenge: [Practical next step related to their habits]
+💡 Identity: [Reinforce who they are becoming]
 
 Provide a JSON response with:
 - title: Brief title for the insight
-- content: Helpful, encouraging message with actionable advice (2-3 sentences)
-- type: One of "suggestion", "motivation", "tip"
-
-Focus on patterns, improvements, or encouragement based on their progress.`;
+- content: The 4-line formatted response above
+- type: One of "suggestion", "motivation", "tip"`;
 
     const openaiClient = await getOpenAI();
     const response = await openaiClient.chat.completions.create({
@@ -342,7 +369,7 @@ Focus on patterns, improvements, or encouragement based on their progress.`;
       messages: [
         {
           role: "system",
-          content: "You are a supportive habit coach. Provide encouraging, actionable insights.",
+          content: "You are an elite AI habit coach with expertise in behavioral psychology, neuroscience, and personal development. You provide evidence-based, personalized coaching insights that are actionable and transformative. Create inspiring, engaging responses that boost motivation and provide clear next steps.",
         },
         {
           role: "user",

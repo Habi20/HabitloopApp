@@ -347,6 +347,176 @@ Respond with JSON:
   }
 }`,
   },
+  motivation_boost: {
+    title: "Motivation Boost",
+    description: "Receive personalized motivational messages and encouragement",
+    category: "motivation",
+    difficulty: "beginner",
+    estimatedDuration: "1-2 minutes",
+    promptTemplate: (ctx: CoachingContext) => `
+You are a world-class motivational coach and behavioral psychologist. Create an inspiring, personalized motivation boost based on:
+
+CURRENT ACHIEVEMENTS:
+- Level: ${ctx.userLevel} (${ctx.totalXP} XP)
+- Active habits: ${ctx.habits.length} habits
+- Current streaks: ${Object.entries(ctx.streakAnalysis.currentStreaks).map(([id, streak]) => `${ctx.habits.find(h => h.id.toString() === id)?.title || 'Unknown'}: ${streak} days`).join(", ")}
+- Consistency score: ${ctx.streakAnalysis.consistencyScore}%
+
+RECENT PROGRESS:
+- Completion trends: ${ctx.completionTrends.map(t => `${t.period}: ${t.completionRate}%`).join(", ")}
+- Momentum: ${ctx.completionTrends[0]?.trending || 'stable'} trend
+- Best performing habits: ${ctx.habits.filter(h => ctx.streakAnalysis.currentStreaks[h.id.toString()] > 3).map(h => h.title).join(", ")}
+
+PERSONALITY PROFILE:
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Adaptive'}
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'General development'}
+- Goals: ${ctx.questionnaire?.goals?.join(", ") || 'Building better habits'}
+
+Create a powerful, personalized motivation boost that:
+1. Celebrates their specific achievements with genuine enthusiasm
+2. Uses psychological principles to boost dopamine and motivation
+3. Provides actionable next steps that feel achievable
+4. Uses inspiring language with emojis and formatting
+5. Addresses their specific motivation style and goals
+
+Respond with a single, powerful motivational message (not JSON) that includes:
+- A celebration of their specific wins
+- A psychological insight about their progress
+- An inspiring challenge or next step
+- Encouraging language with emojis
+- A call to action that feels exciting
+
+Make it feel personal, authentic, and energizing!`
+  },
+  habit_optimization: {
+    title: "Habit Optimization",
+    description: "Get suggestions to improve your current habits and routines",
+    category: "optimization",
+    difficulty: "intermediate",
+    estimatedDuration: "2-3 minutes",
+    promptTemplate: (ctx: CoachingContext) => `
+You are an elite habit optimization specialist and behavioral scientist. Analyze their habits and provide actionable improvements:
+
+HABIT ANALYSIS:
+- Current habits: ${ctx.habits.map(h => `${h.title} (${h.frequency}, ${h.targetValue} ${h.unit})`).join("; ")}
+- Streak performance: ${Object.entries(ctx.streakAnalysis.currentStreaks).map(([id, streak]) => `${ctx.habits.find(h => h.id.toString() === id)?.title}: ${streak} days`).join("; ")}
+- Completion patterns: ${ctx.completionTrends.map(t => `${t.period}: ${t.completionRate}%`).join("; ")}
+
+OPTIMIZATION OPPORTUNITIES:
+- Underperforming habits: ${ctx.habits.filter(h => ctx.streakAnalysis.currentStreaks[h.id.toString()] < 3).map(h => h.title).join(", ")}
+- Time patterns: ${ctx.timePatterns.map(tp => `${tp.habitId}: ${tp.bestPerformanceWindow}`).join("; ")}
+- Behavioral insights: ${ctx.behaviorInsights.map(bi => `${bi.pattern}: ${bi.impact}`).join("; ")}
+
+USER PROFILE:
+- Level: ${ctx.userLevel} (${ctx.totalXP} XP)
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Adaptive'}
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'General development'}
+
+Provide specific, actionable optimization recommendations that:
+1. Identify the biggest improvement opportunities
+2. Suggest specific habit modifications (timing, frequency, approach)
+3. Provide implementation strategies
+4. Include psychological insights about why these changes work
+5. Give them a clear action plan
+
+Respond with a single, comprehensive optimization guide (not JSON) that includes:
+- Specific habit improvements with clear reasoning
+- Implementation steps they can take today
+- Psychological insights about habit formation
+- A prioritized action plan
+- Encouraging language with emojis
+
+Make it practical, science-based, and immediately actionable!`
+  },
+  weekly_planning: {
+    title: "Weekly Planning",
+    description: "Strategic guidance for planning your upcoming week",
+    category: "planning",
+    difficulty: "intermediate",
+    estimatedDuration: "3-4 minutes",
+    promptTemplate: (ctx: CoachingContext) => `
+You are a strategic planning expert and productivity coach. Create a comprehensive weekly plan based on:
+
+CURRENT STATUS:
+- Level: ${ctx.userLevel} (${ctx.totalXP} XP)
+- Active habits: ${ctx.habits.map(h => h.title).join(", ")}
+- Current streaks: ${Object.entries(ctx.streakAnalysis.currentStreaks).map(([id, streak]) => `${ctx.habits.find(h => h.id.toString() === id)?.title}: ${streak} days`).join("; ")}
+- Recent performance: ${ctx.completionTrends[0]?.completionRate}% this week
+
+STRATEGIC CONTEXT:
+- Goals: ${ctx.questionnaire?.goals?.join(", ") || 'Building better habits'}
+- Focus areas: ${ctx.questionnaire?.focusAreas?.join(", ") || 'General development'}
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Adaptive'}
+- Time availability: ${ctx.questionnaire?.motivationTime || 'Flexible'}
+
+WEEKLY PLANNING ELEMENTS:
+- Habit priorities for the week
+- Energy management strategies
+- Potential challenges and solutions
+- Milestone targets
+- Recovery and rest planning
+
+Create a strategic weekly plan that:
+1. Prioritizes habits based on current performance and goals
+2. Considers energy levels and motivation patterns
+3. Includes specific daily targets and milestones
+4. Anticipates challenges and provides solutions
+5. Balances ambition with realistic expectations
+
+Respond with a single, comprehensive weekly plan (not JSON) that includes:
+- Weekly theme and focus
+- Daily habit priorities
+- Energy management tips
+- Challenge prevention strategies
+- Milestone celebrations planned
+- Inspiring language with emojis
+
+Make it strategic, motivating, and perfectly tailored to their current situation!`
+  },
+  obstacle_solving: {
+    title: "Obstacle Solving",
+    description: "Get help overcoming specific challenges and barriers",
+    category: "problem-solving",
+    difficulty: "intermediate",
+    estimatedDuration: "3-4 minutes",
+    promptTemplate: (ctx: CoachingContext) => `
+You are a problem-solving expert and resilience coach. Help them overcome specific obstacles:
+
+CURRENT CHALLENGES:
+- Underperforming habits: ${ctx.habits.filter(h => ctx.streakAnalysis.currentStreaks[h.id.toString()] < 3).map(h => h.title).join(", ")}
+- Streak breaks: ${Object.entries(ctx.streakAnalysis.streakBreaks).map(([id, breaks]) => `${ctx.habits.find(h => h.id.toString() === id)?.title}: ${breaks} breaks`).join("; ")}
+- Completion trends: ${ctx.completionTrends.map(t => `${t.period}: ${t.completionRate}% (${t.trending})`).join("; ")}
+
+PSYCHOLOGICAL PROFILE:
+- Level: ${ctx.userLevel} (${ctx.totalXP} XP)
+- Motivation style: ${ctx.questionnaire?.motivationStyle || 'Adaptive'}
+- Consistency rating: ${ctx.questionnaire?.consistencyRating || 3}/5
+- Support preference: ${ctx.questionnaire?.checkInPreference || 'Independent'}
+
+PROBLEM-SOLVING APPROACH:
+- Root cause analysis of their specific challenges
+- Evidence-based solutions tailored to their profile
+- Implementation strategies that work for their style
+- Prevention methods for future obstacles
+- Motivation techniques for difficult times
+
+Provide a comprehensive obstacle-solving guide that:
+1. Identifies the root causes of their specific challenges
+2. Offers multiple solution approaches
+3. Provides step-by-step implementation plans
+4. Includes psychological insights about why obstacles occur
+5. Gives them tools for future problem-solving
+
+Respond with a single, comprehensive problem-solving guide (not JSON) that includes:
+- Root cause analysis of their challenges
+- Multiple solution strategies
+- Implementation steps
+- Psychological insights
+- Prevention strategies
+- Encouraging language with emojis
+
+Make it practical, empowering, and solution-focused!`
+  },
 };
 
 // Advanced context builder with comprehensive analytics
@@ -612,7 +782,7 @@ export async function generateAdvancedServiceInsight(
     });
     
     const res = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         { 
           role: "system", 
@@ -725,6 +895,62 @@ export async function generateAdvancedServiceInsight(
         },
         error: "Unable to generate crisis insights",
         fallback: "Remember that setbacks are part of the journey. Focus on getting back on track with one small step."
+      },
+      motivation_boost: {
+        motivationalMessage: {
+          encouragement: "You're doing great! Keep building momentum.",
+          progress: "Every small step counts toward your goals.",
+          identity: "You are becoming the person you want to be."
+        },
+        energyBoost: {
+          immediate: "Take a deep breath and focus on one small win",
+          shortTerm: "Celebrate your progress and build on it",
+          longTerm: "Remember why you started this journey"
+        },
+        error: "Unable to generate motivational insights",
+        fallback: "You're making progress every day. Keep going! Small steps lead to big changes."
+      },
+      habit_optimization: {
+        optimizationAnalysis: {
+          currentStrengths: "Building consistency",
+          improvementAreas: "Finding your rhythm",
+          optimizationOpportunities: "Habit stacking potential"
+        },
+        optimizationStrategy: {
+          immediate: "Focus on one habit improvement today",
+          shortTerm: "Optimize timing and environment",
+          longTerm: "Create sustainable systems"
+        },
+        error: "Unable to generate optimization insights",
+        fallback: "Focus on small improvements to your existing habits. Consistency beats perfection every time."
+      },
+      weekly_planning: {
+        weeklyAnalysis: {
+          currentMomentum: "Building steady progress",
+          upcomingChallenges: "Planning for success",
+          energyLevels: "Balanced approach"
+        },
+        planningStrategy: {
+          priorities: "Focus on your most important habits",
+          scheduling: "Block time for your habits",
+          flexibility: "Adapt as needed throughout the week"
+        },
+        error: "Unable to generate planning insights",
+        fallback: "Plan your week around your most important habits. Schedule them like important appointments."
+      },
+      obstacle_solving: {
+        obstacleAnalysis: {
+          identifiedBarriers: "Common challenges",
+          rootCauses: "Building awareness",
+          impactAssessment: "Learning opportunity"
+        },
+        solutionStrategy: {
+          immediate: "Address one obstacle at a time",
+          shortTerm: "Create systems to prevent obstacles",
+          longTerm: "Build resilience and adaptability"
+        },
+        error: "Unable to generate obstacle-solving insights",
+        fallback: "Every obstacle is an opportunity to grow. Focus on solutions, not problems."
       }
     };
 

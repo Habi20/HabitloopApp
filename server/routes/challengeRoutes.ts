@@ -258,6 +258,11 @@ async function generateUserChallenges(userId: string) {
   for (const [, definition] of Object.entries(CHALLENGE_DEFINITIONS)) {
     const completion = await definition.checkCompletion(userId);
     
+    // Check if challenge was already claimed today
+    const existingClaim = await storage.getChallengeCompletion(userId, definition.id);
+    const todayStart = TimezoneUtils.getStartOfDay(TimezoneUtils.getCurrentSriLankaDate());
+    const isClaimedToday = existingClaim && existingClaim.claimedAt >= todayStart;
+    
     // Calculate expiration date using Sri Lanka timezone
     let expiresAt = TimezoneUtils.getCurrentSriLankaDate();
     switch (definition.type) {
@@ -282,6 +287,7 @@ async function generateUserChallenges(userId: string) {
       progress: completion.progress,
       target: completion.target,
       isCompleted: completion.isCompleted,
+      isClaimed: isClaimedToday,
       isActive: true,
       expiresAt: expiresAt.toISOString(),
       category: definition.type,

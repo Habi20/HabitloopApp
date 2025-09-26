@@ -179,7 +179,6 @@ export class EmailService {
     try {
       const { generateEmailReport } = await import('../openaiService');
       
-      // Create sample data for test email
       const reportData = {
         name: userData?.firstName || 'there',
         level: userData?.level || 1,
@@ -189,26 +188,48 @@ export class EmailService {
         currentStreak: userData?.currentStreak || 0,
         longestStreak: userData?.longestStreak || 0,
         completionRate: userData?.completionRate || 0,
-        recentHabits: userData?.recentHabits || [],
-        difficulty: userData?.difficulty || 'medium',
-        role: userData?.role || 'habitloop_user',
+        recentHabits: userData?.recentHabits?.map((h: string) => ({ title: h, category: 'General', completed: true })) || [],
         emailSettings: userData?.emailSettings || {}
       };
 
-      const aiReport = await generateEmailReport(reportData, 'milestone');
-      emailSubject = '🎉 Welcome to HabitLoop - Your Email is Connected!';
+      console.log('📊 Email Test Data for AI:', JSON.stringify(reportData, null, 2));
+
+      const aiReport = await generateEmailReport(reportData, 'weekly');
+      emailSubject = aiReport.subject;
       emailContent = aiReport.content;
       
       console.log('🤖 AI-generated test email created successfully');
     } catch (error) {
-      console.log('⚠️ AI test email generation failed, using fallback template');
+      console.log('⚠️ AI test email generation failed, using fallback template:', (error as Error).message);
+      console.log('📊 Email Test Data:', JSON.stringify({
+        name: userData?.firstName,
+        level: userData?.level,
+        xp: userData?.xp,
+        totalHabits: userData?.totalHabits,
+        totalCompletions: userData?.totalCompletions,
+        currentStreak: userData?.currentStreak,
+        longestStreak: userData?.longestStreak,
+        completionRate: userData?.completionRate
+      }, null, 2));
       
-      // Fallback to personalized template
+      // Fallback to personalized template with real data
       emailContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #6366F1;">🎉 Welcome to HabitLoop, ${userData?.firstName || 'there'}!</h2>
           <p>Great! Your email integration is working perfectly. 🎉</p>
+          
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Your Current Progress:</h3>
+            <p><strong>Level:</strong> ${userData?.level || 1} | <strong>XP:</strong> ${userData?.xp || 0}</p>
+            <p><strong>Active Habits:</strong> ${userData?.totalHabits || 0}</p>
+            <p><strong>Total Completions:</strong> ${userData?.totalCompletions || 0}</p>
+            <p><strong>Current Streak:</strong> ${userData?.currentStreak || 0} days</p>
+            <p><strong>Longest Streak:</strong> ${userData?.longestStreak || 0} days</p>
+            <p><strong>Completion Rate:</strong> ${userData?.completionRate || 0}%</p>
+            ${userData?.recentHabits?.length > 0 ? `<p><strong>Recent Habits:</strong> ${userData.recentHabits.join(', ')}</p>` : ''}
+          </div>
+          
+          <div style="background-color: #e0e7ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="margin-top: 0;">What You'll Receive:</h3>
             <ul style="margin: 0; padding-left: 20px;">
               <li>📅 <strong>Daily habit reminders</strong> at your preferred time</li>
@@ -218,7 +239,7 @@ export class EmailService {
               <li>🏆 <strong>Streak milestone celebrations</strong> when you achieve goals</li>
             </ul>
           </div>
-          <p>Your current level: <strong>${userData?.level || 1}</strong> | XP: <strong>${userData?.xp || 0}</strong></p>
+          
           <p>Keep building those amazing habits! 💪</p>
         </div>
       `;
