@@ -36,6 +36,7 @@ import {
   ResponsiveTextarea,
   ResponsiveGrid,
 } from "@/components/ui/responsive-form-field";
+import { CategorySelector } from "@/components/CategorySelector";
 
 const habitSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title too long"),
@@ -312,40 +313,18 @@ export function EditHabitModal({ open, onClose, habit }: EditHabitModalProps) {
               name="category"
               render={({ field }) => (
                 <FormItem>
-                    <ResponsiveFormField
-                      label="Category"
-                      required
-                      error={form.formState.errors.category?.message}
-                      variant={isMobile && isTouchDevice ? "floating" : "default"}
-                    >
-                      <FormControl>
-                  <Select
-                    onValueChange={handleCategoryChange}
-                    value={field.value}
-                  >
-                          <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                              <SelectItem 
-                                key={category.value} 
-                                value={category.value}
-                                className={isMobile ? "py-3" : "py-2"}
-                              >
-                          <div className="flex items-center">
-                            <i
-                              className={`${category.icon} mr-2`}
-                              style={{ color: category.color }}
-                            ></i>
-                                  <span className={isMobile ? "text-base" : "text-sm"}>{category.label}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                      </FormControl>
-                    </ResponsiveFormField>
+                  <FormControl>
+                    <CategorySelector
+                      value={field.value}
+                      onChange={(category) => {
+                        field.onChange(category);
+                        handleCategoryChange(category);
+                      }}
+                      onColorChange={(color) => form.setValue('color', color)}
+                      onIconChange={(icon) => form.setValue('icon', icon)}
+                      disabled={updateHabitMutation.isPending}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

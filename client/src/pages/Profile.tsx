@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildApiUrl } from "@/config/api";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { EditProfileModal } from "@/components/EditProfileModal";
+import { WhatsAppShareButton } from "@/components/WhatsAppShareButton";
 
 export default function Profile() {
   const {
@@ -21,6 +24,40 @@ export default function Profile() {
   const [, setHabits] = useState([]);
   const [, setCompletions] = useState([]);
   const [showEditProfile, setShowEditProfile] = useState(false);
+
+  // Fetch ML analytics data
+  const { data: mlData, isLoading: mlLoading } = useQuery({
+    queryKey: ["/api/ml/analytics"],
+    queryFn: async () => {
+      const response = await apiRequest("ml/analytics", "GET");
+      return response.json();
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Fetch actual completions and streaks data (same as Today.tsx)
+  const { data: completionsResponse } = useQuery({
+    queryKey: ["/api/completions"],
+    queryFn: async () => {
+      const response = await apiRequest("completions", 'GET');
+      return await response.json();
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: streaksResponse } = useQuery({
+    queryKey: ["/api/analytics/streaks"],
+    queryFn: async () => {
+      const response = await apiRequest("analytics/streaks", 'GET');
+      return await response.json();
+    },
+    enabled: !!user,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
 
   // Helper function for motivation level colors
   const getMotivationColors = (level: string) => {
@@ -119,6 +156,17 @@ export default function Profile() {
 
   const userInitials = getUserInitials(user);
 
+  // Calculate today's completions and current streak (same logic as Today.tsx)
+  const completions = completionsResponse?.completions || [];
+  const today = new Date().toISOString().split('T')[0];
+  
+  const completedToday = completions.filter((c: any) => {
+    const completionDate = typeof c.completedAt === 'string' ? c.completedAt : c.completedAt?.toISOString?.()?.split('T')[0];
+    return completionDate === today;
+  }) || [];
+
+  const currentStreak = streaksResponse?.data?.summary?.totalCurrentStreak || 0;
+
   // Difficulty color coding
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -151,8 +199,8 @@ export default function Profile() {
             {/* Profile Info - Simplified and Clean */}
             <Card className="h-fit">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base sm:text-lg">Personal Information</CardTitle>
-              </CardHeader>
+                <CardTitle className="text-base sm:text-lg text-center sm:text-left">Personal Information</CardTitle>
+                </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-6">
                   <Avatar className="h-20 w-20" key={user.profileImageUrl}>
@@ -160,13 +208,13 @@ export default function Profile() {
                       src={user.profileImageUrl && user.profileImageUrl !== "👤" ? user.profileImageUrl : ""} 
                       alt={`${getUserDisplayName(user)}'s profile`}
                     />
-                    <AvatarFallback className="text-lg font-semibold bg-primary text-white">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
+                      <AvatarFallback className="text-lg font-semibold bg-primary text-white">
+                        {userInitials}
+                      </AvatarFallback>
+                    </Avatar>
                   <div className="flex-1 text-center sm:text-left">
                     <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                      {getUserDisplayName(user)}
+                        {getUserDisplayName(user)}
                     </h3>
                     <p className="text-gray-600 text-sm break-all sm:break-normal mb-3">
                       {getUserEmail(user)}
@@ -179,16 +227,55 @@ export default function Profile() {
                         </span>
                       </div>
                     </div>
+                    </div>
                   </div>
-                </div>
 
-                <Button 
-                  className="w-full"
-                  onClick={() => setShowEditProfile(true)}
-                >
-                  <i className="fas fa-edit mr-2"></i>
-                  Edit Profile
-                </Button>
+                <div className="space-y-3">
+                  <Button 
+                    className="w-full"
+                    onClick={() => setShowEditProfile(true)}
+                  >
+                    <i className="fas fa-edit mr-2"></i>
+                    Edit Profile
+                  </Button>
+                  
+                  {/* Unified Progress & Share Section - Clean, Focused Design */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-100 border border-green-200 rounded-lg p-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0 sm:space-x-4">
+                      {/* Achievement Message - Left Side */}
+                      <div className="flex-1 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start space-x-2 mb-2">
+                          <span className="text-green-600 text-xl">🌟</span>
+                          <span className="text-green-800 font-semibold text-lg">
+                            {user?.level >= 5 ? 'Habit Master!' : 
+                             user?.level >= 3 ? 'Leveling Up!' : 
+                             'Getting Started!'}
+                          </span>
+                        </div>
+                        <p className="text-green-700 font-medium text-sm">
+                          {user?.level >= 5 ? 'Share your expertise and inspire others!' : 
+                           user?.level >= 3 ? 'Keep the momentum going!' : 
+                           'Share your journey and stay motivated!'}
+                        </p>
+                        <p className="text-green-600 text-xs mt-1">
+                          {completedToday.length} habits completed today • {currentStreak} day streak
+                        </p>
+                      </div>
+                      
+                      {/* WhatsApp Share Button - Right Side */}
+                      <WhatsAppShareButton
+                        userLevel={user?.level || 1}
+                        totalXP={user?.xp || 0}
+                        currentStreak={mlData?.data?.currentStreak || 0}
+                        longestStreak={mlData?.data?.longestStreak || 0}
+                        completedHabits={mlData?.data?.todayCompletions || 0}
+                        totalHabits={mlData?.data?.totalHabits || 0}
+                        userName={getUserDisplayName(user)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 shadow-sm hover:shadow-md"
+                      />
+                    </div>
+                      </div>
+                    </div>
               </CardContent>
             </Card>
 
@@ -218,8 +305,8 @@ export default function Profile() {
                           <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
                             <i className="fas fa-trophy text-yellow-500"></i>
                             <span>Active Learner</span>
-                          </div>
-                        </div>
+                      </div>
+                    </div>
                       </div>
                     </div>
                   </div>
@@ -233,17 +320,21 @@ export default function Profile() {
                   <CardContent className="p-3">
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-gray-700">Consistency Score</div>
-                      <div className="text-lg font-bold text-purple-600">42%</div>
+                      <div className="text-lg font-bold text-purple-600">
+                        {mlLoading ? "..." : (mlData?.data?.consistencyScore ?? 0)}%
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Motivation Level - Dynamic colors */}
-                <Card className={`bg-gradient-to-br ${getMotivationColors('Medium').bg} ${getMotivationColors('Medium').border}`}>
+                <Card className={`bg-gradient-to-br ${getMotivationColors(mlData?.data?.motivationLevel ?? 'Low').bg} ${getMotivationColors(mlData?.data?.motivationLevel ?? 'Low').border}`}>
                   <CardContent className="p-3">
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-gray-700">Motivation Level</div>
-                      <div className={`text-sm font-bold ${getMotivationColors('Medium').text}`}>Medium</div>
+                      <div className={`text-sm font-bold ${getMotivationColors(mlData?.data?.motivationLevel ?? 'Low').text}`}>
+                        {mlData?.data?.motivationLevel ?? 'Low'}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -253,7 +344,9 @@ export default function Profile() {
                   <CardContent className="p-3">
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-gray-700">Current Engagement</div>
-                      <div className="text-lg font-bold text-blue-600">40%</div>
+                      <div className="text-lg font-bold text-blue-600">
+                        {mlData?.data?.engagementLevel ?? 0}%
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -267,8 +360,17 @@ export default function Profile() {
                         Optimal Times
                       </div>
                       <div className="space-y-1">
-                        <div className="text-sm font-bold text-orange-600">07:00</div>
-                        <div className="text-sm font-bold text-orange-600">06:30</div>
+                        {mlData?.data?.optimalTimes?.length > 0 ? (
+                          mlData.data.optimalTimes.slice(0, 3).map((time: string, index: number) => (
+                            <div key={index} className="text-sm font-bold text-orange-600">
+                              {time}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-gray-500 italic">
+                            Add habits to see optimal times
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -279,7 +381,11 @@ export default function Profile() {
                   <CardContent className="p-3">
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-gray-700">You Excel At</div>
-                      <div className="text-sm font-bold text-indigo-600">Health</div>
+                      <div className="text-sm font-bold text-indigo-600">
+                        {mlData?.data?.performanceCategories?.[0] ?? (
+                          <span className="text-gray-500 italic">Complete habits to see strengths</span>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -289,12 +395,17 @@ export default function Profile() {
                   <CardContent className="p-3">
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-gray-700">Weekly Forecast</div>
-                      <div className="text-lg font-bold text-pink-600">40%</div>
-                      <div className="text-xs text-gray-500">Success rate</div>
+                      <div className="text-lg font-bold text-pink-600">
+                        {mlData?.data?.weeklyForecast ?? 0}%
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {mlData?.data?.weeklyForecast === 0 ? 'Start habits to get predictions' : 'Success rate'}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                </CardContent>
+              </Card>
+            </div>
+
             </div>
 
             {/* Quick Challenge Claims - Desktop: Beside Achievements */}
@@ -366,7 +477,7 @@ export default function Profile() {
           </div>
 
         </div>
-      </div>
+    </div>
 
       {/* Edit Profile Modal */}
       <EditProfileModal

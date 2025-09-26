@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useAIRecommendations } from "@/hooks/useAIRecommendations";
 import { Layout } from "@/components/Layout";
 import { AddHabitModal } from "@/components/AddHabitModal";
 import { EditHabitModal } from "@/components/EditHabitModal";
@@ -63,23 +64,32 @@ export default function Habits() {
   const [showAICoach, setShowAICoach] = useState(false);
   const [showEmailIntegration, setShowEmailIntegration] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
-  const [recommendations, setRecommendations] = useState([]);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
-  const [dismissedRecommendations, setDismissedRecommendations] = useState<
-    string[]
-  >([]);
+  
+  // Use shared AI recommendations hook
+  const { 
+    recommendations,
+    isLoading: recommendationsLoading,
+    error: recommendationsError
+  } = useAIRecommendations();
 
+  // Fetch custom categories
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ['/api/custom-categories'],
+    queryFn: async () => {
+      const response = await apiRequest('custom-categories', 'GET');
+      const data = await response.json();
+      return data.categories || [];
+    },
+    enabled: !!user,
+  });
+
+  // Debug logging
   useEffect(() => {
-    const storedRecommendations = localStorage.getItem("habitRecommendations");
-    const storedDismissed = localStorage.getItem("dismissedRecommendations");
-
-    if (storedRecommendations) {
-      setRecommendations(JSON.parse(storedRecommendations));
-    }
-    if (storedDismissed) {
-      setDismissedRecommendations(JSON.parse(storedDismissed));
-    }
-  }, []);
+    console.log('Habits.tsx - Recommendations:', recommendations);
+    console.log('Habits.tsx - Recommendations loading:', recommendationsLoading);
+    console.log('Habits.tsx - Recommendations error:', recommendationsError);
+  }, [recommendations, recommendationsLoading, recommendationsError]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -165,17 +175,7 @@ export default function Habits() {
       return acc;
     }, {} as Record<string, any[]>) || {};
 
-  // Filter out recommendations that are already added as habits or dismissed
-  const filteredRecommendations = (recommendations as any[]).filter((rec: any) => {
-    const existingHabit = habitsArray?.find(
-      (habit: any) =>
-        habit.title.toLowerCase() === rec.title.toLowerCase() ||
-        (habit.title.toLowerCase().includes(rec.title.toLowerCase()) &&
-          habit.category === rec.category)
-    );
-    const isDismissed = dismissedRecommendations.includes(rec.title);
-    return !existingHabit && !isDismissed;
-  });
+  // Recommendations are now filtered by the useAIRecommendations hook
 
   const handleAddHabitFromCarousel = (recommendation: any) => {
     // The carousel already handles adding the habit directly
@@ -184,6 +184,8 @@ export default function Habits() {
     
     // Refresh the habits list to show the newly added habit
     queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
+    // Also invalidate AI recommendations to refresh the filtering
+    queryClient.invalidateQueries({ queryKey: ['ai-recommendations'] });
   };
 
   // const handleDismissRecommendation = (index: number) => {
@@ -217,10 +219,10 @@ export default function Habits() {
       onSidebarOpen={() => setSidebarOpen(true)}
       pageTitle="All Habits"
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto px-2 sm:px-4 overflow-x-hidden">
           <div className="flex items-center justify-between mb-8">
             {/* Removed duplicate page title - now shown in header */}
-            <div className="flex flex-wrap gap-2 sm:gap-3">
+            <div className="flex flex-wrap gap-1 sm:gap-3 w-full">
               <Button variant="outline" onClick={() => setShowAICoach(true)} title="AI Coach" className="flex-shrink-0">
                 <i className="fas fa-lightbulb"></i>
                 <span className="hidden sm:inline ml-2">AI Coach</span>
@@ -241,8 +243,8 @@ export default function Habits() {
             </div>
           </div>
 
-          {/* AI Recommendations Carousel */}
-          {filteredRecommendations.length > 0 && (
+          {/* AI Recommendations Carousel - Show when recommendations available */}
+          {recommendations.length > 0 && (
             <div className="mb-8">
               <HabitRecommendationCarousel
                 onHabitAdd={handleAddHabitFromCarousel}
@@ -269,13 +271,14 @@ export default function Habits() {
                     <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
                       <i
                         className={`fas fa-${getCategoryIcon(
-                          category
-                        )} mr-2 text-${getCategoryColor(category)}`}
+                          category,
+                          customCategories
+                        )} mr-2 text-${getCategoryColor(category, customCategories)}`}
                       ></i>
                       {category}
                     </h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
                       {(categoryHabits as any[]).map((habit: any) => (
                         <Card
                           key={habit.id}
@@ -292,7 +295,7 @@ export default function Habits() {
                                     {habit.description}
                                   </p>
                                 )}
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap">
                                   <Badge variant="secondary">
                                     {habit.category}
                                   </Badge>
@@ -304,7 +307,7 @@ export default function Habits() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex space-x-2">
+                              <div className="flex space-x-1 sm:space-x-2 flex-wrap">
                                 <button
                                   onClick={() => handleEditHabit(habit)}
                                   className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
@@ -377,7 +380,14 @@ export default function Habits() {
     );
   }
 
-function getCategoryIcon(category: string): string {
+function getCategoryIcon(category: string, customCategories: any[] = []): string {
+  // Check custom categories first
+  const customCategory = customCategories.find(cat => cat.name === category);
+  if (customCategory) {
+    return customCategory.icon.replace('fas fa-', ''); // Remove 'fas fa-' prefix
+  }
+
+  // Fallback to predefined categories
   const icons: Record<string, string> = {
     Health: "heart",
     Productivity: "laptop",
@@ -389,7 +399,29 @@ function getCategoryIcon(category: string): string {
   return icons[category] || "check";
 }
 
-function getCategoryColor(category: string): string {
+function getCategoryColor(category: string, customCategories: any[] = []): string {
+  // Check custom categories first
+  const customCategory = customCategories.find(cat => cat.name === category);
+  if (customCategory) {
+    // Convert hex color to Tailwind color class
+    const colorMap: Record<string, string> = {
+      '#10B981': 'green-500',
+      '#3B82F6': 'blue-500',
+      '#8B5CF6': 'purple-500',
+      '#6366F1': 'indigo-500',
+      '#EC4899': 'pink-500',
+      '#F59E0B': 'yellow-500',
+      '#EF4444': 'red-500',
+      '#06B6D4': 'cyan-500',
+      '#84CC16': 'lime-500',
+      '#F97316': 'orange-500',
+      '#A855F7': 'purple-500',
+      '#6B7280': 'gray-500',
+    };
+    return colorMap[customCategory.color] || 'gray-500';
+  }
+
+  // Fallback to predefined categories
   const colors: Record<string, string> = {
     Health: "green-500",
     Productivity: "blue-500",

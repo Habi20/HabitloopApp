@@ -7,14 +7,26 @@ import { useScreenSize } from "@/hooks/use-mobile";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { getCurrentDateString, getTimezoneWarning } from "@/lib/timezone";
+
+// Time-based greeting function
+const getTimeBasedGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    return { greeting: "Good morning", icon: "🌅" };
+  } else if (hour < 17) {
+    return { greeting: "Good afternoon", icon: "☀️" };
+  } else {
+    return { greeting: "Good evening", icon: "🌙" };
+  }
+};
 // import { Sidebar } from "@/components/Sidebar";
 import { Layout } from "@/components/Layout";
 import { HabitCard } from "@/components/HabitCard";
 import { AddHabitModal } from "@/components/AddHabitModal";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
-import { HabitRecommendationCarousel } from "@/components/HabitRecommendationCarousel";
+import { WelcomeTourModal } from "@/components/WelcomeTourModal";
 import { MLPredictionCard } from "@/components/MLPredictionCard";
-import { CoachingMessages } from "@/components/CoachingMessages";
+// import { CoachingMessages } from "@/components/CoachingMessages";
 import { AIInsightCard } from "@/components/AIInsightCard";
 // import NotificationPanel from "@/components/NotificationPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,34 +49,48 @@ export default function Home() {
   const [showAddHabit, setShowAddHabit] = useState(false);
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false);
+  const [showWelcomeTour, setShowWelcomeTour] = useState(false);
   
-  // Coaching insight generation mutation
-  const generateInsightMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("coaching/generate-insight", "POST");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coaching/messages"] });
-      toast({
-        title: "New Insight Generated",
-        description: "Your AI coach has provided new personalized guidance.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to generate coaching insight. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Coaching insight generation mutation - commented out for VIVA
+  // const generateInsightMutation = useMutation({
+  //   mutationFn: async () => {
+  //     const response = await apiRequest("coaching/generate-insight", "POST");
+  //     return response.json();
+  //   },
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries({ queryKey: ["/api/coaching/messages"] });
+  //     toast({
+  //       title: "New Insight Generated",
+  //       description: "Your AI coach has provided new personalized guidance.",
+  //     });
+  //   },
+  //   onError: () => {
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to generate coaching insight. Please try again.",
+  //       variant: "destructive",
+  //     });
+  //   },
+  // });
   
 // sidebarOpen
   // Check if questionnaire is completed
   useEffect(() => {
     const completed = localStorage.getItem("questionnaireCompleted") === "true";
     setQuestionnaireCompleted(completed);
+  }, []);
+
+  // Show welcome tour for new users (first time visiting home after signup)
+  useEffect(() => {
+    const hasSeenWelcomeTour = localStorage.getItem("hasSeenWelcomeTour");
+    const isNewUser = localStorage.getItem("isNewUser") === "true";
+    
+    if (isNewUser && !hasSeenWelcomeTour) {
+      setShowWelcomeTour(true);
+      // Mark as seen and remove new user flag
+      localStorage.setItem("hasSeenWelcomeTour", "true");
+      localStorage.removeItem("isNewUser");
+    }
   }, []);
 
   // Sidebar state management
@@ -185,6 +211,7 @@ export default function Home() {
             toast({
               title: "Habit Completed! 🎉",
               description: `+${result.data.xpEarned} XP earned!`,
+              className: "bg-green-50 border-green-200 text-green-800",
             });
           }
           return result;
@@ -199,7 +226,7 @@ export default function Home() {
             toast({
               title: "Habit Uncompleted",
               description: `-${result.data.xpLost} XP lost`,
-              variant: "destructive",
+              className: "bg-amber-50 border-amber-200 text-amber-800",
             });
           }
           return result;
@@ -283,6 +310,9 @@ export default function Home() {
       });
     },
     onSettled: () => {
+      // Track habit change for logout protection
+      localStorage.setItem('habitloop_last_habit_change', Date.now().toString());
+      
       // Force refetch to ensure cache consistency
       queryClient.invalidateQueries({ queryKey: ["/api/completions", today] });
       queryClient.invalidateQueries({ queryKey: ["/api/completions"] }); // Invalidate general completions query
@@ -337,22 +367,26 @@ export default function Home() {
   const longestStreak = streaksData?.data?.summary?.totalLongestStreak || 0;
 
   return (
-    <Layout 
-      showSidebar={true}
-      sidebarOpen={sidebarOpen}
-      onSidebarToggle={setSidebarOpen}
-      onSidebarOpen={() => setSidebarOpen(true)}
-      pageTitle="Today"
-    >
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
+    <>
+      <Layout 
+        showSidebar={true}
+        sidebarOpen={sidebarOpen}
+        onSidebarToggle={setSidebarOpen}
+        onSidebarOpen={() => setSidebarOpen(true)}
+        pageTitle="Today"
+      >
+        <div className="flex-1 flex flex-col overflow-hidden w-full">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden w-full">
           {/* Welcome Section */}
           <div className="bg-gradient-to-r from-primary to-purple-600 text-white p-3 sm:p-6 md:p-8 lg:p-10 xl:p-12">
             <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                 <div>
                   <h2 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold mb-1 sm:mb-2">
-                    Good morning, {user.firstName || "there"}! 🌅
+                    {(() => {
+                      const { greeting, icon } = getTimeBasedGreeting();
+                      return `${greeting}, ${user.firstName || "there"}! ${icon}`;
+                    })()}
                   </h2>
                   <p className="text-indigo-100 text-xs sm:text-base md:text-lg lg:text-xl">
                     You're doing great! Keep up the momentum.
@@ -366,13 +400,13 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-3 sm:px-6 md:px-8 lg:px-10 xl:px-12">
+          <div className="max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-1 sm:px-6 md:px-8 lg:px-10 xl:px-12 w-full overflow-x-hidden">
             {showTimezoneWarning}
             
             {/* Stats Cards - Compact on mobile, grid on desktop */}
             <div className="mt-3 sm:mt-8 mb-3 sm:mb-6">
               {isMobile ? (
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="grid grid-cols-2 gap-1 mb-3">
                 <Card className="h-16">
                   <CardContent className="p-2 flex flex-col justify-center">
                     <div className="text-base font-bold">{habits?.length || 0}</div>
@@ -410,56 +444,56 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                 <Card className="hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base font-medium text-gray-600">Total Habits</CardTitle>
-                    <i className="fas fa-list text-gray-400"></i>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Total Habits</CardTitle>
+                    <i className="fas fa-list text-gray-400 text-sm"></i>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="text-3xl font-bold text-gray-900">{habits?.length || 0}</div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Active habits
+                    <div className="text-2xl font-bold text-gray-900">{habits?.length || 0}</div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Active
                     </p>
                   </CardContent>
                 </Card>
 
                 <Card className="hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base font-medium text-gray-600">Today's Progress</CardTitle>
-                    <i className="fas fa-chart-line text-gray-400"></i>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Today's Progress</CardTitle>
+                    <i className="fas fa-chart-line text-gray-400 text-sm"></i>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="text-3xl font-bold text-gray-900">{completedToday.length}/{habits?.length || 0}</div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% completed
+                    <div className="text-2xl font-bold text-gray-900">{completedToday.length}/{habits?.length || 0}</div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {habits?.length ? Math.round((completedToday.length / habits.length) * 100) : 0}% done
                     </p>
                   </CardContent>
                 </Card>
 
                 <Card className="hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base font-medium text-gray-600">Current Streak</CardTitle>
-                    <i className="fas fa-fire text-gray-400"></i>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-600">Current Streak</CardTitle>
+                    <i className="fas fa-fire text-gray-400 text-sm"></i>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="text-3xl font-bold text-gray-900">{currentStreak}</div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Longest: {longestStreak} days
+                    <div className="text-2xl font-bold text-gray-900">{currentStreak}</div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Best: {longestStreak}d
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card className="hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base font-medium text-gray-600">Level & XP</CardTitle>
-                    <i className="fas fa-star text-gray-400"></i>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="text-3xl font-bold text-gray-900">Level {user?.level || 1}</div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {user?.xp || 0} XP • {100 - ((user?.xp || 0) % 100)} more XP
-                    </p>
-                  </CardContent>
-                </Card>
+                        <Card className="hover:shadow-lg transition-shadow duration-200">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-600">Level & XP</CardTitle>
+                                <i className="fas fa-star text-gray-400 text-sm"></i>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <div className="text-2xl font-bold text-gray-900">L{user?.level || 1}</div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {user?.xp || 0} XP • +{100 - ((user?.xp || 0) % 100)} to LevelUp
+                                </p>
+                            </CardContent>
+                        </Card>
               </div>
             )}
             </div>
@@ -468,17 +502,20 @@ export default function Home() {
             {mlEvaluation && uiSettingsLoaded && uiSettings.showDataConsistencyCheck && (
               <Card className="mb-6 border-orange-200 bg-orange-50">
                 <CardHeader>
-                  <CardTitle className="text-sm text-orange-800 flex items-center gap-2">
+                  <CardTitle className="text-xs sm:text-sm text-orange-800 flex items-center gap-1 sm:gap-2">
                     <i className="fas fa-exclamation-triangle"></i>
-                    Data Consistency Check
-                    <div className="ml-auto flex gap-2">
+                    <span className="hidden xs:inline">Data Consistency Check</span>
+                    <span className="xs:hidden">Debug</span>
+                    <div className="ml-auto flex gap-1 sm:gap-2 flex-wrap">
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => setDebugSectionMinimized(!debugSectionMinimized)}
+                        className="text-xs px-2"
                       >
-                        <i className={`fas ${debugSectionMinimized ? 'fa-expand' : 'fa-compress'} mr-2`}></i>
-                        {debugSectionMinimized ? 'Show' : 'Minimize'}
+                        <i className={`fas ${debugSectionMinimized ? 'fa-expand' : 'fa-compress'} mr-1`}></i>
+                        <span className="hidden sm:inline">{debugSectionMinimized ? 'Show' : 'Minimize'}</span>
+                        <span className="sm:hidden">{debugSectionMinimized ? 'Show' : 'Hide'}</span>
                       </Button>
                       <Button 
                         variant="outline" 
@@ -510,32 +547,38 @@ export default function Home() {
                             });
                           }
                         }}
+                        className="text-xs px-2"
                       >
-                        <i className="fas fa-search mr-2"></i>
-                        Audit XP
+                        <i className="fas fa-search mr-1"></i>
+                        <span className="hidden sm:inline">Audit XP</span>
+                        <span className="sm:hidden">Audit</span>
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={refreshUserData}
+                        className="text-xs px-2"
                       >
-                        <i className="fas fa-sync-alt mr-2"></i>
-                        Refresh User Data
+                        <i className="fas fa-sync-alt mr-1"></i>
+                        <span className="hidden sm:inline">Refresh User Data</span>
+                        <span className="sm:hidden">Refresh</span>
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => window.location.reload()}
+                        className="text-xs px-2"
                       >
-                        <i className="fas fa-redo mr-2"></i>
-                        Force Refresh
+                        <i className="fas fa-redo mr-1"></i>
+                        <span className="hidden sm:inline">Force Refresh</span>
+                        <span className="sm:hidden">Reload</span>
                       </Button>
                     </div>
                   </CardTitle>
                 </CardHeader>
                 {!debugSectionMinimized && (
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs sm:text-sm">
                       <div>
                         <h4 className="font-semibold text-orange-800 mb-2">Frontend Data (Cached)</h4>
                         <p>Level: {user?.level || 'N/A'}</p>
@@ -564,26 +607,26 @@ export default function Home() {
             {/* Today's Habits - Moved up after stats */}
             <div className="mb-3 sm:mb-8 md:mb-10 lg:mb-12">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-6 space-y-2 sm:space-y-0">
-                <h3 className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
+                <h3 className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 flex-shrink-0">
                   Today's Habits
                 </h3>
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto min-w-0">
                   {!questionnaireCompleted && uiSettings.showAIQuestionnaire && (
                     <Button
                       onClick={() => setShowQuestionnaire(true)}
                       variant="outline"
-                      className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
+                      className="flex items-center justify-center space-x-1 w-full sm:w-auto text-xs px-3 py-2"
                     >
-                      <i className="fas fa-brain"></i>
-                      <span className="hidden sm:inline">AI Setup</span>
+                      <i className="fas fa-brain text-xs"></i>
+                      <span className="text-xs">AI Setup</span>
                     </Button>
                   )}
                   <Button
                     onClick={() => setShowAddHabit(true)}
-                    className="flex items-center justify-center space-x-2 w-full sm:w-auto text-sm sm:text-base"
+                    className="flex items-center justify-center space-x-1 w-full sm:w-auto text-xs px-3 py-2"
                   >
-                    <i className="fas fa-plus"></i>
-                    <span className="hidden sm:inline">Add Habit</span>
+                    <i className="fas fa-plus text-xs"></i>
+                    <span className="text-xs">Add Habit</span>
                   </Button>
                 </div>
               </div>
@@ -638,26 +681,20 @@ export default function Home() {
               </div>
             </div>
 
-            {/* AI Habit Recommendations - Only show if user has completed questionnaire */}
-            {questionnaireCompleted && (
-              <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
-                <HabitRecommendationCarousel />
-              </div>
-            )}
 
-            {/* Notifications and User Insights - Only show when notifications are enabled */}
+            {/* AI Coach Section - Hidden for VIVA presentation */}
+            {/* 
             {uiSettings.allNotifications && (
               <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Sticky AI Coach Section */}
                   <div className="lg:col-span-1">
                     <div className="sticky top-4">
-                                             <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                         Personalized Habit Insights
-                       </h3>
-                       <p className="text-sm text-gray-600 mb-4">
-                         AI-powered insights and recommendations for your habit journey
-                       </p>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                        Personalized Habit Insights
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        AI-powered insights and recommendations for your habit journey
+                      </p>
                       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
                         <div className="text-center">
                           <i className="fas fa-lightbulb text-2xl text-blue-600 mb-2"></i>
@@ -683,18 +720,18 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  {/* Scrollable Notifications */}
                   <div className="lg:col-span-2">
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">
                       Recent Insights
                     </h3>
-                                         <div className="max-h-96 overflow-y-auto pr-2 space-y-3">
-                       <CoachingMessages />
-                     </div>
+                    <div className="max-h-96 overflow-y-auto pr-2 space-y-3">
+                      <CoachingMessages />
+                    </div>
                   </div>
                 </div>
               </div>
             )}
+            */}
 
             {/* AI Insight Card */}
             {insights && insights.length > 0 && (
@@ -715,23 +752,29 @@ export default function Home() {
       </div>
 
       {/* Floating Action Button */}
-      <button
-        onClick={() => setShowAddHabit(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors lg:hidden flex items-center justify-center z-50"
-        aria-label="Add new habit"
-      >
-        <i className="fas fa-plus text-xl"></i>
-      </button>
+        <button
+          onClick={() => setShowAddHabit(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors lg:hidden flex items-center justify-center z-50"
+          aria-label="Add new habit"
+        >
+          <i className="fas fa-plus text-xl"></i>
+        </button>
 
-      <AddHabitModal
-        open={showAddHabit}
-        onClose={() => setShowAddHabit(false)}
-      />
+        <AddHabitModal
+          open={showAddHabit}
+          onClose={() => setShowAddHabit(false)}
+        />
 
-      <AIQuestionnaireModal
-        open={showQuestionnaire}
-        onClose={() => setShowQuestionnaire(false)}
-      />
-    </Layout>
+        <AIQuestionnaireModal
+          open={showQuestionnaire}
+          onClose={() => setShowQuestionnaire(false)}
+        />
+
+        <WelcomeTourModal
+          open={showWelcomeTour}
+          onClose={() => setShowWelcomeTour(false)}
+        />
+      </Layout>
+    </>
   );
 }

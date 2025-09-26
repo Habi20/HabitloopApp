@@ -1,9 +1,9 @@
 // HabitLoop Service Worker
 // Version 1.0.2
 
-const CACHE_NAME = 'habitloop-v1.0.2';
-const STATIC_CACHE = 'habitloop-static-v1.0.2';
-const DYNAMIC_CACHE = 'habitloop-dynamic-v1.0.2';
+const CACHE_NAME = 'habitloop-v1.0.4';
+const STATIC_CACHE = 'habitloop-static-v1.0.4';
+const DYNAMIC_CACHE = 'habitloop-dynamic-v1.0.4';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
@@ -18,9 +18,15 @@ const STATIC_FILES = [
 
 // API endpoints that should work offline
 const OFFLINE_ENDPOINTS = [
-  '/api/habits',
   '/api/session/status',
   '/api/user/settings'
+];
+
+// API endpoints that should always fetch fresh data
+const FRESH_ENDPOINTS = [
+  '/api/habits',
+  '/api/ml/habit-scores/',
+  '/api/completions'
 ];
 
 // Install event - cache static files
@@ -96,6 +102,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Check if this is a fresh endpoint that should always fetch from network
+  const shouldFetchFresh = FRESH_ENDPOINTS.some(endpoint => url.pathname.startsWith(endpoint));
+  
+  if (shouldFetchFresh) {
+    // Always fetch fresh data for these endpoints
+    event.respondWith(
+      fetchWithRetry(request, 3)
+        .then((response) => {
+          // Don't cache these responses
+          return response;
+        })
+        .catch((error) => {
+          console.log('🌐 Service Worker: Network failed for fresh endpoint', request.url);
+          return new Response(JSON.stringify({ error: 'Network failed' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(request)
       .then((cachedResponse) => {

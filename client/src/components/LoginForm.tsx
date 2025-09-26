@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
 const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState('akeel.lithan@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -83,7 +83,7 @@ const LoginForm: React.FC = () => {
         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-800">
             <strong>Test Credentials:</strong><br />
-            Email: akeel.lithan@gmail.com<br />
+            Email: {email || 'Enter your email'}<br />
             Password: password123
           </p>
         </div>

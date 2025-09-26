@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLocation } from "wouter";
 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { buildApiUrl } from "@/config/api";
 import { AIQuestionnaireModal } from "@/components/AIQuestionnaireModal";
+import { TermsAndPrivacyModal } from "@/components/TermsAndPrivacyModal";
 
 // Feature constants
 const DIFFICULTY_OPTIONS = [
@@ -59,12 +61,16 @@ export function HabitLoopSignupModal({
   const { toast } = useToast();
   const { loginAsHabitLoopUser } = useAuth();
   const isMobile = useIsMobile();
+  const [, setLocation] = useLocation();
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showAIQuestionnaire, setShowAIQuestionnaire] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   // form state; resets when modal closes
   const [signupFormData, setSignupFormData] = useState<SignupFormData>({
@@ -116,6 +122,9 @@ export function HabitLoopSignupModal({
     if (!signupFormData.email.trim() || !signupFormData.email.includes('@')) {
       toast({ title: "Valid Email Required", description: "Please enter a valid email address.", variant: "destructive" }); return false;
     }
+    if (emailError) {
+      toast({ title: "Email Already Exists", description: emailError, variant: "destructive" }); return false;
+    }
     return true;
   };
   const validateStep2 = () => {
@@ -135,8 +144,55 @@ export function HabitLoopSignupModal({
   };
   const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
+  // Check if email exists
+  const checkEmailExists = async (email: string) => {
+    if (!email || !email.includes('@')) return false;
+    
+    setCheckingEmail(true);
+    setEmailError(null);
+    
+    try {
+      const response = await fetch(buildApiUrl('habitloop/check-email'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      return data.exists || false;
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return false;
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  // Handle email input with validation
+  const handleEmailChange = async (email: string) => {
+    setSignupFormData(prev => ({ ...prev, email }));
+    
+    // Clear previous error
+    setEmailError(null);
+    
+    // Check email exists after user stops typing
+    if (email && email.includes('@')) {
+      const exists = await checkEmailExists(email);
+      if (exists) {
+        setEmailError('This email is already registered. Please use a different email or try logging in.');
+      }
+    }
+  };
+
   const handleSignupSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true);
+    e.preventDefault(); 
+    // Show terms modal first
+    setShowTermsModal(true);
+  };
+
+  const handleTermsAccepted = async () => {
+    setShowTermsModal(false);
+    setLoading(true);
     try {
       // Get AI recommendations from localStorage if available
       let aiRecommendations = null;
@@ -191,7 +247,12 @@ export function HabitLoopSignupModal({
         onUserCreated(newUser);
         if (responseData.success && responseData.user) {
           try {
-            await loginAsHabitLoopUser(newUser); onSuccess();
+            await loginAsHabitLoopUser(newUser); 
+            onSuccess();
+            // Mark as new user for welcome tour
+            localStorage.setItem("isNewUser", "true");
+            // Redirect to home page for better UX - new users will see welcome tour
+            setLocation("/");
           } catch (error) { /* silent - manual login fallback */ }
         }
         onClose();
@@ -213,7 +274,8 @@ export function HabitLoopSignupModal({
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className={`
           sm:max-w-[600px] max-h-[90vh] overflow-y-auto
-          ${isMobile ? 'w-[95vw] max-w-[95vw] mx-2' : 'w-full'} p-4 sm:p-6
+          ${isMobile ? 'w-[95vw] max-w-[95vw] mx-2' : 'w-full'} p-4 sm:p-8
+          mx-4 sm:mx-0
         `}>
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 text-center sm:text-left">
@@ -268,42 +330,23 @@ export function HabitLoopSignupModal({
             {/* Step 1: Basic Info */}
             {currentStep === 1 && (
               <div className="space-y-4">
-                {/* User ID & Difficulty */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-userId">User ID *</Label>
-                    <div className="relative flex items-center">
-                      <Input 
-                      id="signup-userId" 
-                      name="userId"
-                      value={signupFormData.userId} 
-                      readOnly 
-                      disabled={disabled}
-                      className="h-10 sm:h-11 text-sm bg-gray-100 pr-12 disabled:opacity-50" 
-                    />
-                      <span className="absolute right-3 text-xs py-1 px-2 rounded font-semibold bg-blue-100 text-blue-600 border border-blue-200" aria-label="Auto-generated">
-                        Auto
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Auto-generated unique identifier</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="difficulty">Difficulty Level</Label>
-                    <Select
-                      value={signupFormData.difficulty}
-                      onValueChange={(v) => handleInputChange('difficulty', v as any)}
-                    >
-                      <SelectTrigger id="difficulty" name="difficulty" className="h-10 sm:h-11 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {DIFFICULTY_OPTIONS.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="font-medium">{option.label}</div>
-                            <div className="text-xs text-gray-500">{option.description}</div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Difficulty Level - User ID is hidden but still auto-generated */}
+                <div className="space-y-2">
+                  <Label htmlFor="difficulty">Difficulty Level</Label>
+                  <Select
+                    value={signupFormData.difficulty}
+                    onValueChange={(v) => handleInputChange('difficulty', v as any)}
+                  >
+                    <SelectTrigger id="difficulty" name="difficulty" className="h-10 sm:h-11 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DIFFICULTY_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="font-medium">{option.label}</div>
+                          <div className="text-xs text-gray-500">{option.description}</div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 {/* Name Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -343,10 +386,23 @@ export function HabitLoopSignupModal({
                     type="email"
                     autoComplete="email"
                     value={signupFormData.email}
-                    onChange={e => handleInputChange('email', e.target.value)}
+                    onChange={e => handleEmailChange(e.target.value)}
                     placeholder="Enter email address"
                     required
+                    className={emailError ? "border-red-500 focus:border-red-500" : ""}
                   />
+                  {checkingEmail && (
+                    <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                      <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      Checking email...
+                    </div>
+                  )}
+                  {emailError && (
+                    <div className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {emailError}
+                    </div>
+                  )}
                 </div>
                 {/* Avatar generator */}
                 <div className="space-y-4">
@@ -585,6 +641,13 @@ export function HabitLoopSignupModal({
             description: "Your personalized habits have been configured based on your preferences.",
           });
         }}
+      />
+
+      <TermsAndPrivacyModal
+        open={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={handleTermsAccepted}
+        type="signup"
       />
     </>
   );

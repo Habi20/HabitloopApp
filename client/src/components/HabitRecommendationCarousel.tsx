@@ -20,7 +20,6 @@ interface HabitRecommendation {
   color: string;
   icon: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  successRate: number;
   aiReasoning: string;
   benefits: string[];
   tips: string[];
@@ -118,7 +117,6 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
             color: rec.color || '#6366F1',
             icon: rec.icon || 'fas fa-check',
             difficulty: rec.difficulty || 'medium',
-            successRate: rec.successRate || 75,
             aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
             benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
             tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
@@ -151,7 +149,6 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
             color: rec.color || '#6366F1',
             icon: rec.icon || 'fas fa-check',
             difficulty: rec.difficulty || 'medium',
-            successRate: rec.successRate || 75,
             aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
             benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
             tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
@@ -177,7 +174,6 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
             color: rec.color || '#6366F1',
             icon: rec.icon || 'fas fa-check',
             difficulty: rec.difficulty || 'medium',
-            successRate: rec.successRate || 75,
             aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
             benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
             tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
@@ -315,6 +311,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       }
       
              // Invalidate habits query to refresh the habit list and update filtering
+      queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
       queryClient.invalidateQueries({ queryKey: ['/api/habits', user?.id] });
       
       // Update recommendations cache to remove the added recommendation
@@ -421,11 +418,6 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
     }
   };
 
-  const getSuccessRateColor = (rate: number) => {
-    if (rate >= 80) return 'text-green-600';
-    if (rate >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
 
   if (isLoading) {
     return (
@@ -523,7 +515,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
 
       <div className="relative">
         <Card 
-          className={`w-full h-96 transition-transform duration-300 cursor-grab active:cursor-grabbing ${
+          className={`w-full h-80 sm:h-96 transition-transform duration-300 cursor-grab active:cursor-grabbing overflow-hidden ${
             isAnimating ? 'scale-95' : 'scale-100'
           } ${isDragging ? 'scale-98' : ''}`}
           style={{
@@ -537,70 +529,70 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <CardTitle className="flex items-center space-x-2">
-                  <i className={`${currentRecommendation.icon || 'fas fa-check'} text-2xl`}></i>
-                  <span>{currentRecommendation.title || 'Habit Recommendation'}</span>
+                <CardTitle className="flex items-center space-x-1 sm:space-x-2 min-w-0">
+                  <i className={`${currentRecommendation.icon || 'fas fa-check'} text-lg sm:text-2xl flex-shrink-0`}></i>
+                  <span className="truncate text-sm sm:text-base">{currentRecommendation.title || 'Habit Recommendation'}</span>
                 </CardTitle>
-                <CardDescription className="mt-1">
+                <CardDescription className="mt-1 line-clamp-2 text-xs sm:text-sm">
                   {currentRecommendation.description || 'A personalized habit recommendation for you.'}
                 </CardDescription>
               </div>
               
-              <div className="flex flex-col items-end space-y-1">
-                <Badge variant="secondary" className={getDifficultyColor(currentRecommendation.difficulty || 'medium')}>
+              <div className="flex flex-col items-end space-y-1 flex-shrink-0">
+                <Badge variant="secondary" className={`${getDifficultyColor(currentRecommendation.difficulty || 'medium')} text-xs`}>
                   {currentRecommendation.difficulty || 'medium'}
                 </Badge>
-                <div className={`text-sm font-medium ${getSuccessRateColor(currentRecommendation.successRate || 75)}`}>
-                  {currentRecommendation.successRate || 75}% success rate
+                <div className="text-xs text-gray-500 hidden sm:block">
+                  Personalized for you
+                </div>
+                {/* Habit Details moved here */}
+                <div className="flex flex-col items-end space-y-1 mt-2">
+                  <div className="flex items-center space-x-1 text-xs text-gray-600">
+                    <Target className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                    <span>{currentRecommendation.targetValue || 1} {currentRecommendation.unit || 'time'}</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-xs text-gray-600">
+                    <Clock className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                    <span>{currentRecommendation.reminderTime || '09:00'}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-4">
-            {/* Habit Details */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <Target className="w-4 h-4 text-gray-500" />
-                <span>{currentRecommendation.targetValue || 1} {currentRecommendation.unit || 'time'}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-gray-500" />
-                <span>{currentRecommendation.reminderTime || '09:00'}</span>
-              </div>
-            </div>
+          <CardContent className="space-y-3 overflow-hidden">
 
             {/* AI Reasoning */}
-            <div className="bg-purple-50 p-3 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <Sparkles className="w-4 h-4 text-purple-600 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-purple-900 text-sm">Why AI Recommends This</h4>
-                  <p className="text-purple-800 text-sm mt-1">{currentRecommendation.aiReasoning || 'This habit is personalized based on your preferences and goals.'}</p>
+            <div className="bg-purple-50 p-2 rounded-lg">
+              <div className="flex items-start space-x-1 sm:space-x-2">
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="font-medium text-purple-900 text-xs sm:text-sm">Why AI Recommends This</h4>
+                  <p className="text-purple-800 text-xs sm:text-sm mt-1 line-clamp-2">{currentRecommendation.aiReasoning || 'This habit is personalized based on your preferences and goals.'}</p>
                 </div>
               </div>
             </div>
 
             {/* Benefits */}
             <div>
-              <h4 className="font-medium text-sm mb-2">Key Benefits</h4>
-              <div className="flex flex-wrap gap-2">
-                {(currentRecommendation.benefits || []).slice(0, 3).map((benefit, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {benefit}
+              <h4 className="font-medium text-xs sm:text-sm mb-1">Key Benefits</h4>
+              <div className="flex flex-wrap gap-1">
+                {(currentRecommendation.benefits || []).slice(0, 2).map((benefit, index) => (
+                  <Badge key={index} variant="outline" className="text-xs px-1 sm:px-2 py-0.5 max-w-full">
+                    <span className="truncate block text-xs">{benefit}</span>
                   </Badge>
                 ))}
               </div>
             </div>
 
             {/* Quick Tips */}
-            <div>
-              <h4 className="font-medium text-sm mb-2">Success Tips</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                {(currentRecommendation.tips || []).slice(0, 2).map((tip, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <Star className="w-3 h-3 mt-1 text-yellow-500 flex-shrink-0" />
-                    <span>{tip}</span>
+            <div className="min-w-0">
+              <h4 className="font-medium text-xs sm:text-sm mb-1">Success Tips</h4>
+              <ul className="text-xs sm:text-sm text-gray-600 space-y-1">
+                {(currentRecommendation.tips || []).slice(0, 1).map((tip, index) => (
+                  <li key={index} className="flex items-start space-x-1 sm:space-x-2 min-w-0">
+                    <Star className="w-3 h-3 mt-0.5 text-yellow-500 flex-shrink-0" />
+                    <span className="line-clamp-1 sm:line-clamp-2 break-words overflow-hidden">{tip}</span>
                   </li>
                 ))}
               </ul>
@@ -631,28 +623,33 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex space-x-3 mt-4">
+      <div className="flex space-x-2 sm:space-x-3 mt-4">
         <Button
           onClick={() => addHabitMutation.mutate(currentRecommendation)}
           disabled={addHabitMutation.isPending}
-          className="flex-1"
+          className="flex-1 text-xs sm:text-sm"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          {addHabitMutation.isPending ? 'Adding...' : 'Add This Habit'}
+          <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+          <span className="hidden xs:inline">{addHabitMutation.isPending ? 'Adding...' : 'Add This Habit'}</span>
+          <span className="xs:hidden">{addHabitMutation.isPending ? 'Adding...' : 'Add'}</span>
         </Button>
         
         <Button
           variant="outline"
           onClick={handleNext}
           disabled={isAnimating}
+          className="text-xs sm:text-sm px-2 sm:px-4"
         >
           Skip
         </Button>
       </div>
 
       {/* Swipe Instructions */}
-      <p className="text-xs text-gray-500 text-center mt-2">
+      <p className="text-xs text-gray-500 text-center mt-2 hidden sm:block">
         Swipe left/right or use arrows to browse recommendations
+      </p>
+      <p className="text-xs text-gray-500 text-center mt-2 sm:hidden">
+        Swipe to browse
       </p>
     </div>
   );

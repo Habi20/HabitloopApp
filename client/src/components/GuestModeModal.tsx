@@ -93,7 +93,7 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire, onOpenSign
 
   return (
     <Dialog open={open} onOpenChange={() => { onClose(); resetForm(); }}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
             Welcome to HabitLoop!
@@ -227,7 +227,10 @@ export function GuestModeModal({ open, onClose, onStartQuestionnaire, onOpenSign
             </p>
             <Button 
               variant="outline" 
-              onClick={onOpenSignup}
+              onClick={() => {
+                onClose();
+                onOpenSignup();
+              }}
               className="w-full"
             >
               <UserPlus className="h-4 w-4 mr-2" />

@@ -17,6 +17,7 @@ interface Challenge {
   progress: number;
   target: number;
   isCompleted: boolean;
+  isClaimed: boolean;
   isActive: boolean;
   expiresAt: string;
   category: string;
@@ -53,12 +54,15 @@ export function ChallengesSystem() {
     },
     onSuccess: (data) => {
       if (data.success) {
+        console.log('Challenge claimed successfully:', data);
         toast({
           title: "🎉 Challenge Completed!",
           description: `+${data.xpEarned} XP earned! Keep up the great work!`,
           duration: 4000,
+          className: "bg-green-50 border-green-200 text-green-800",
         });
-        // Invalidate relevant queries to refresh data
+        
+        // Force immediate cache invalidation and refetch
         queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
         queryClient.invalidateQueries({ queryKey: ["/api/analytics/xp-calculation"] });
         queryClient.invalidateQueries({ queryKey: ["/api/user"] });
@@ -73,6 +77,9 @@ export function ChallengesSystem() {
         queryClient.invalidateQueries({ queryKey: ["/api/ml/evaluate"] });
         queryClient.invalidateQueries({ queryKey: ["/api/ml/predictions"] });
         
+        // Force immediate refetch of challenges specifically
+        queryClient.refetchQueries({ queryKey: ["/api/challenges"] });
+        
         // Force immediate refetch of all invalidated queries
         queryClient.refetchQueries({ queryKey: ["/api/user"] });
         queryClient.refetchQueries({ queryKey: ["/api/analytics/xp-calculation"] });
@@ -80,7 +87,7 @@ export function ChallengesSystem() {
         toast({
           title: "Unable to Claim",
           description: data.message || "Challenge cannot be claimed at this time",
-          variant: "destructive",
+          className: "bg-amber-50 border-amber-200 text-amber-800",
         });
       }
     },
@@ -89,7 +96,7 @@ export function ChallengesSystem() {
       toast({
         title: "Claim Failed",
         description: "There was an error claiming your reward. Please try again.",
-        variant: "destructive",
+        className: "bg-amber-50 border-amber-200 text-amber-800",
       });
     },
   });
@@ -347,33 +354,46 @@ export function ChallengesSystem() {
                       </span>
                     </div>
 
-                    {challenge.isCompleted && (
+                    {challenge.isCompleted && !challenge.isClaimed && (
                       <Button
-                        onClick={() => claimRewardMutation.mutate(challenge.id)}
+                        onClick={() => {
+                          console.log('Claiming challenge:', challenge.id);
+                          claimRewardMutation.mutate(challenge.id);
+                        }}
                         disabled={claimRewardMutation.isPending || !challenge.isActive}
-                        className={`w-full transition-all duration-200 ${
-                          challenge.isActive 
-                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transform hover:scale-105' 
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
-                        }`}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold"
                       >
                         {claimRewardMutation.isPending ? (
                           <>
                             <i className="fas fa-spinner fa-spin mr-2"></i>
                             Claiming...
                           </>
-                        ) : challenge.isActive ? (
+                        ) : (
                           <>
                             <i className="fas fa-gift mr-2"></i>
                             Claim {challenge.xpReward} XP
                           </>
-                        ) : (
-                          <>
-                            <i className="fas fa-check-circle mr-2"></i>
-                            Already Claimed
-                          </>
                         )}
                       </Button>
+                    )}
+
+                    {challenge.isCompleted && challenge.isClaimed && (
+                      <div className="w-full">
+                        <div className="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-lg p-4 text-center">
+                          <div className="flex items-center justify-center mb-2">
+                            <i className="fas fa-check-circle text-2xl text-emerald-600 mr-2"></i>
+                            <span className="text-lg font-semibold text-emerald-800">ALREADY CLAIMED</span>
+                          </div>
+                          <div className="text-sm text-emerald-700 font-medium mb-2">
+                            <i className="fas fa-gift mr-1"></i>
+                            +{challenge.xpReward} XP earned
+                          </div>
+                          <div className="text-xs text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full font-medium">
+                            <i className="fas fa-clock mr-1"></i>
+                            Resets tomorrow - No need to click again!
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </CardContent>

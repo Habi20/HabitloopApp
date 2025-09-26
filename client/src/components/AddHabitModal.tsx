@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,6 +35,7 @@ import {
   ResponsiveTextarea,
   ResponsiveGrid,
 } from "@/components/ui/responsive-form-field";
+import { CategorySelector } from "@/components/CategorySelector";
 
 const habitSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title too long"),
@@ -287,64 +288,107 @@ export function AddHabitModal({
     }
   };
 
+  // Get user's existing habits to filter out duplicates (same as carousel)
+  const { data: habitsResponse } = useQuery({
+    queryKey: ['/api/habits'],
+    queryFn: async () => {
+      const response = await apiRequest('habits', 'GET');
+      return response.json();
+    },
+    enabled: showRecommendations, // Only fetch when showing recommendations
+  });
+  
+  const existingHabits = habitsResponse?.habits || [];
+
   if (showRecommendations) {
-    const recommendations = JSON.parse(
+    // Get all recommendations from localStorage
+    const allRecommendations = JSON.parse(
       localStorage.getItem("habitRecommendations") || "[]"
     );
+    
+    // Apply the same filtering logic as the carousel
+    const recommendations = allRecommendations.filter((rec: any) => {
+      const existingHabit = existingHabits.find(
+        (habit: any) =>
+          habit.title.toLowerCase() === rec.title.toLowerCase() ||
+          (habit.title.toLowerCase().includes(rec.title.toLowerCase()) &&
+            habit.category === rec.category)
+      );
+      
+      // Debug logging
+      if (existingHabit) {
+        console.log(`[AI Suggestions Modal] Filtering out "${rec.title}" - matches existing habit "${existingHabit.title}"`);
+      }
+      
+      return !existingHabit;
+    });
+    
+    console.log(`[AI Suggestions Modal] Filtering: ${allRecommendations.length} total → ${recommendations.length} available`);
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto mx-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">
+        <DialogContent 
+          className="overflow-hidden p-6 sm:p-8"
+          mobileVariant="bottom-sheet"
+        >
+          <DialogHeader className="mb-6">
+            <DialogTitle className="text-xl font-bold text-gray-900 mb-2">
               AI Habit Recommendations
             </DialogTitle>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm">
               Based on your preferences, here are some personalized habit
               suggestions:
             </p>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto mb-6">
             {recommendations.map((rec: any, index: number) => (
               <div
                 key={index}
-                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                className="border border-gray-200 rounded-lg p-4 sm:p-5 hover:bg-gray-50 cursor-pointer transition-colors hover:shadow-sm"
                 onClick={() => useRecommendation(rec)}
               >
-                <div className="flex items-center space-x-3 mb-2">
+                <div className="flex items-start space-x-4 mb-3">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg flex-shrink-0 shadow-sm"
                     style={{ backgroundColor: rec.color }}
                   >
                     <i className={rec.icon}></i>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{rec.title}</h4>
-                    <p className="text-sm text-gray-600">{rec.description}</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-900 text-base sm:text-lg mb-1">{rec.title}</h4>
+                    <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">{rec.description}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4 text-xs text-gray-500">
-                  <span className="bg-gray-100 px-2 py-1 rounded">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                  <span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-medium">
                     {rec.category}
                   </span>
-                  <span>
+                  <span className="flex items-center gap-1">
+                    <i className="fas fa-target text-xs"></i>
                     {rec.targetValue} {rec.unit}
                   </span>
-                  <span>{rec.reminderTime}</span>
+                  <span className="flex items-center gap-1">
+                    <i className="fas fa-clock text-xs"></i>
+                    {rec.reminderTime}
+                  </span>
                 </div>
               </div>
             ))}
 
-            <div className="flex space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-6 border-t border-gray-100">
               <Button
                 variant="outline"
                 onClick={() => setShowRecommendations(false)}
-                className="flex-1"
+                className="w-full sm:flex-1 h-11 text-sm font-medium"
               >
                 Create Custom Habit
               </Button>
-              <Button variant="outline" onClick={onClose} className="flex-1">
+              <Button 
+                variant="outline" 
+                onClick={onClose} 
+                className="w-full sm:flex-1 h-11 text-sm font-medium"
+              >
                 Maybe Later
               </Button>
             </div>
@@ -425,40 +469,18 @@ export function AddHabitModal({
                 name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <ResponsiveFormField
-                      label="Category"
-                      required
-                      error={form.formState.errors.category?.message}
-                      variant={isMobile && isTouchDevice ? "floating" : "default"}
-                    >
-                      <FormControl>
-                        <Select
-                          onValueChange={handleCategoryChange}
-                          value={field.value}
-                        >
-                          <SelectTrigger className={isMobile ? "h-12 text-base" : "h-10 text-sm"}>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem
-                                key={category.value}
-                                value={category.value}
-                                className={isMobile ? "py-3" : "py-2"}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <i
-                                    className={`${category.icon} text-sm`}
-                                    style={{ color: category.color }}
-                                  ></i>
-                                  <span className={isMobile ? "text-base" : "text-sm"}>{category.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                    </ResponsiveFormField>
+                    <FormControl>
+                      <CategorySelector
+                        value={field.value}
+                        onChange={(category) => {
+                          field.onChange(category);
+                          handleCategoryChange(category);
+                        }}
+                        onColorChange={(color) => form.setValue('color', color)}
+                        onIconChange={(icon) => form.setValue('icon', icon)}
+                        disabled={createHabitMutation.isPending}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />
