@@ -13,8 +13,7 @@ const getApiBaseUrl = () => {
   }
   
   // Production: Use Railway backend
-  // TODO: Replace with your actual Railway URL
-  return 'https://your-railway-app.railway.app/api';
+  return 'https://habitloopapp-development.up.railway.app/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
