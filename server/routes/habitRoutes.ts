@@ -92,6 +92,16 @@ export function habitRoutes() {
       const updates = insertHabitSchema.partial().parse(req.body);
       const habit = await storage.updateHabit(habitId, updates);
 
+      // Sync habit update to Google Calendar if enabled
+      try {
+        const { syncHabitToCalendar } = await import("../utils/calendarHabitSync");
+        await syncHabitToCalendar(req.user.id, habitId, 'update');
+        console.log(`✅ Habit ${habitId} updated in Google Calendar`);
+      } catch (syncError) {
+        console.error("Calendar sync failed (non-critical):", syncError);
+        // Don't fail the habit update if calendar sync fails
+      }
+
       res.json({
         success: true,
         habit,
@@ -118,6 +128,16 @@ export function habitRoutes() {
     try {
       const habitId = parseInt(req.params.id);
       await storage.deleteHabit(habitId);
+
+      // Sync habit deletion to Google Calendar if enabled
+      try {
+        const { syncHabitToCalendar } = await import("../utils/calendarHabitSync");
+        await syncHabitToCalendar(req.user.id, habitId, 'delete');
+        console.log(`✅ Habit ${habitId} deleted from Google Calendar`);
+      } catch (syncError) {
+        console.error("Calendar sync failed (non-critical):", syncError);
+        // Don't fail the habit deletion if calendar sync fails
+      }
 
       res.json({
         success: true,

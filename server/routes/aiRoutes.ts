@@ -9,22 +9,33 @@ import { fromZodError } from 'zod-validation-error';
 import { storage } from '../storage';
 import { generateHabitRecommendations, generateAIRecommendations } from '../openaiService';
 
-// Format coach response to ensure proper 4-line structure
+// Format coach response to ensure proper 4-line structure and convert markdown to HTML
 function formatCoachResponse(response: string): string {
   const lines = response.trim().split('\n').filter(line => line.trim());
   
+  // Convert markdown formatting to HTML
+  const convertMarkdownToHtml = (text: string): string => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **bold** to <strong>
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // *italic* to <em>
+      // Keep \n as line breaks for frontend processing
+      .replace(/\n/g, '\n'); // Keep line breaks as \n
+  };
+  
   if (lines.length === 4) {
-    return response;
+    return convertMarkdownToHtml(response);
   }
   
   // Fallback: wrap response in 4-section template
   const firstLine = lines[0] || 'Great progress on your habits!';
-  return [
+  const fallbackResponse = [
     `🏆 Win: ${firstLine}`,
     `🧠 Insight: Keep stacking progress - every small action builds momentum.`,
     `➡️ Challenge: Stay consistent tomorrow with your most important habit.`,
     `💡 Identity: You're proving who you are becoming through daily action.`
   ].join('\n');
+  
+  return convertMarkdownToHtml(fallbackResponse);
 }
 
 const router = express.Router();
@@ -205,6 +216,31 @@ router.post('/recommendations', async (req, res) => {
   } catch (error) {
     console.error("Error generating AI recommendations:", error);
     res.status(500).json({ message: "Failed to generate recommendations" });
+  }
+});
+
+// Clear AI recommendations for fresh generation
+router.post('/clear-recommendations', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+    
+    // Clear AI recommendations from user profile
+    await storage.clearUserRecommendations(userId);
+    
+    console.log(`🧹 Cleared AI recommendations for user: ${userId}`);
+    
+    res.json({
+      success: true,
+      message: "AI recommendations cleared successfully",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error clearing AI recommendations:", error);
+    res.status(500).json({ message: "Failed to clear recommendations" });
   }
 });
 

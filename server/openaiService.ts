@@ -43,6 +43,7 @@ async function getOpenAI() {
 }
 
 export interface HabitRecommendation {
+  id: string;
   title: string;
   description: string;
   category: string;
@@ -50,8 +51,14 @@ export interface HabitRecommendation {
   unit: string;
   reminderTime: string;
   frequency: string;
+  recurrencePattern?: string;
+  selectedDays?: number[] | null;
   color: string;
   icon: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  aiReasoning: string;
+  benefits: string[];
+  tips: string[];
 }
 
 export async function generateHabitRecommendations(
@@ -60,16 +67,65 @@ export async function generateHabitRecommendations(
   customCategories?: any[]
 ): Promise<HabitRecommendation[]> {
   try {
-    console.log("Generating recommendations for questionnaire:", JSON.stringify(questionnaire, null, 2));
+    console.log("🤖 Generating AI recommendations for questionnaire:", JSON.stringify(questionnaire, null, 2));
     
+    // Check OpenAI API key validity
+    const hasValidOpenAIKey = env.OPENAI_API_KEY && 
+      env.OPENAI_API_KEY !== "sk-placeholder-key-for-development" && 
+      env.OPENAI_API_KEY.startsWith("sk-");
+    
+    console.log("🔑 OpenAI Key Status:", hasValidOpenAIKey ? "✅ Valid" : "❌ Invalid/Missing");
+    console.log("🔑 API Key Preview:", env.OPENAI_API_KEY ? `${env.OPENAI_API_KEY.substring(0, 10)}...` : "Not set");
+    
+    // PRIORITY 1: Try OpenAI AI generation first
+    if (hasValidOpenAIKey) {
+      try {
+        console.log("🚀 Generating fresh AI recommendations with OpenAI...");
+        
+        // First generate base synthetic recommendations
+        const syntheticHabits = generatePersonalizedHabits(questionnaire, customCategories);
+        const baseRecommendations: HabitRecommendation[] = syntheticHabits.map((habit, index) => ({
+          id: String(habit.id || `base-${Date.now()}-${index}`),
+          title: habit.title,
+          description: habit.description,
+          category: habit.category,
+          targetValue: habit.targetValue,
+          unit: habit.unit,
+          reminderTime: habit.reminderTime,
+          frequency: habit.frequency,
+          recurrencePattern: habit.frequency || "daily",
+          selectedDays: null,
+          color: habit.color,
+          icon: habit.icon,
+          difficulty: (habit as any).difficulty || "medium",
+          aiReasoning: (habit as any).aiReasoning || "This habit is personalized based on your preferences and goals.",
+          benefits: (habit as any).benefits || ["Improved focus", "Better habits", "Personal growth"],
+          tips: (habit as any).tips || ["Start small", "Be consistent", "Track your progress"]
+        }));
+        
+        // Then enhance with AI
+        const aiRecommendations = await enhanceRecommendationsWithAI(questionnaire, baseRecommendations, userContext);
+        console.log("✅ Fresh AI recommendations generated successfully:", aiRecommendations.length);
+        return aiRecommendations;
+      } catch (error: any) {
+        console.error("❌ OpenAI generation failed:", error.message);
+        console.log("🔄 Falling back to synthetic recommendations...");
+      }
+    } else {
+      console.log("⚠️ No valid OpenAI key found, using synthetic recommendations");
+    }
+    
+    // PRIORITY 2: Fallback to synthetic recommendations
+    console.log("📝 Generating synthetic recommendations as fallback...");
     const syntheticHabits = generatePersonalizedHabits(questionnaire, customCategories);
     console.log("Generated synthetic habits:", syntheticHabits.length);
     
     if (syntheticHabits.length === 0) {
-      console.log("No synthetic habits generated, using fallback habits");
+      console.log("No synthetic habits generated, using hardcoded fallback habits");
       // Return some default habits if none are generated
-      const fallbackHabits = [
+      const fallbackHabits: HabitRecommendation[] = [
         {
+          id: "fallback-1",
           title: "Daily Walk",
           description: "Take a 30-minute walk for physical and mental health",
           category: "Health & Fitness",
@@ -77,10 +133,17 @@ export async function generateHabitRecommendations(
           unit: "minutes",
           reminderTime: "09:00",
           frequency: "daily",
+          recurrencePattern: "daily",
+          selectedDays: null,
           color: "#10B981",
-          icon: "🚶"
+          icon: "🚶",
+          difficulty: "medium",
+          aiReasoning: "Walking is a low-impact exercise that improves both physical and mental health.",
+          benefits: ["Improved cardiovascular health", "Better mood", "Increased energy"],
+          tips: ["Start with 10 minutes", "Walk at a comfortable pace", "Choose scenic routes"]
         },
         {
+          id: "fallback-2",
           title: "Read a Book",
           description: "Read for 20 minutes to expand knowledge and reduce stress",
           category: "Learning",
@@ -88,10 +151,17 @@ export async function generateHabitRecommendations(
           unit: "minutes",
           reminderTime: "20:00",
           frequency: "daily",
+          recurrencePattern: "daily",
+          selectedDays: null,
           color: "#3B82F6",
-          icon: "📚"
+          icon: "📚",
+          difficulty: "easy",
+          aiReasoning: "Reading enhances knowledge, reduces stress, and improves focus.",
+          benefits: ["Expanded knowledge", "Reduced stress", "Better focus"],
+          tips: ["Choose interesting topics", "Read before bed", "Keep a reading list"]
         },
         {
+          id: "fallback-3",
           title: "Practice Gratitude",
           description: "Write down 3 things you're grateful for each day",
           category: "Mindfulness",
@@ -99,14 +169,21 @@ export async function generateHabitRecommendations(
           unit: "items",
           reminderTime: "19:00",
           frequency: "daily",
+          recurrencePattern: "daily",
+          selectedDays: null,
           color: "#8B5CF6",
-          icon: "🙏"
+          icon: "🙏",
+          difficulty: "easy",
+          aiReasoning: "Gratitude practice improves mental well-being and life satisfaction.",
+          benefits: ["Improved mood", "Better sleep", "Increased happiness"],
+          tips: ["Write in a journal", "Be specific", "Focus on small things"]
         }
       ];
       return fallbackHabits;
     }
     
-    const recommendations: HabitRecommendation[] = syntheticHabits.map(habit => ({
+    const recommendations: HabitRecommendation[] = syntheticHabits.map((habit, index) => ({
+      id: String(habit.id || `synthetic-${Date.now()}-${index}`),
       title: habit.title,
       description: habit.description,
       category: habit.category,
@@ -114,26 +191,15 @@ export async function generateHabitRecommendations(
       unit: habit.unit,
       reminderTime: habit.reminderTime,
       frequency: habit.frequency,
+      recurrencePattern: habit.frequency || "daily",
+      selectedDays: null,
       color: habit.color,
-      icon: habit.icon
+      icon: habit.icon,
+      difficulty: (habit as any).difficulty || "medium",
+      aiReasoning: (habit as any).aiReasoning || "This habit is personalized based on your preferences and goals.",
+      benefits: (habit as any).benefits || ["Improved focus", "Better habits", "Personal growth"],
+      tips: (habit as any).tips || ["Start small", "Be consistent", "Track your progress"]
     }));
-
-    const hasValidOpenAIKey = env.OPENAI_API_KEY && 
-      env.OPENAI_API_KEY !== "sk-placeholder-key-for-development" && 
-      env.OPENAI_API_KEY.startsWith("sk-");
-      
-    if (hasValidOpenAIKey) {
-      try {
-        console.log("🤖 Enhancing recommendations with OpenAI...");
-        const enhancedRecommendations = await enhanceRecommendationsWithAI(questionnaire, recommendations, userContext);
-        console.log("✅ OpenAI enhancement successful!");
-        return enhancedRecommendations;
-      } catch (error: any) {
-        console.log("⚠️ OpenAI enhancement failed, using synthetic recommendations:", error.message);
-      }
-    } else {
-      console.log("📝 Using synthetic recommendations (no OpenAI key)");
-    }
     
     return recommendations;
   } catch (error) {
@@ -141,6 +207,7 @@ export async function generateHabitRecommendations(
     // Return fallback recommendations
     return [
       {
+        id: "error-fallback-1",
         title: "Daily Walk",
         description: "Take a 30-minute walk for physical and mental health",
         category: "Health & Fitness",
@@ -148,10 +215,17 @@ export async function generateHabitRecommendations(
         unit: "minutes",
         reminderTime: "09:00",
         frequency: "daily",
+        recurrencePattern: "daily",
+        selectedDays: null,
         color: "#10B981",
-        icon: "🚶"
+        icon: "🚶",
+        difficulty: "medium",
+        aiReasoning: "Walking is a low-impact exercise that improves both physical and mental health.",
+        benefits: ["Improved cardiovascular health", "Better mood", "Increased energy"],
+        tips: ["Start with 10 minutes", "Walk at a comfortable pace", "Choose scenic routes"]
       },
       {
+        id: "error-fallback-2",
         title: "Read a Book",
         description: "Read for 20 minutes to expand knowledge and reduce stress",
         category: "Learning",
@@ -159,10 +233,17 @@ export async function generateHabitRecommendations(
         unit: "minutes",
         reminderTime: "20:00",
         frequency: "daily",
+        recurrencePattern: "daily",
+        selectedDays: null,
         color: "#3B82F6",
-        icon: "📚"
+        icon: "📚",
+        difficulty: "easy",
+        aiReasoning: "Reading enhances knowledge, reduces stress, and improves focus.",
+        benefits: ["Expanded knowledge", "Reduced stress", "Better focus"],
+        tips: ["Choose interesting topics", "Read before bed", "Keep a reading list"]
       },
       {
+        id: "error-fallback-3",
         title: "Practice Gratitude",
         description: "Write down 3 things you're grateful for each day",
         category: "Mindfulness",
@@ -170,8 +251,14 @@ export async function generateHabitRecommendations(
         unit: "items",
         reminderTime: "19:00",
         frequency: "daily",
+        recurrencePattern: "daily",
+        selectedDays: null,
         color: "#8B5CF6",
-        icon: "🙏"
+        icon: "🙏",
+        difficulty: "easy",
+        aiReasoning: "Gratitude practice improves mental well-being and life satisfaction.",
+        benefits: ["Improved mood", "Better sleep", "Increased happiness"],
+        tips: ["Write in a journal", "Be specific", "Focus on small things"]
       }
     ];
   }
@@ -301,7 +388,30 @@ Create habits that feel CUSTOM-MADE for this specific user, not generic suggesti
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
-    return result.habits || baseRecommendations;
+    const aiHabits = result.habits || result.recommendations || [];
+    
+    // Transform AI response to match expected HabitRecommendation format
+    const transformedHabits = aiHabits.map((habit: any, index: number) => ({
+      id: habit.id || `ai-${Date.now()}-${index}`,
+      title: habit.title || `AI Habit ${index + 1}`,
+      description: habit.description || "AI-generated personalized habit",
+      category: habit.category || "General",
+      targetValue: habit.targetValue || 1,
+      unit: habit.unit || "times",
+      reminderTime: habit.reminderTime || "09:00",
+      frequency: habit.frequency || "daily",
+      recurrencePattern: habit.recurrencePattern || habit.frequency || "daily",
+      selectedDays: habit.selectedDays || null,
+      color: habit.color || "#6366F1",
+      icon: habit.icon || "fas fa-check",
+      difficulty: habit.difficulty || "medium",
+      aiReasoning: habit.aiReasoning || habit.reasoning || "This habit is personalized based on your preferences and goals.",
+      benefits: habit.benefits || habit.keyBenefits || ["Improved focus", "Better habits", "Personal growth"],
+      tips: habit.tips || habit.successTips || ["Start small", "Be consistent", "Track your progress"]
+    }));
+    
+    console.log("🤖 AI-enhanced recommendations transformed:", transformedHabits.length);
+    return transformedHabits;
   } catch (error) {
     console.error("OpenAI API call failed:", error);
     return baseRecommendations;
@@ -421,12 +531,12 @@ export async function generateEmailReport(
   try {
     const openai = await getOpenAI();
     
-    // Check if user is new (level ≤ 3) - use basic prompt for cost efficiency
-    const isNewUser = userData.level <= 3;
+    // Use advanced format for all users for consistent experience
+    // const isNewUser = false; // Always use advanced format
     
-    console.log(`📧 Email Report: ${isNewUser ? 'BASIC' : 'ADVANCED'} prompt for ${userData.name} (Level ${userData.level})`);
+    console.log(`📧 Email Report: ADVANCED format for ${userData.name} (Level ${userData.level})`);
     
-    if (isNewUser) {
+    if (false) { // Disabled basic format
       // BASIC PROMPT for new users (LOWER TOKEN USAGE)
              // Sanitize data for basic prompt too
        const sanitizeString = (str: any) => {

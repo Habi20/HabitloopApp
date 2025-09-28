@@ -125,6 +125,7 @@ export interface IStorage {
   // Questionnaire operations
   saveQuestionnaire(userId: string, questionnaireData: any): Promise<void>;
   saveRecommendations(userId: string, recommendations: any[]): Promise<void>;
+  clearUserRecommendations(userId: string): Promise<void>;
 
   // Admin operations
   getSystemStats(): Promise<{
@@ -1329,6 +1330,19 @@ export class DatabaseStorage implements IStorage {
       console.log('Recommendations saved for user:', userId);
     } catch (error) {
       console.error('Error saving recommendations:', error);
+      throw error;
+    }
+  }
+
+  async clearUserRecommendations(userId: string): Promise<void> {
+    try {
+      // Clear recommendations from the user's aiRecommendations field
+      await this.updateUser(userId, {
+        aiRecommendations: null
+      });
+      console.log('Recommendations cleared for user:', userId);
+    } catch (error) {
+      console.error('Error clearing recommendations:', error);
       throw error;
     }
   }

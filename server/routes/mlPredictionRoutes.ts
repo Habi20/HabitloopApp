@@ -494,11 +494,19 @@ export function mlPredictionRoutes() {
         ? [...new Set(habits.map(h => h.reminderTime || "09:00"))].slice(0, 3)
         : [];
 
-      // Determine performance categories - return empty array for users with no habits
-      const categories = habits?.map(h => h.category).filter(Boolean) || [];
-      const performanceCategories = categories.length > 0 
-        ? [...new Set(categories)].slice(0, 3)
-        : [];
+      // Determine performance categories using real ML analysis
+      let performanceCategories: string[] = [];
+      try {
+        const { getTopPerformingCategories } = await import('../utils/categoryPerformanceAnalysis');
+        performanceCategories = await getTopPerformingCategories(userId, 3);
+      } catch (error) {
+        console.error('Error calculating performance categories:', error);
+        // Fallback to simple category list
+        const categories = habits?.map(h => h.category).filter(Boolean) || [];
+        performanceCategories = categories.length > 0 
+          ? [...new Set(categories)].slice(0, 3)
+          : [];
+      }
 
       // Calculate confidence level with recent activity consideration
       let confidenceLevel = "Low";

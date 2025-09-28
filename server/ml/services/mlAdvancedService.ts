@@ -719,3 +719,4 @@ except Exception as e:
 }
 
 export const mlAdvancedService = new MLAdvancedService();
+export default MLAdvancedService;

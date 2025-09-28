@@ -236,17 +236,28 @@ router.post('/emergency/shutdown', requireAdmin, async (req, res) => {
 // Get ML system status
 router.get('/ml/status', requireAdmin, async (_req, res) => {
   try {
+    // Import ML service
+    const { mlAdvancedService } = await import('../ml/services/mlAdvancedService');
+    const mlService = mlAdvancedService;
+    
+    // Get real ML status
+    const mlStatus = await mlService.getModelStatus();
+    
       res.json({
         success: true,
       data: {
-        predictions: 0,
-        accuracy: 0.85,
-        lastTraining: new Date().toISOString(),
-        modelVersion: '1.0.0',
-        fallbackMode: true
+        predictions: mlStatus.training_samples || 0,
+        accuracy: mlStatus.accuracy || mlStatus.r2_score || 0,
+        lastTraining: mlStatus.last_trained || new Date().toISOString(),
+        modelVersion: mlStatus.version || '1.0.0',
+        fallbackMode: !mlStatus.trained,
+        trained: mlStatus.trained,
+        modelPath: mlStatus.model_path,
+        featuresTrained: mlStatus.features_trained || 13
         }
       });
     } catch (error) {
+    console.error('ML status error:', error);
     res.status(500).json({ 
       success: false, 
       error: { message: 'Failed to get ML status' } 
@@ -259,11 +270,31 @@ router.post('/ml/retrain', requireAdmin, async (_req, res) => {
   try {
     console.log('🔄 ML retraining initiated by admin');
     
-    res.json({
-      success: true,
-      data: { message: 'ML retraining initiated' }
-    });
+    // Import ML service
+    const { mlAdvancedService } = await import('../ml/services/mlAdvancedService');
+    const mlService = mlAdvancedService;
+    
+    // Actually retrain models
+    const trainingResult = await mlService.trainModelsWithSyntheticData();
+    
+    if (trainingResult.success) {
+      console.log('✅ ML models retrained successfully');
+      res.json({
+        success: true,
+        data: { 
+          message: 'ML models retrained successfully',
+          details: trainingResult.details
+        }
+      });
+    } else {
+      console.error('❌ ML retraining failed:', trainingResult.error);
+      res.status(500).json({
+        success: false,
+        error: { message: trainingResult.error || 'ML retraining failed' }
+      });
+    }
   } catch (error) {
+    console.error('❌ ML retraining error:', error);
     res.status(500).json({ 
       success: false, 
       error: { message: 'Failed to retrain ML models' } 
@@ -296,7 +327,7 @@ const generateSystemCSVData = (data: any) => {
   lines.push('=== HABITS ===');
   lines.push('ID,User ID,Title,Description,Frequency,Difficulty,Created At');
   data.habits.forEach((habit: any) => {
-    lines.push(`${habit.id},${habit.userId},${habit.title},${habit.description},${habit.frequency},${habit.difficulty},${habit.createdAt}`);
+    lines.push(`${habit.id},${habit.userId},${habit.title},${habit.description},${habit.frequency},${habit.difficulty || 'N/A'},${habit.createdAt}`);
   });
   
   return lines.join('\n');
@@ -327,7 +358,7 @@ const generateUserCSVData = (data: any) => {
   lines.push('=== HABITS ===');
   lines.push('ID,Title,Description,Frequency,Difficulty,Created At');
   data.habits.forEach((habit: any) => {
-    lines.push(`${habit.id},${habit.title},${habit.description},${habit.frequency},${habit.difficulty},${habit.createdAt}`);
+    lines.push(`${habit.id},${habit.title},${habit.description},${habit.frequency},${habit.difficulty || 'N/A'},${habit.createdAt}`);
   });
   lines.push('');
   
@@ -349,7 +380,7 @@ const generateUserExcelData = (data: any) => {
 // Admin backup endpoints
 router.get('/backup/system', requireAdmin, async (req: any, res) => {
   try {
-    const { format = 'json' } = req.query;
+    const { format = 'csv' } = req.query;
     
     // Get all system data
     const allUsers = await storage.getAllUsers();
@@ -397,7 +428,7 @@ router.get('/backup/system', requireAdmin, async (req: any, res) => {
         data
       });
     }
-  } catch (error) {
+    } catch (error) {
     console.error('System backup error:', error);
       res.status(500).json({
         success: false,
@@ -410,7 +441,7 @@ router.get('/backup/system', requireAdmin, async (req: any, res) => {
 router.get('/backup/user/:userId', requireAdmin, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { format = 'json' } = req.query;
+    const { format = 'csv' } = req.query;
 
     if (!userId) {
       return res.status(400).json({

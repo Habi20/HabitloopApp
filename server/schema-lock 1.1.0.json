@@ -1,9 +1,0 @@
-{
-  "version": "1.1.0",
-  "locked": true,
-  "lockDate": "2025-07-31T02:00:00Z",
-  "migrationBaseline": "002_add_rbac_roles", 
-  "allowedChanges": ["data", "indexes"],
-  "restrictedChanges": ["schema", "tables", "columns"],
-  "reason": "RBAC implementation complete - frontend-stability"
-}
