@@ -48,6 +48,18 @@ export default function Stats() {
     refetchOnWindowFocus: true,
   });
 
+  // Query for streaks data (same as Home.tsx)
+  const { data: streaksData } = useQuery({
+    queryKey: ["/api/analytics/streaks"],
+    queryFn: async () => {
+      const response = await apiRequest("analytics/streaks", 'GET');
+      return await response.json();
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true,
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -65,6 +77,9 @@ export default function Stats() {
 
   const habitsArray = habits || [];
   const completionsArray = completions || [];
+
+  // Get current streak from analytics API (same as Home.tsx)
+  const currentStreak = streaksData?.data?.summary?.totalCurrentStreak || 0;
 
   const habitStats = habitsArray.map((habit: any) => {
     const habitCompletions = completionsArray.filter(
@@ -154,7 +169,7 @@ export default function Stats() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-orange-900">
-                  {(user as any).currentStreak || 0}
+                  {currentStreak}
                 </div>
                 <div className="text-sm text-orange-600 mt-1">Days in a row</div>
               </CardContent>

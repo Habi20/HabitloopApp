@@ -162,7 +162,7 @@ export function HabitLoopLoginModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 p-6 sm:p-8">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto w-[95vw] max-w-[95vw] mx-2 sm:mx-0 p-4 sm:p-8">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
             Welcome to HabitLoop!

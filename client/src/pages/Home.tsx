@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUISettings } from "@/hooks/useUISettings";
 import { useScreenSize } from "@/hooks/use-mobile";
+import { useTodaysHabits } from "@/hooks/useHabitFiltering";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { getCurrentDateString, getTimezoneWarning } from "@/lib/timezone";
@@ -149,7 +150,7 @@ export default function Home() {
       return await response.json();
     },
     enabled: !!user,
-    staleTime: 0, // Always refetch to ensure fresh data
+    staleTime: 30000, // Cache for 30 seconds
     refetchOnWindowFocus: true, // Refetch when window gains focus
   });
 
@@ -181,7 +182,7 @@ export default function Home() {
       return await response.json();
     },
     enabled: !!user,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 60000, // Cache for 1 minute
     refetchOnWindowFocus: true,
   });
 
@@ -313,28 +314,31 @@ export default function Home() {
       // Track habit change for logout protection
       localStorage.setItem('habitloop_last_habit_change', Date.now().toString());
       
-      // Force refetch to ensure cache consistency
+      // SIMPLE CACHE INVALIDATION - Only invalidate what's necessary
       queryClient.invalidateQueries({ queryKey: ["/api/completions", today] });
-      queryClient.invalidateQueries({ queryKey: ["/api/completions"] }); // Invalidate general completions query
-      queryClient.invalidateQueries({ queryKey: ["/api/habits", user?.id] }); // Invalidate habits query for stats
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/streaks"] });
       
-      // Invalidate related queries with proper timing
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/streaks"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/xp-calculation"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
-        // Invalidate ML predictions to ensure they update with new user data
-        queryClient.invalidateQueries({ queryKey: ["/api/ml/evaluate"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/ml/predictions"] });
-        
-        // Refresh user data after a delay to ensure XP/level updates
-        setTimeout(() => {
-          refreshUserData();
-        }, 500);
-      }, 100);
+      // Refresh user data to update XP and level
+      if (refreshUserData) {
+        refreshUserData().then((updatedUser) => {
+          if (updatedUser) {
+            console.log('✅ User data refreshed after habit completion:', updatedUser);
+            // Update localStorage with fresh data
+            localStorage.setItem('verifiedUser', JSON.stringify(updatedUser));
+          }
+        }).catch((error) => {
+          console.error('❌ Failed to refresh user data after habit completion:', error);
+        });
+      }
     },
   });
+
+  const allHabits = habitsResponse?.habits || [];
+  const completions = completionsResponse?.completions || [];
+
+  // Use the custom hook for habit filtering - MUST be called before any early returns
+  const { habits, totalHabits, todaysCount } = useTodaysHabits(allHabits);
 
   if (authLoading || habitsLoading || completionsLoading) {
     return (
@@ -347,9 +351,13 @@ export default function Home() {
   if (!user) {
     return null;
   }
-
-  const habits = habitsResponse?.habits || [];
-  const completions = completionsResponse?.completions || [];
+  
+  // Debug logging
+  console.log('🔍 Habit Filtering Debug:');
+  console.log('- Total habits:', totalHabits);
+  console.log('- Today\'s habits:', todaysCount);
+  console.log('- Today is:', new Date().toLocaleDateString(), 'Day of week:', new Date().getDay());
+  console.log('- Filtered habits:', habits.map(h => ({ title: h.title, frequency: h.frequency, selectedDays: h.selectedDays })));
 
   // Improved date comparison logic - handle exact string matching
   const completedToday = completions.filter((c: any) => {
@@ -618,7 +626,7 @@ export default function Home() {
                       className="flex items-center justify-center space-x-1 w-full sm:w-auto text-xs px-3 py-2"
                     >
                       <i className="fas fa-brain text-xs"></i>
-                      <span className="text-xs">AI Setup</span>
+                      <span className="text-xs">AI Configuration</span>
                     </Button>
                   )}
                   <Button

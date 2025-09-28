@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useScreenSize } from "@/hooks/use-mobile";
+import { formatRecurrencePattern } from "@/utils/habitFiltering";
 import { Calendar, Clock, Settings, CheckCircle, AlertCircle, Info, RefreshCw } from "lucide-react";
 
 interface GoogleCalendarIntegrationProps {
@@ -25,44 +26,7 @@ interface CalendarSettings {
   syncCompletions: boolean;
 }
 
-// Helper function to format recurrence pattern display
-const formatRecurrencePattern = (pattern: string, selectedDays: number[]): string => {
-  if (!pattern || pattern === 'daily') {
-    return 'Daily';
-  }
-  
-  if (pattern === 'weekly' && selectedDays && selectedDays.length > 0) {
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const selectedDayNames = selectedDays
-      .map(day => dayNames[day - 1]) // Convert 1-7 to 0-6 for array index
-      .filter(Boolean);
-    
-    if (selectedDayNames.length === 0) return 'Weekly';
-    if (selectedDayNames.length === 1) return `Weekly (${selectedDayNames[0]})`;
-    if (selectedDayNames.length <= 3) return `Weekly (${selectedDayNames.join(', ')})`;
-    return `Weekly (${selectedDayNames.length} days)`;
-  }
-  
-  if (pattern === 'monthly' && selectedDays && selectedDays.length > 0) {
-    const sortedDays = [...selectedDays].sort((a, b) => a - b);
-    if (sortedDays.length === 0) return 'Monthly';
-    if (sortedDays.length === 1) return `Monthly (${sortedDays[0]}${getOrdinalSuffix(sortedDays[0])})`;
-    if (sortedDays.length <= 3) return `Monthly (${sortedDays.map(d => d + getOrdinalSuffix(d)).join(', ')})`;
-    return `Monthly (${sortedDays.length} days)`;
-  }
-  
-  return 'Daily'; // Fallback
-};
-
-// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
-const getOrdinalSuffix = (num: number): string => {
-  const j = num % 10;
-  const k = num % 100;
-  if (j === 1 && k !== 11) return 'st';
-  if (j === 2 && k !== 12) return 'nd';
-  if (j === 3 && k !== 13) return 'rd';
-  return 'th';
-};
+// Helper functions moved to utils/habitFiltering.ts
 
 export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrationProps) {
   const { toast } = useToast();
@@ -284,17 +248,26 @@ export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrati
           description: "Google Calendar integration is active and ready to sync!",
         });
         
-        // Sync existing completions when calendar is connected
+        // Sync habits and existing completions when calendar is connected
         try {
-          console.log('🔄 Syncing existing completions to calendar...');
-          const syncResponse = await apiRequest('google-calendar/sync-completions', 'POST');
-          if (syncResponse.ok) {
-            console.log('✅ Existing completions synced to calendar');
+          console.log('🔄 Syncing habits to calendar first...');
+          const habitsResponse = await apiRequest('google-calendar/sync-habits', 'POST');
+          if (habitsResponse.ok) {
+            console.log('✅ Habits synced to calendar');
+            
+            // Now sync existing completions
+            console.log('🔄 Syncing existing completions to calendar...');
+            const syncResponse = await apiRequest('google-calendar/sync-completions', 'POST');
+            if (syncResponse.ok) {
+              console.log('✅ Existing completions synced to calendar');
+            } else {
+              console.log('⚠️ Failed to sync existing completions, but calendar is connected');
+            }
           } else {
-            console.log('⚠️ Failed to sync existing completions, but calendar is connected');
+            console.log('⚠️ Failed to sync habits to calendar');
           }
         } catch (syncError) {
-          console.log('⚠️ Error syncing existing completions:', syncError);
+          console.log('⚠️ Error syncing habits/completions:', syncError);
         }
         
         // Add delay to prevent UI crash
@@ -1289,7 +1262,7 @@ export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrati
                                 habit.recurrencePattern === 'weekly' && "fa-calendar-week",
                                 habit.recurrencePattern === 'monthly' && "fa-calendar-alt"
                               )}></i>
-                              {formatRecurrencePattern(habit.recurrencePattern || 'daily', habit.selectedDays || [])}
+                              {formatRecurrencePattern(habit)}
                             </span>
                             <span className="text-xs text-gray-500">
                               {habit.source === 'habit' ? 'Individual time' : 'Default time'}
@@ -1337,7 +1310,7 @@ export function GoogleCalendarIntegration({ className }: GoogleCalendarIntegrati
                                 habit.recurrencePattern === 'weekly' && "fa-calendar-week",
                                 habit.recurrencePattern === 'monthly' && "fa-calendar-alt"
                               )}></i>
-                              {formatRecurrencePattern(habit.recurrencePattern || 'daily', habit.selectedDays || [])}
+                              {formatRecurrencePattern(habit)}
                             </span>
                             <span className="text-xs text-gray-500">
                               {habit.source === 'habit' ? 'Individual time' : 'Default time'}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,22 @@ import { ChevronLeft, ChevronRight, Plus, Sparkles, Target, Clock, Star } from '
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Helper function to map frequency to selectedDays for calendar sync
+function getSelectedDaysForFrequency(frequency: string): number[] | null {
+  switch (frequency.toLowerCase()) {
+    case 'daily':
+      return null; // Daily habits don't need selectedDays
+    case 'weekly':
+      // Default to weekdays (Monday-Friday) for weekly habits
+      return [1, 2, 3, 4, 5]; // Mon, Tue, Wed, Thu, Fri
+    case 'monthly':
+      // Default to 1st and 15th of the month for monthly habits
+      return [1, 15];
+    default:
+      return null; // Fallback to daily behavior
+  }
+}
 
 interface HabitRecommendation {
   id: string;
@@ -17,6 +33,8 @@ interface HabitRecommendation {
   unit: string;
   reminderTime: string;
   frequency: string;
+  recurrencePattern?: string; // Optional for backward compatibility
+  selectedDays?: number[]; // Optional for backward compatibility
   color: string;
   icon: string;
   difficulty: 'easy' | 'medium' | 'hard';
@@ -31,6 +49,8 @@ interface CarouselProps {
 
 export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false); // For manual refresh - used in useMemo dependency
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -93,49 +113,17 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   console.log('Existing habits array:', existingHabits);
   console.log('Is array?', Array.isArray(existingHabits));
 
-  // Fetch AI-powered recommendations
+  // AI-First Priority System: Only use AI-generated recommendations
   const { data: allRecommendations = [], isLoading } = useQuery<HabitRecommendation[]>({
-    queryKey: ['/api/ai/recommendations'],
+    queryKey: ['ai-recommendations', user?.id],
     queryFn: async () => {
-      // First try to get recommendations from localStorage (from questionnaire)
-      const storedRecommendations = localStorage.getItem('habitRecommendations');
-      if (storedRecommendations) {
-        try {
-          const parsed = JSON.parse(storedRecommendations);
-          console.log('Using stored recommendations from localStorage:', parsed);
-          
-          // Map the stored recommendations to the expected structure
-          const mappedRecommendations = parsed.map((rec: any) => ({
-            id: rec.id || Math.random().toString(),
-            title: rec.title,
-            description: rec.description,
-            category: rec.category,
-            targetValue: rec.targetValue || 1,
-            unit: rec.unit || 'times',
-            reminderTime: rec.reminderTime || null,
-            frequency: rec.frequency || 'daily',
-            color: rec.color || '#6366F1',
-            icon: rec.icon || 'fas fa-check',
-            difficulty: rec.difficulty || 'medium',
-            aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
-            benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
-            tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
-          }));
-          
-          console.log('Mapped recommendations from localStorage:', mappedRecommendations[0]);
-          return mappedRecommendations;
-        } catch (error) {
-          console.error('Error parsing stored recommendations from localStorage:', error);
-        }
-      }
-      
-      // Try to get recommendations from user's database profile
+      // 1. First priority: Get AI recommendations from database
       try {
         const userResponse = await apiRequest('user', 'GET');
         const userData = await userResponse.json();
         
         if (userData.user?.aiRecommendations && userData.user.aiRecommendations.length > 0) {
-          console.log('Using AI recommendations from user profile:', userData.user.aiRecommendations);
+          console.log('🎯 Using AI recommendations from database (signup questionnaire):', userData.user.aiRecommendations.length);
           
           const dbRecommendations = userData.user.aiRecommendations.map((rec: any) => ({
             id: rec.id || Math.random().toString(),
@@ -146,6 +134,8 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
             unit: rec.unit || 'times',
             reminderTime: rec.reminderTime || null,
             frequency: rec.frequency || 'daily',
+            recurrencePattern: rec.recurrencePattern || rec.frequency || 'daily',
+            selectedDays: rec.selectedDays || null,
             color: rec.color || '#6366F1',
             icon: rec.icon || 'fas fa-check',
             difficulty: rec.difficulty || 'medium',
@@ -154,78 +144,236 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
             tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
           }));
           
-          console.log('Mapped AI recommendations from database:', dbRecommendations[0]);
+          // Clear localStorage to prevent conflicts with database recommendations
+          localStorage.removeItem('habitRecommendations');
+          localStorage.removeItem('carouselGeneratedAt');
+          console.log('🧹 Cleared localStorage to prioritize database recommendations');
+          
           return dbRecommendations;
         }
         
-        // Also check for questionnaire recommendations (legacy format)
-        if (userData.user?.questionnaire?.recommendations) {
-          console.log('Using legacy questionnaire recommendations from user profile:', userData.user.questionnaire.recommendations);
+        // 2. Second priority: Check if questionnaire is completed and generate fresh recommendations
+        const questionnaireCompleted = localStorage.getItem('questionnaireCompleted') === 'true';
+        const questionnaireData = localStorage.getItem('questionnaireData');
+        
+        if (questionnaireCompleted && questionnaireData) {
+          console.log('🔄 Questionnaire completed but no database recommendations found, generating fresh ones...');
           
-          const dbRecommendations = userData.user.questionnaire.recommendations.map((rec: any) => ({
-            id: rec.id || Math.random().toString(),
-            title: rec.title,
-            description: rec.description,
-            category: rec.category,
-            targetValue: rec.targetValue || 1,
-            unit: rec.unit || 'times',
-            reminderTime: rec.reminderTime || null,
-            frequency: rec.frequency || 'daily',
-            color: rec.color || '#6366F1',
-            icon: rec.icon || 'fas fa-check',
-            difficulty: rec.difficulty || 'medium',
-            aiReasoning: rec.aiReasoning || rec.reasoning || 'This habit is personalized based on your preferences and goals.',
-            benefits: rec.benefits || rec.keyBenefits || ['Improved focus', 'Better habits', 'Personal growth'],
-            tips: rec.tips || rec.successTips || ['Start small', 'Be consistent', 'Track your progress']
-          }));
-          
-          console.log('Mapped legacy recommendations from database:', dbRecommendations[0]);
-          return dbRecommendations;
+          try {
+            const parsedQuestionnaire = JSON.parse(questionnaireData);
+            const response = await apiRequest('ai/questionnaire', 'POST', parsedQuestionnaire);
+            const data = await response.json();
+            
+            if (data.recommendations && data.recommendations.length > 0) {
+              console.log('✅ Generated fresh AI recommendations from questionnaire:', data.recommendations.length);
+              
+              // Store in localStorage for immediate use
+              localStorage.setItem('habitRecommendations', JSON.stringify(data.recommendations));
+              
+              // Also save to database for future use
+              try {
+                const saveResponse = await apiRequest('ai/save-recommendations', 'POST', {
+                  recommendations: data.recommendations
+                });
+                if (saveResponse.ok) {
+                  console.log('💾 Saved fresh recommendations to database');
+                }
+              } catch (saveError) {
+                console.log('⚠️ Could not save recommendations to database:', saveError);
+              }
+              
+              return data.recommendations;
+            }
+          } catch (error) {
+            console.error('Error generating fresh recommendations:', error);
+          }
         }
+        
+        // 3. Third priority: Use stored recommendations from localStorage (if any)
+        const storedRecommendations = localStorage.getItem('habitRecommendations');
+        if (storedRecommendations) {
+          try {
+            const recommendations = JSON.parse(storedRecommendations);
+            console.log('📦 Using stored recommendations from localStorage:', recommendations.length);
+            return recommendations;
+          } catch (error) {
+            console.error('Error parsing stored recommendations:', error);
+          }
+        }
+        
+        // 4. No AI recommendations available - return empty array
+        console.log('❌ No AI recommendations available - carousel will be hidden');
+        return [];
       } catch (error) {
-        console.error('Error fetching recommendations from user profile:', error);
+        console.error('Error fetching AI recommendations:', error);
+        return [];
       }
-      
-      // Don't fall back to generic API - only show AI-generated recommendations
-      console.log('No AI recommendations found, showing empty state');
-      return [];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes - shorter for fresher data
+    enabled: !!user, // Only run when user is logged in
   });
 
-  // Filter out recommendations that already exist as habits
-  const recommendations = allRecommendations.filter(recommendation => {
+  // Smart rotation system: Get 10 different recommendations every time
+  const getRotatedRecommendations = () => {
     // Safety check: ensure existingHabits is an array and has valid items
     if (!Array.isArray(existingHabits) || existingHabits.length === 0) {
-      return true; // Show all recommendations if no existing habits
+      // If no existing habits, return first 10 recommendations
+      return allRecommendations.slice(0, 10);
     }
 
-    // Check if a habit with the same title or very similar description already exists
-    const alreadyExists = existingHabits.some((habit: any) => {
-      // Safety check: ensure habit has required properties
-      if (!habit || typeof habit !== 'object') {
-        return false;
+    // Filter out exact matches (same title + category)
+    const filteredRecommendations = allRecommendations.filter(recommendation => {
+      const alreadyExists = existingHabits.some((habit: any) => {
+        // Safety check: ensure habit has required properties
+        if (!habit || typeof habit !== 'object') {
+          return false;
+        }
+
+        const titleMatch = habit.title && recommendation.title ? 
+          habit.title.toLowerCase().trim() === recommendation.title.toLowerCase().trim() 
+          : false;
+        
+        const categoryMatch = habit.category && recommendation.category ? 
+          habit.category.toLowerCase().trim() === recommendation.category.toLowerCase().trim() 
+          : false;
+        
+        // Only filter out if BOTH title AND category match (more specific)
+        const exactMatch = titleMatch && categoryMatch;
+        
+        // Also check for very similar descriptions
+        const descriptionSimilarity = habit.description && recommendation.description ? 
+          habit.description.toLowerCase().includes(recommendation.description.toLowerCase().split(' ').slice(0, 3).join(' ')) ||
+          recommendation.description.toLowerCase().includes(habit.description.toLowerCase().split(' ').slice(0, 3).join(' '))
+          : false;
+        
+        return exactMatch || descriptionSimilarity;
+      });
+      
+      if (alreadyExists) {
+        console.log(`Filtering out already added habit: ${recommendation.title} (${recommendation.category})`);
+      } else {
+        console.log(`✅ Keeping recommendation: ${recommendation.title} (${recommendation.category})`);
       }
-
-      const titleMatch = habit.title && recommendation.title ? 
-        habit.title.toLowerCase().trim() === recommendation.title.toLowerCase().trim() 
-        : false;
       
-      // Also check for similar descriptions (to catch cases where titles might be slightly different)
-      const descriptionSimilarity = habit.description && recommendation.description ? 
-        habit.description.toLowerCase().includes(recommendation.description.toLowerCase().split(' ').slice(0, 3).join(' ')) ||
-        recommendation.description.toLowerCase().includes(habit.description.toLowerCase().split(' ').slice(0, 3).join(' '))
-        : false;
-      
-      return titleMatch || descriptionSimilarity;
+      return !alreadyExists;
     });
-    
-    if (alreadyExists) {
-      console.log(`Filtering out already added habit: ${recommendation.title}`);
+
+    // If we have 10 or fewer filtered recommendations, return them all
+    if (filteredRecommendations.length <= 10) {
+      return filteredRecommendations;
     }
+
+    // Implement rotation system for 10 different recommendations
+    const rotationKey = 'habitRecommendationRotation';
+    const lastRotation = localStorage.getItem(rotationKey);
+    const currentTime = Date.now();
+    const rotationInterval = 24 * 60 * 60 * 1000; // 24 hours
     
-    return !alreadyExists;
-  });
+    let startIndex = 0;
+    
+    // Check if we need to rotate (every 24 hours or if no previous rotation)
+    if (!lastRotation || (currentTime - parseInt(lastRotation)) > rotationInterval) {
+      // Generate new random starting index
+      startIndex = Math.floor(Math.random() * (filteredRecommendations.length - 10 + 1));
+      localStorage.setItem(rotationKey, currentTime.toString());
+      console.log(`🔄 Rotating recommendations: new start index ${startIndex}`);
+    } else {
+      // Use previous rotation index
+      const lastIndex = parseInt(localStorage.getItem(rotationKey + '_index') || '0');
+      startIndex = (lastIndex + 10) % filteredRecommendations.length;
+      localStorage.setItem(rotationKey + '_index', startIndex.toString());
+      console.log(`🔄 Continuing rotation: start index ${startIndex}`);
+    }
+
+    // Get 10 recommendations starting from the rotation index
+    const rotatedRecommendations = [];
+    for (let i = 0; i < 10; i++) {
+      const index = (startIndex + i) % filteredRecommendations.length;
+      rotatedRecommendations.push(filteredRecommendations[index]);
+    }
+
+    console.log(`🎯 Selected 10 recommendations from ${filteredRecommendations.length} available`);
+    return rotatedRecommendations;
+  };
+
+  // Manual refresh function - used in button onClick
+  // Manual refresh function - generates fresh AI recommendations
+  const refreshRecommendations = async () => {
+    if (isRefreshing) return; // Prevent multiple simultaneous refreshes
+    
+    try {
+      setIsRefreshing(true);
+      console.log('🔄 Manual refresh: generating fresh AI recommendations...');
+      
+      // Check if questionnaire is completed
+      const questionnaireCompleted = localStorage.getItem('questionnaireCompleted') === 'true';
+      const questionnaireData = localStorage.getItem('questionnaireData');
+      
+      if (questionnaireCompleted && questionnaireData) {
+        const parsedQuestionnaire = JSON.parse(questionnaireData);
+        
+        // Force fresh AI generation by calling the recommendations endpoint directly
+        const response = await apiRequest('ai/recommendations', 'POST', {
+          questionnaireData: parsedQuestionnaire
+        });
+        const data = await response.json();
+        
+        if (data.recommendations && data.recommendations.length > 0) {
+          console.log('✅ Generated fresh AI recommendations:', data.recommendations.length);
+          
+          // Store in localStorage
+          localStorage.setItem('habitRecommendations', JSON.stringify(data.recommendations));
+          
+          // Clear rotation data to get fresh rotation
+          localStorage.removeItem('habitRecommendationRotation');
+          localStorage.removeItem('habitRecommendationRotation_index');
+          
+          // Clear database recommendations to force fresh generation
+          try {
+            await apiRequest('ai/clear-recommendations', 'POST');
+            console.log('🧹 Cleared database recommendations to force fresh generation');
+          } catch (clearError) {
+            console.log('⚠️ Could not clear database recommendations:', clearError);
+          }
+          
+          // Force refresh of the query
+          queryClient.invalidateQueries({ queryKey: ['ai-recommendations', user?.id] });
+          
+          // Reset carousel state
+          setCurrentIndex(0);
+          setRefreshKey(prev => prev + 1);
+          
+          toast({
+            title: "Fresh AI Recommendations Generated! 🤖",
+            description: "New AI-powered habit recommendations are ready for you.",
+          });
+        } else {
+          toast({
+            title: "No New Recommendations",
+            description: "Unable to generate fresh recommendations at this time.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Complete Questionnaire First",
+          description: "Please complete the AI questionnaire to get personalized recommendations.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating fresh recommendations:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate fresh recommendations. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const recommendations = React.useMemo(() => getRotatedRecommendations(), [allRecommendations, existingHabits, refreshKey]);
 
   // Debug logging for carousel state
   console.log('Carousel state:', {
@@ -234,6 +382,10 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
     filteredRecommendations: recommendations.length,
     isLoading
   });
+  
+  // Debug: Show existing habits for comparison
+  console.log('Existing habits:', existingHabits.map((h: any) => `${h.title} (${h.category})`));
+  console.log('Available recommendations:', recommendations.map((r: any) => `${r.title} (${r.category})`));
 
   // Log filtering results for debugging
   if (allRecommendations.length > 0) {
@@ -243,14 +395,14 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
   // Add habit mutation
   const addHabitMutation = useMutation({
     mutationFn: async (recommendation: HabitRecommendation) => {
-      // Check if habit already exists to prevent duplicates
+      // Check if habit already exists to prevent duplicates (more precise check)
       const habitExists = existingHabits.some((habit: any) => 
-        habit.title.toLowerCase() === recommendation.title.toLowerCase() ||
-        habit.description.toLowerCase() === recommendation.description.toLowerCase()
+        habit.title.toLowerCase().trim() === recommendation.title.toLowerCase().trim() &&
+        habit.category.toLowerCase().trim() === recommendation.category.toLowerCase().trim()
       );
       
       if (habitExists) {
-        throw new Error('Habit already exists');
+        throw new Error(`Habit "${recommendation.title}" already exists in ${recommendation.category} category`);
       }
       
       // Simulate haptic feedback
@@ -267,6 +419,10 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
         unit: recommendation.unit || 'times',
         reminderTime: recommendation.reminderTime || null,
         frequency: recommendation.frequency || 'daily',
+        // Map frequency to recurrencePattern for calendar sync
+        recurrencePattern: recommendation.recurrencePattern || recommendation.frequency || 'daily',
+        // Set selectedDays based on frequency for proper calendar sync
+        selectedDays: recommendation.selectedDays || getSelectedDaysForFrequency(recommendation.frequency || 'daily'),
         isActive: true,
         color: recommendation.color || '#6366F1',
         icon: recommendation.icon || 'fas fa-check'
@@ -275,7 +431,7 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
       console.log('Adding habit with data:', habitData);
       return await apiRequest('habits', 'POST', habitData);
     },
-    onSuccess: (_habitData, variables) => {
+    onSuccess: async (_habitData, variables) => {
       // Success haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate([50, 50, 50]);
@@ -291,44 +447,71 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
         onHabitAdd(variables);
       }
       
-      // Remove only the added recommendation from localStorage
+      // Remove only the added recommendation from localStorage (more precise filtering)
       const storedRecommendations = localStorage.getItem('habitRecommendations');
       if (storedRecommendations) {
         try {
           const recommendations = JSON.parse(storedRecommendations);
           const updatedRecommendations = recommendations.filter((rec: any) => 
-            rec.title !== variables.title || rec.description !== variables.description
+            !(rec.title.toLowerCase().trim() === variables.title.toLowerCase().trim() && 
+              rec.category.toLowerCase().trim() === variables.category.toLowerCase().trim())
           );
           
           if (updatedRecommendations.length > 0) {
             localStorage.setItem('habitRecommendations', JSON.stringify(updatedRecommendations));
+            console.log(`Updated localStorage: removed ${variables.title}, ${updatedRecommendations.length} remaining`);
           } else {
             localStorage.removeItem('habitRecommendations');
+            console.log('All recommendations used, cleared localStorage');
           }
         } catch (error) {
           console.error('Error updating stored recommendations:', error);
         }
       }
       
-             // Invalidate habits query to refresh the habit list and update filtering
+      // Invalidate habits query to refresh the habit list and update filtering
       queryClient.invalidateQueries({ queryKey: ['/api/habits'] });
       queryClient.invalidateQueries({ queryKey: ['/api/habits', user?.id] });
       
       // Update recommendations cache to remove the added recommendation
-      queryClient.setQueryData(['/api/ai/recommendations'], (oldData: HabitRecommendation[] | undefined) => {
+      queryClient.setQueryData(['ai-recommendations', user?.id], (oldData: HabitRecommendation[] | undefined) => {
         if (!oldData) return oldData;
         
+        // More precise filtering to prevent duplicates
         const updatedRecommendations = oldData.filter(rec => 
-          rec.title !== variables.title || rec.description !== variables.description
+          !(rec.title.toLowerCase().trim() === variables.title.toLowerCase().trim() && 
+            rec.category.toLowerCase().trim() === variables.category.toLowerCase().trim())
         );
         
         console.log(`Removed ${variables.title} from recommendations cache. ${updatedRecommendations.length} recommendations remaining.`);
         return updatedRecommendations;
       });
       
+      // Also invalidate the recommendations query to refresh the display
+      queryClient.invalidateQueries({ queryKey: ['ai-recommendations', user?.id] });
+      
+      // Sync with Google Calendar if connected
+      try {
+        console.log('🔄 Syncing new habit to Google Calendar...');
+        const syncResponse = await apiRequest('google-calendar/sync-habits', 'POST');
+        if (syncResponse.ok) {
+          console.log('✅ New habit synced to Google Calendar');
+        } else {
+          console.log('⚠️ Failed to sync new habit to calendar (calendar may not be connected)');
+        }
+      } catch (syncError) {
+        console.log('⚠️ Error syncing new habit to calendar:', syncError);
+      }
+      
       // Move to next recommendation with delay for user to see success
+      // But only if there are more recommendations available
       setTimeout(() => {
-        handleNext();
+        if (recommendations.length > 1) {
+          handleNext();
+        } else {
+          // If this was the last recommendation, reset to first
+          setCurrentIndex(0);
+        }
       }, 1000);
     },
     onError: (error) => {
@@ -337,16 +520,21 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
         navigator.vibrate([100, 50, 100]);
       }
       
-      if (error instanceof Error && error.message === 'Habit already exists') {
+      if (error instanceof Error && error.message.includes('already exists')) {
         toast({
           title: "Habit Already Exists",
-          description: "This habit is already in your list.",
+          description: error.message,
           variant: "destructive",
         });
+        
+        // Move to next recommendation if it's a duplicate
+        setTimeout(() => {
+          handleNext();
+        }, 1500);
       } else {
         toast({
           title: "Error",
-          description: "Failed to add habit. Please try again.",
+          description: error.message || "Failed to add habit. Please try again.",
           variant: "destructive",
         });
       }
@@ -493,6 +681,11 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
     );
   }
 
+  // Hide carousel if no AI recommendations available
+  if (allRecommendations.length === 0 && !isLoading) {
+    return null;
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
@@ -501,15 +694,20 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
           <h3 className="text-lg font-semibold">AI Habit Recommendations</h3>
         </div>
         
-        <div className="flex items-center space-x-1">
-          {recommendations.map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                index === currentIndex ? 'bg-purple-600' : 'bg-gray-300'
-              }`}
-            />
-          ))}
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
+            {recommendations.map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  index === currentIndex ? 'bg-purple-600' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+          <div className="text-xs text-gray-500 hidden sm:block">
+            {currentIndex + 1} of {recommendations.length}
+          </div>
         </div>
       </div>
 
@@ -641,6 +839,20 @@ export function HabitRecommendationCarousel({ onHabitAdd }: CarouselProps) {
           className="text-xs sm:text-sm px-2 sm:px-4"
         >
           Skip
+        </Button>
+        
+        <Button
+          variant="outline"
+          onClick={refreshRecommendations}
+          disabled={isAnimating || isRefreshing}
+          className="text-xs sm:text-sm px-2 sm:px-3"
+          title={isRefreshing ? "Generating fresh AI recommendations..." : "Get new recommendations"}
+        >
+          {isRefreshing ? (
+            <div className="w-3 h-3 sm:w-4 sm:h-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+          ) : (
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+          )}
         </Button>
       </div>
 

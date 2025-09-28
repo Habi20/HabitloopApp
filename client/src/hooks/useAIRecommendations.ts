@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface HabitRecommendation {
   id: string;
@@ -23,6 +24,9 @@ export interface HabitRecommendation {
 export function useAIRecommendations() {
   const queryClient = useQueryClient();
   const [dismissedRecommendations, setDismissedRecommendations] = useState<string[]>([]);
+  
+  // Get user ID for consistent query keys
+  const { user } = useAuth();
 
   // Load dismissed recommendations from localStorage on mount
   useEffect(() => {
@@ -38,7 +42,7 @@ export function useAIRecommendations() {
 
   // Fetch AI recommendations
   const { data: allRecommendations = [], isLoading, error } = useQuery<HabitRecommendation[]>({
-    queryKey: ['ai-recommendations'],
+    queryKey: ['ai-recommendations', user?.id],
     queryFn: async () => {
       // First try to get recommendations from user's database profile
       try {
@@ -161,11 +165,12 @@ export function useAIRecommendations() {
 
   // Get user's existing habits to filter out duplicates
   const { data: habitsResponse } = useQuery({
-    queryKey: ['/api/habits'],
+    queryKey: ['/api/habits', user?.id],
     queryFn: async () => {
       const response = await apiRequest('habits', 'GET');
       return response.json();
     },
+    enabled: !!user,
   });
   
   const habits = habitsResponse?.habits || [];
@@ -179,17 +184,24 @@ export function useAIRecommendations() {
     
     const habitsArray = Array.isArray(habits) ? habits : [];
     const filtered = allRecommendations.filter((rec: HabitRecommendation) => {
-      const existingHabit = habitsArray.find(
-        (habit: any) =>
-          habit.title.toLowerCase() === rec.title.toLowerCase() ||
-          (habit.title.toLowerCase().includes(rec.title.toLowerCase()) &&
-            habit.category === rec.category)
-      );
+      // Use the same strict filtering logic as the carousel
+      const existingHabit = habitsArray.find((habit: any) => {
+        const titleMatch = habit.title && rec.title ? 
+          habit.title.toLowerCase().trim() === rec.title.toLowerCase().trim() 
+          : false;
+        
+        const categoryMatch = habit.category && rec.category ? 
+          habit.category.toLowerCase().trim() === rec.category.toLowerCase().trim() 
+          : false;
+        
+        return titleMatch && categoryMatch;
+      });
+      
       const isDismissed = dismissedRecommendations.includes(rec.title);
       
       // Debug logging
       if (existingHabit) {
-        console.log(`Filtering out "${rec.title}" - matches existing habit "${existingHabit.title}"`);
+        console.log(`Filtering out "${rec.title}" - matches existing habit "${existingHabit.title}" in ${existingHabit.category}`);
       }
       if (isDismissed) {
         console.log(`Filtering out "${rec.title}" - was dismissed`);
@@ -223,7 +235,7 @@ export function useAIRecommendations() {
 
   // Refresh recommendations
   const refreshRecommendations = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/ai/recommendations'] });
+    queryClient.invalidateQueries({ queryKey: ['ai-recommendations', user?.id] });
   };
 
   return {

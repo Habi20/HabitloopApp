@@ -16,9 +16,10 @@ interface BeforeInstallPromptEvent extends Event {
 interface PWAInstallPromptProps {
   onInstall?: () => void;
   onDismiss?: () => void;
+  isAuthenticated?: boolean;
 }
 
-export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps) {
+export function PWAInstallPrompt({ onInstall, onDismiss, isAuthenticated = false }: PWAInstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -52,18 +53,30 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
 
     checkIfInstalled();
 
+    // Check if user has previously dismissed the prompt or seen it
+    const dismissed = localStorage.getItem('pwa-prompt-dismissed');
+    const hasSeenPrompt = localStorage.getItem('pwa-prompt-seen');
+    const dismissedTime = dismissed ? parseInt(dismissed) : 0;
+    const now = Date.now();
+    const daysSinceDismissed = (now - dismissedTime) / (1000 * 60 * 60 * 24);
+
     // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       const promptEvent = e as BeforeInstallPromptEvent;
       setDeferredPrompt(promptEvent);
       
-      // Show prompt after a delay to not be too aggressive
-      setTimeout(() => {
-        if (!isInstalled) {
+      // Only show prompt if:
+      // 1. Not already installed
+      // 2. Never seen before OR dismissed more than 7 days ago
+      // 3. Not in standalone mode
+      // 4. User is authenticated (engaged user)
+      if (!isInstalled && (!hasSeenPrompt || daysSinceDismissed > 7) && isAuthenticated) {
+        // Show prompt after a delay to not be too aggressive
+        setTimeout(() => {
           setShowPrompt(true);
-        }
-      }, 3000);
+        }, 5000); // Increased delay to 5 seconds
+      }
     };
 
     // Listen for app installed event
@@ -72,6 +85,7 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
       setShowPrompt(false);
       setDeferredPrompt(null);
       localStorage.setItem('pwa-prompt-seen', 'true');
+      localStorage.setItem('pwa-installed', 'true');
       toast({
         title: "🎉 HabitLoop Installed!",
         description: "You can now access HabitLoop from your home screen for quick habit tracking.",
@@ -96,16 +110,6 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-
-    // Check if user has previously dismissed the prompt
-    const dismissed = localStorage.getItem('pwa-prompt-dismissed');
-    const hasSeenPrompt = localStorage.getItem('pwa-prompt-seen');
-    
-    // Only show if never seen before and not installed
-    if (!dismissed && !hasSeenPrompt && !isInstalled) {
-      // Show prompt for first-time users only
-      setTimeout(() => setShowPrompt(true), 5000);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -143,8 +147,18 @@ export function PWAInstallPrompt({ onInstall, onDismiss }: PWAInstallPromptProps
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    localStorage.setItem('pwa-prompt-dismissed', Date.now().toString());
+    const now = Date.now();
+    localStorage.setItem('pwa-prompt-dismissed', now.toString());
     localStorage.setItem('pwa-prompt-seen', 'true');
+    
+    // Show a subtle toast that they can install later
+    toast({
+      title: "No problem!",
+      description: "You can install HabitLoop anytime from your browser menu.",
+      variant: "default",
+      duration: 3000,
+    });
+    
     onDismiss?.();
   };
 

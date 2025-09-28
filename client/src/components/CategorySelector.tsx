@@ -173,15 +173,15 @@ export function CategorySelector({
 
       {/* Custom Category Modal */}
       <Dialog open={showCustomModal} onOpenChange={setShowCustomModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md w-[95vw] max-w-[95vw] mx-2 sm:mx-0 p-4 sm:p-6">
+          <DialogHeader className="space-y-3">
             <DialogTitle>Create Custom Category</DialogTitle>
             <DialogDescription>
               Create a personalized category for your habits
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Category Name */}
             <div className="space-y-2">
               <Label htmlFor="category-name">Category Name</Label>

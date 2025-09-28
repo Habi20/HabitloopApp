@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAIRecommendations } from "@/hooks/useAIRecommendations";
+import { formatRecurrencePattern } from "@/utils/habitFiltering";
 import { Layout } from "@/components/Layout";
 import { AddHabitModal } from "@/components/AddHabitModal";
 import { EditHabitModal } from "@/components/EditHabitModal";
@@ -15,44 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-// Helper function to format recurrence pattern display
-const formatRecurrencePattern = (habit: any): string => {
-  if (!habit.recurrencePattern || habit.recurrencePattern === 'daily') {
-    return 'Daily';
-  }
-  
-  if (habit.recurrencePattern === 'weekly' && habit.selectedDays && habit.selectedDays.length > 0) {
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const selectedDayNames = habit.selectedDays
-      .map((day: number) => dayNames[day - 1]) // Convert 1-7 to 0-6 for array index
-      .filter(Boolean);
-    
-    if (selectedDayNames.length === 0) return 'Weekly';
-    if (selectedDayNames.length === 1) return `Weekly (${selectedDayNames[0]})`;
-    if (selectedDayNames.length <= 3) return `Weekly (${selectedDayNames.join(', ')})`;
-    return `Weekly (${selectedDayNames.length} days)`;
-  }
-  
-  if (habit.recurrencePattern === 'monthly' && habit.selectedDays && habit.selectedDays.length > 0) {
-    const sortedDays = [...habit.selectedDays].sort((a, b) => a - b);
-    if (sortedDays.length === 0) return 'Monthly';
-    if (sortedDays.length === 1) return `Monthly (${sortedDays[0]}${getOrdinalSuffix(sortedDays[0])})`;
-    if (sortedDays.length <= 3) return `Monthly (${sortedDays.map(d => d + getOrdinalSuffix(d)).join(', ')})`;
-    return `Monthly (${sortedDays.length} days)`;
-  }
-  
-  return 'Daily'; // Fallback
-};
-
-// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
-const getOrdinalSuffix = (num: number): string => {
-  const j = num % 10;
-  const k = num % 100;
-  if (j === 1 && k !== 11) return 'st';
-  if (j === 2 && k !== 12) return 'nd';
-  if (j === 3 && k !== 13) return 'rd';
-  return 'th';
-};
+// Helper functions moved to utils/habitFiltering.ts
 
 export default function Habits() {
   const { user, isLoading: authLoading } = useAuth();
@@ -83,6 +47,28 @@ export default function Habits() {
     },
     enabled: !!user,
   });
+
+  // Handle URL parameters for PWA shortcuts
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    
+    if (action === 'add') {
+      // Open Add Habit modal when coming from PWA shortcut
+      setShowAddHabit(true);
+      
+      // Clean up URL to remove the parameter
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // Show a toast to indicate the shortcut worked
+      toast({
+        title: "🚀 Quick Add Habit",
+        description: "Add a new habit to track your progress!",
+        variant: "default",
+      });
+    }
+  }, []);
 
   // Debug logging
   useEffect(() => {

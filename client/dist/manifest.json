@@ -2,7 +2,7 @@
   "name": "HabitLoop - Smart Habit Tracker",
   "short_name": "HabitLoop",
   "description": "Build better habits with AI-powered tracking, Google Calendar integration, and personalized insights. Track your progress, stay motivated, and achieve your goals.",
-  "start_url": "/",
+  "start_url": "/home",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
@@ -100,7 +100,7 @@
       "name": "Today's Habits",
       "short_name": "Today",
       "description": "View today's habits",
-      "url": "/",
+      "url": "/home",
       "icons": [
         {
           "src": "/icons/shortcut-today.png",

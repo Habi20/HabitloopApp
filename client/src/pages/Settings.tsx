@@ -46,6 +46,7 @@ export default function Settings() {
   const handleSettingChange = async (key: keyof typeof settings, value: any) => {
     setIsSaving(true);
     try {
+      console.log(`🔄 Updating setting: ${key} = ${value}`);
       await updateSetting(key, value);
       
       // Show immediate feedback that setting was changed
@@ -195,11 +196,11 @@ export default function Settings() {
         });
       }
     } catch (error) {
-      toast({
+    toast({
         title: "Error",
         description: "Failed to send test notification.",
         variant: "destructive",
-      });
+    });
     }
   };
 
@@ -245,96 +246,91 @@ export default function Settings() {
                   </div>
                 )}
               </CardTitle>
-            </CardHeader>
+              </CardHeader>
             <CardContent className="space-y-3 sm:space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
+                <div className="flex items-center justify-between">
+                  <div>
                   <h4 className="font-medium text-gray-900 text-sm sm:text-base">
                      All Notifications
-                  </h4>
+                    </h4>
                   <p className="text-xs sm:text-sm text-gray-600">
                      Enable or disable all notifications and insights
-                  </p>
-                </div>
-                <Switch
+                    </p>
+                  </div>
+                  <Switch
                    checked={settings.allNotifications}
-                  onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                      handleSettingChange("allNotifications", checked)
-                  }
-                />
-              </div>
+                    }
+                  />
+                </div>
 
                {settings.allNotifications && (
                  <>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium text-gray-900">
+              {/* AI Insights - Hidden for VIVA presentation */}
+              {/* <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
                          AI Insights
-                  </h4>
-                  <p className="text-sm text-gray-600">
+                    </h4>
+                    <p className="text-sm text-gray-600">
                          Receive personalized AI-powered insights
-                  </p>
-                </div>
-                <Switch
+                    </p>
+                  </div>
+                  <Switch
                           checked={settings.insightAlerts}
-                          onCheckedChange={(checked) =>
+                    onCheckedChange={(checked) =>
                             handleSettingChange("insightAlerts", checked)
                           }
                         />
-                      </div>
+                      </div> */}
 
                         {/* Email Notifications - Compact */}
                         <div className="pt-4 border-t border-gray-200">
                           <h4 className="font-medium text-gray-900 mb-3">Email Reports</h4>
-                          <p className="text-xs text-gray-500 mb-3">Select one frequency for email reports</p>
+                          <p className="text-xs text-gray-500 mb-3">Choose your preferred email report frequencies</p>
                           
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-800">Daily</span>
+                            <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${settings.dailyEmailReports ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">Daily</span>
+                                {settings.dailyEmailReports && (
+                                  <span className="text-xs text-blue-600 font-medium">✓ Selected</span>
+                                )}
+                              </div>
                               <Switch
                                 checked={settings.dailyEmailReports || false}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    // Turn off others when this is enabled
-                                    handleSettingChange("weeklyEmailReports", false);
-                                    handleSettingChange("monthlyEmailReports", false);
-                                  }
-                                  handleSettingChange("dailyEmailReports", checked);
-                                }}
-                              />
-                            </div>
+                                onCheckedChange={(checked) => handleSettingChange("dailyEmailReports", checked)}
+                  />
+                </div>
 
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-800">Weekly</span>
-                              <Switch
+                            <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${settings.weeklyEmailReports ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">Weekly</span>
+                                {settings.weeklyEmailReports && (
+                                  <span className="text-xs text-blue-600 font-medium">✓ Selected</span>
+                                )}
+                  </div>
+                  <Switch
                                 checked={settings.weeklyEmailReports || false}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    // Turn off others when this is enabled
-                                    handleSettingChange("dailyEmailReports", false);
-                                    handleSettingChange("monthlyEmailReports", false);
-                                  }
-                                  handleSettingChange("weeklyEmailReports", checked);
-                                }}
-                              />
-                            </div>
+                                onCheckedChange={(checked) => handleSettingChange("weeklyEmailReports", checked)}
+                  />
+                </div>
 
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-800">Monthly</span>
+                            <div className={`flex items-center justify-between p-2 rounded-lg transition-colors ${settings.monthlyEmailReports ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">Monthly</span>
+                                {settings.monthlyEmailReports && (
+                                  <span className="text-xs text-blue-600 font-medium">✓ Selected</span>
+                                )}
+                              </div>
                               <Switch
                                 checked={settings.monthlyEmailReports || false}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    // Turn off others when this is enabled
-                                    handleSettingChange("dailyEmailReports", false);
-                                    handleSettingChange("weeklyEmailReports", false);
-                                  }
-                                  handleSettingChange("monthlyEmailReports", checked);
-                                }}
+                                onCheckedChange={(checked) => handleSettingChange("monthlyEmailReports", checked)}
                               />
                             </div>
                           </div>
-                        </div>
+                  </div>
                     </>
                   )}
 
@@ -371,24 +367,24 @@ export default function Settings() {
                          Test Reminder
                        </Button>
                      </div>
-                   </div>
+                </div>
                  )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
           {/* Legal & Privacy */}
           <Card className="mt-6">
-            <CardHeader>
+              <CardHeader>
               <CardTitle>Legal & Privacy</CardTitle>
-            </CardHeader>
+              </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
+                <div className="flex items-center justify-between">
+                  <div>
                   <h4 className="font-medium text-gray-900">Terms of Service</h4>
-                  <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600">
                     Read our terms and conditions
-                  </p>
-                </div>
+                    </p>
+                  </div>
                 <Button 
                   variant="outline" 
                   onClick={() => window.open('/terms-of-service.html', '_blank')}
@@ -412,55 +408,55 @@ export default function Settings() {
                   <i className="fas fa-external-link-alt mr-2"></i>
                   View Privacy
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
 
           {/* Data & Privacy - Only show for super admin */}
           {isSuperAdmin && (
             <Card className="mt-6">
-                 <CardHeader>
-                   <CardTitle>Data & Privacy</CardTitle>
-                 </CardHeader>
-                 <CardContent className="space-y-4">
-                   <div className="flex items-center justify-between">
-                     <div>
-                       <h4 className="font-medium text-gray-900">Export Data</h4>
-                       <p className="text-sm text-gray-600">
-                         Download your habit data
-                       </p>
-                     </div>
+              <CardHeader>
+                <CardTitle>Data & Privacy</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">Export Data</h4>
+                    <p className="text-sm text-gray-600">
+                      Download your habit data
+                    </p>
+                  </div>
                      <Button 
                        variant="outline" 
                        onClick={() => setShowExportDialog(true)}
                        disabled={isExporting}
                      >
-                       <i className="fas fa-download mr-2"></i>
-                       Export
-                     </Button>
-                   </div>
- 
-                   <div className="flex items-center justify-between">
-                     <div>
-                       <h4 className="font-medium text-gray-900">
-                         Delete Account
-                       </h4>
-                       <p className="text-sm text-gray-600">
-                         Permanently delete your account and data
-                       </p>
-                     </div>
+                    <i className="fas fa-download mr-2"></i>
+                    Export
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      Delete Account
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Permanently delete your account and data
+                    </p>
+                  </div>
                      <Button 
                        variant="destructive"
                        onClick={() => setShowDeleteDialog(true)}
                      >
-                       <i className="fas fa-trash mr-2"></i>
-                       Delete
-                     </Button>
-                   </div>
-                 </CardContent>
+                    <i className="fas fa-trash mr-2"></i>
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           )}
-          </div>
+            </div>
 
           {/* Right Column - Google Calendar Integration (2 columns on desktop) */}
           <div className="xl:col-span-2">
@@ -644,7 +640,7 @@ export default function Settings() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+    </div>
     </Layout>
   );
 }

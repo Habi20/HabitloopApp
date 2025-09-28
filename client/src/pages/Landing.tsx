@@ -19,7 +19,10 @@ export default function Landing() {
   // Redirect to home page if user is authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      setLocation('/home');
+      // Add a small delay to ensure PWA is fully loaded
+      setTimeout(() => {
+        setLocation('/home');
+      }, 100);
     }
   }, [isAuthenticated, setLocation]);
 
@@ -28,11 +31,29 @@ export default function Landing() {
       <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 py-8 sm:py-12 md:py-16">
         <div className="w-full max-w-6xl mx-auto">
           <div className="text-center text-white mb-8 sm:mb-12 md:mb-16">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <i className="fas fa-chart-line text-xl sm:text-2xl md:text-3xl"></i>
+            {/* Enhanced Logo Container - Option 3 */}
+            <div 
+              className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-6 sm:mb-8 relative overflow-hidden"
+              style={{
+                background: 'rgba(255, 255, 255, 0.25)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                border: '2px solid rgba(255, 255, 255, 0.4)'
+              }}
+            >
+              {/* Subtle glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/15 to-transparent rounded-2xl"></div>
+              <img 
+                src="/icons/icon-192x192.png" 
+                alt="HabitLoop Logo" 
+                className="w-full h-full object-contain relative z-10"
+                style={{
+                  filter: 'drop-shadow(0 0 16px rgba(255, 255, 255, 0.4)) drop-shadow(0 6px 24px rgba(0, 0, 0, 0.2))'
+                }}
+              />
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6">HabitLoop</h1>
-            <p className="text-base sm:text-lg md:text-xl text-indigo-100 mb-6 sm:mb-8 max-w-3xl mx-auto">
+            
+            {/* Value Proposition - No Brand Name Text */}
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-indigo-100 mb-6 sm:mb-8 max-w-4xl mx-auto leading-relaxed font-light">
               Transform your life with AI-powered habit tracking. Build lasting habits, 
               track your progress, and achieve your goals with personalized insights.
             </p>
@@ -70,20 +91,20 @@ export default function Landing() {
           </Card>
         </div>
 
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-6">
             <Button 
               size="lg" 
-              className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold px-8 py-4 text-lg w-full sm:w-auto"
+              className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold px-10 py-5 text-xl w-full sm:w-auto shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
               onClick={() => setShowHabitLoopUserModal(true)}
             >
-              <i className="fas fa-rocket mr-2"></i>
+              <i className="fas fa-rocket mr-3"></i>
               Get Started
             </Button>
             
-            <div className="text-white/80">
+            <div className="text-white/80 text-lg">
               <span>or </span>
               <button 
-                className="underline hover:text-white transition-colors text-lg"
+                className="underline hover:text-white transition-colors font-medium"
                 onClick={() => setShowGuestModal(true)}
               >
                 try as guest

@@ -104,7 +104,7 @@ function App() {
         />
 
         {/* PWA Install Prompt */}
-        <PWAInstallPrompt />
+        <PWAInstallPrompt isAuthenticated={isAuthenticated} />
 
         {/* Connection Status Indicator */}
         <ConnectionStatus />

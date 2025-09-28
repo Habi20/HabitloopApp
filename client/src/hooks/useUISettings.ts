@@ -45,7 +45,7 @@ const defaultSettings: UISettings = {
 export function useUISettings() {
   const [settings, setSettings] = useState<UISettings>(defaultSettings);
   const [isLoaded, setIsLoaded] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
 
   // Load settings from localStorage and user data on mount
   useEffect(() => {
@@ -69,6 +69,11 @@ export function useUISettings() {
         const userSettings = user.userSettings.settings;
         loadedSettings = { ...loadedSettings, ...userSettings };
         console.log('✅ Loaded settings from user data (database):', userSettings);
+        console.log('🔍 Email settings from database:', {
+          dailyEmailReports: userSettings.dailyEmailReports,
+          weeklyEmailReports: userSettings.weeklyEmailReports,
+          monthlyEmailReports: userSettings.monthlyEmailReports
+        });
         
         // Update localStorage to match database settings
         localStorage.setItem('habitloop_ui_settings', JSON.stringify(loadedSettings));
@@ -78,6 +83,7 @@ export function useUISettings() {
       }
     }
     
+    console.log('🎯 Final loaded settings:', loadedSettings);
     setSettings(loadedSettings);
     setIsLoaded(true);
   }, [user]);
@@ -90,8 +96,16 @@ export function useUISettings() {
     }
 
     try {
-      await apiRequest('user/settings', 'PUT', { settings: newSettings });
+      // Send settings directly, not wrapped in a 'settings' object
+      const response = await apiRequest('user/settings', 'PUT', newSettings);
       console.log('Settings synced to database');
+      
+      // Refresh user data to get updated settings from database
+      if (response.ok) {
+        console.log('🔄 Refreshing user data to get updated settings...');
+        await refreshUserData();
+        console.log('✅ User data refreshed with new settings');
+      }
     } catch (error) {
       console.error('Error syncing settings to database:', error);
     }

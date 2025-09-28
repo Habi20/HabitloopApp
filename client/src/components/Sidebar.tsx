@@ -33,25 +33,28 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside className={sidebarClasses}>
         {/* Header with Logo */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <Link href="/" className="flex items-center space-x-3 group">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary to-purple-600 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-              <i className="fas fa-chart-line text-white text-sm sm:text-base"></i>
+        <div className="flex items-center justify-center p-4 sm:p-6 border-b border-gray-200 relative">
+          <Link href="/home" className="flex items-center justify-center group">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+              <img 
+                src="/icons/icon-128x128.png" 
+                alt="HabitLoop Logo" 
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-primary transition-colors">HabitLoop</h1>
           </Link>
           
           {/* Close button - only show on mobile/tablet */}
-            <button 
-              onClick={onClose}
+          <button 
+            onClick={onClose}
             className={cn(
-              "lg:hidden p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors",
+              "lg:hidden absolute right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors",
               getTouchButtonClasses(isTouchDevice ? 'md' : 'sm')
             )}
             aria-label="Close menu"
           >
             <i className="fas fa-times w-5 h-5 flex items-center justify-center"></i>
-            </button>
+          </button>
         </div>
         
         {/* Navigation */}
@@ -59,7 +62,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
           <div className="space-y-2">
             {/* Navigation Items */}
             <Link
-              href="/"
+              href="/home"
               className={cn(
                 "flex items-center space-x-3 px-3 py-3 sm:py-4 rounded-lg transition-all duration-200",
                 "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
@@ -73,7 +76,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  window.location.href = '/';
+                  window.location.href = '/home';
                 }
               }}
             >
