@@ -114,6 +114,24 @@ export default function Landing() {
 
           <div className="mt-8 text-center text-white/60">
             <p className="text-sm sm:text-base">Join thousands of users building better habits every day</p>
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+              <a 
+                href="/privacy-policy.html" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white/90 hover:text-white underline transition-colors text-sm font-medium bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20"
+              >
+                🔒 Privacy Policy
+              </a>
+              <a 
+                href="/google-oauth-verification.html" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white/90 hover:text-white underline transition-colors text-sm font-medium bg-white/10 px-4 py-2 rounded-lg hover:bg-white/20"
+              >
+                🔐 OAuth Verification
+              </a>
+            </div>
           </div>
         </div>
       </div>
